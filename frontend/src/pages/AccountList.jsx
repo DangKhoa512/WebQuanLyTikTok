@@ -18,7 +18,7 @@ const STATUS_TABS = [
   { value: 'ACC_DA_KHANG',     label: '🛡️ Đã Kháng',        color: '#8b5cf6' },
   { value: 'ACC_CHUA_KHANG',   label: '⚠️ Chưa Kháng',       color: '#f97316' },
   { value: 'ACC_DU_DK',        label: '🎯 Đủ Điều Kiện',     color: '#22c55e' },
-  { value: '__USED__',          label: '📦 Đã sử dụng',        color: '#0ea5e9', to: '/used-accounts' },
+  { value: '__USED__',          label: '📦 Đã sử dụng',        color: '#0ea5e9', to: '/used-accounts?account_type=app' },
   { value: 'ACC_DIE',          label: '💀 Die',                color: '#6b7280' },
 ];
 

@@ -100,6 +100,7 @@ export const userApi = {
 
 export const usedAccountApi = {
   getAll: (params) => api.get('/used-accounts', { params }),
+  bulkDelete: (ids) => api.post('/used-accounts/bulk-delete', { ids }),
 };
 
 // ── Export endpoints ──────────────────────────────────────────────────────────

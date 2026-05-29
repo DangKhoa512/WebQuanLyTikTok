@@ -19,6 +19,7 @@ const STATUS_TABS = [
   { value: 'ACC_DA_KHANG',      label: '🛡️ Đã Kháng',       color: '#8b5cf6' },
   { value: 'ACC_CHUA_KHANG',    label: '⚠️ Chưa Kháng',      color: '#f97316' },
   { value: 'ACC_DU_DK',         label: '🎯 Đủ ĐK',           color: '#22c55e' },
+  { value: '__USED__',          label: '📦 Đã sử dụng',       color: '#0ea5e9', to: '/used-accounts?account_type=chrome' },
   { value: 'ACC_DIE',           label: '💀 Die',               color: '#6b7280' },
 ];
 
@@ -146,7 +147,7 @@ function ChromeBulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }
             <select value={statusPick} onChange={(e) => setStatusPick(e.target.value)}
               style={{ width: '100%', padding: '.5rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '.75rem' }}>
               <option value="">-- Chọn --</option>
-              {STATUS_TABS.filter((t) => t.value).map((t) => (
+              {STATUS_TABS.filter((t) => t.value && !t.to).map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
@@ -277,7 +278,7 @@ function ImportModal({ onClose, onImported }) {
         <div style={{ marginBottom: '1rem' }}>
           <label style={{ color: '#94a3b8', fontSize: '.8rem', display: 'block', marginBottom: '.4rem' }}>Import vào status:</label>
           <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ padding: '.5rem .75rem', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0', width: '100%' }}>
-            {STATUS_TABS.filter((t) => t.value).map((t) => (
+            {STATUS_TABS.filter((t) => t.value && !t.to).map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
@@ -469,7 +470,17 @@ export default function ChromeAccountList() {
 
       {/* Status tabs */}
       <div style={{ display: 'flex', gap: '.4rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        {STATUS_TABS.map((tab) => (
+        {STATUS_TABS.map((tab) => tab.to ? (
+          <Link key={tab.value} to={tab.to} style={{
+            background:   'rgba(255,255,255,.06)',
+            color:        '#94a3b8',
+            border:       '1px solid rgba(255,255,255,.1)',
+            borderRadius: '8px', padding: '.4rem .85rem', cursor: 'pointer',
+            fontWeight:   400,
+            fontSize:     '.82rem', whiteSpace: 'nowrap', transition: 'all .15s',
+            textDecoration: 'none',
+          }}>{tab.label}</Link>
+        ) : (
           <button key={tab.value} onClick={() => setFilter('status', tab.value)} style={{
             background:   currentStatus === tab.value ? tab.color : 'rgba(255,255,255,.06)',
             color:        currentStatus === tab.value ? '#fff' : '#94a3b8',

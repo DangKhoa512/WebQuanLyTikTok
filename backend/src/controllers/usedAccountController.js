@@ -48,4 +48,27 @@ const listUsedAccounts = async (req, res, next) => {
   }
 };
 
-module.exports = { listUsedAccounts };
+const bulkDeleteUsedAccounts = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return error(res, 'Can truyen mang ids', 400);
+    }
+    if (ids.length > 500) {
+      return error(res, 'Toi da 500 dong moi lan', 400);
+    }
+
+    const deleted = await UsedAccount.destroy({
+      where: {
+        id: { [Op.in]: ids },
+        owner_username: ownerFromAdmin(req),
+      },
+    });
+
+    return success(res, { deleted }, `Da xoa ${deleted} dong lich su`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { listUsedAccounts, bulkDeleteUsedAccounts };

@@ -1,20 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { usedAccountApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
+import { loadCheckLiveSettings } from '../services/checkLiveSettings';
+import { checkLiveInBatches } from '../services/checkLiveRunner';
 
 const todayInput = () => new Date().toISOString().slice(0, 10);
 const fmt = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '-';
 const pipeValue = (value) => value == null || value === '' ? 'null' : value;
 
 export default function UsedAccounts() {
+  const [sp, setSp] = useSearchParams();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(new Set());
+  const [busy, setBusy] = useState(false);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 50, totalPages: 1 });
   const [filters, setFilters] = useState({
     date: todayInput(),
-    account_type: '',
+    account_type: sp.get('account_type') || 'app',
     username: '',
     page: 1,
     limit: 50,
@@ -48,6 +53,11 @@ export default function UsedAccounts() {
   useEffect(() => {
     load();
     setSelected(new Set());
+    const params = {};
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== '' && value != null) params[key] = value;
+    });
+    setSp(params, { replace: true });
   }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setFilter = (key, value) => {
@@ -89,6 +99,54 @@ export default function UsedAccounts() {
     });
   };
 
+  const handleCheckLive = async () => {
+    if (selectedRows.length === 0) return;
+    setBusy(true);
+    try {
+      const settings = loadCheckLiveSettings();
+      const appIds = selectedRows.filter((item) => item.account_type === 'app').map((item) => item.account_id);
+      const chromeIds = selectedRows.filter((item) => item.account_type === 'chrome').map((item) => item.account_id);
+      let live = 0;
+      let die = 0;
+      let unknown = 0;
+
+      if (appIds.length > 0) {
+        const res = await checkLiveInBatches('/accounts/check-live', appIds, settings);
+        live += res.live; die += res.die; unknown += res.unknown;
+      }
+      if (chromeIds.length > 0) {
+        const res = await checkLiveInBatches('/chrome-accounts/check-live', chromeIds, settings);
+        live += res.live; die += res.die; unknown += res.unknown;
+      }
+
+      toast.success(`Check xong: ${live} live · ${die} die · ${unknown} unknown`);
+    } catch (err) {
+      toast.error(err.message || 'Check live thất bại');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteHistory = async () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    if (!confirm(`Xóa ${ids.length} dòng lịch sử đã sử dụng? Account gốc không bị xóa.`)) return;
+    setBusy(true);
+    try {
+      const res = await usedAccountApi.bulkDelete(ids);
+      toast.success(res.message);
+      setSelected(new Set());
+      load();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const isChrome = filters.account_type === 'chrome';
+  const basePath = isChrome ? '/chrome-accounts' : '/accounts';
+
   return (
     <div className="page">
       <div className="page-header">
@@ -100,13 +158,13 @@ export default function UsedAccounts() {
       </div>
 
       <div style={{ display: 'flex', gap: '.4rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <Link to="/accounts" className="usage-tab">📋 Tất cả</Link>
-        <Link to="/accounts?status=LOGIN_THANH_CONG" className="usage-tab">📤 Upload Thành Công</Link>
-        <Link to="/accounts?status=ACC_DA_KHANG" className="usage-tab">🛡️ Đã Kháng</Link>
-        <Link to="/accounts?status=ACC_CHUA_KHANG" className="usage-tab">⚠️ Chưa Kháng</Link>
-        <Link to="/accounts?status=ACC_DU_DK" className="usage-tab">🎯 Đủ Điều Kiện</Link>
+        <Link to={basePath} className="usage-tab">📋 Tất cả</Link>
+        <Link to={`${basePath}?status=LOGIN_THANH_CONG`} className="usage-tab">{isChrome ? '✅ Login Thành Công' : '📤 Upload Thành Công'}</Link>
+        <Link to={`${basePath}?status=ACC_DA_KHANG`} className="usage-tab">🛡️ Đã Kháng</Link>
+        <Link to={`${basePath}?status=ACC_CHUA_KHANG`} className="usage-tab">⚠️ Chưa Kháng</Link>
+        <Link to={`${basePath}?status=ACC_DU_DK`} className="usage-tab">🎯 Đủ Điều Kiện</Link>
         <span className="usage-tab active">📦 Đã sử dụng</span>
-        <Link to="/accounts?status=ACC_DIE" className="usage-tab">💀 Die</Link>
+        <Link to={`${basePath}?status=ACC_DIE`} className="usage-tab">💀 Die</Link>
       </div>
 
       <div className="card" style={{ marginBottom: '1rem' }}>
@@ -143,8 +201,10 @@ export default function UsedAccounts() {
         <div className="bulk-lite-bar">
           <div className="bulk-lite-count">✓ {selected.size} đã chọn</div>
           <div style={{ flex: 1 }} />
-          <button className="btn btn-primary btn-sm" onClick={() => copyRows(selectedRows)}>📋 Copy đã chọn</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set())}>✕ Bỏ chọn</button>
+          <button className="btn btn-primary btn-sm" disabled={busy} onClick={handleCheckLive}>🔍 Check Live</button>
+          <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => copyRows(selectedRows)}>📋 Copy đã chọn</button>
+          <button className="btn btn-danger btn-sm" disabled={busy} onClick={handleDeleteHistory}>🗑️ Xóa lịch sử</button>
+          <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setSelected(new Set())}>✕ Bỏ chọn</button>
         </div>
       )}
 
