@@ -1,0 +1,87 @@
+version: '3.9'
+
+# Load shared env file
+# cp .env.production .env  before running
+
+services:
+
+  # ── MySQL 8.0 ──────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: tiktok_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_DATABASE:      ${DB_NAME}
+      MYSQL_USER:          ${DB_USER}
+      MYSQL_PASSWORD:      ${DB_PASS}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-time-zone='+07:00'
+      --innodb-buffer-pool-size=256M
+      --slow-query-log=1
+      --slow-query-log-file=/var/lib/mysql/slow.log
+      --long-query-time=2
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u", "root", "-p${DB_PASS}"]
+      interval: 10s
+      timeout:  5s
+      retries:  12
+      start_period: 40s
+    networks:
+      - app_net
+
+  # ── Backend (Node.js / Express) ────────────────────────────────────────────
+  backend:
+    build:
+      context:    ./backend
+      dockerfile: Dockerfile
+    container_name: tiktok_backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file: ./backend/.env
+    environment:
+      DB_HOST: mysql       # override to use docker service name
+    volumes:
+      - ./backend/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 20s
+      timeout:  5s
+      retries:  5
+      start_period: 15s
+    networks:
+      - app_net
+
+  # ── Nginx (serves frontend + reverse proxy to backend) ─────────────────────
+  nginx:
+    build:
+      context:    .          # root — needs both nginx/ and frontend/
+      dockerfile: nginx/Dockerfile
+    container_name: tiktok_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      # SSL certs (mount after certbot)
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

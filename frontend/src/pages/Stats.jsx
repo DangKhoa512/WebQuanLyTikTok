@@ -1,0 +1,325 @@
+import { useState, useEffect, useCallback } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer,
+} from 'recharts';
+import { statsApi } from '../services/api';
+
+const DAYS_OPTIONS = [7, 14, 30];
+
+const PIE_COLORS = {
+  REG_DA_LAM:   '#f59e0b',
+  CHO_UPVIDEO:  '#06b6d4',
+  UPVIDEO:      '#10b981',
+  UPVIDEO_FAIL: '#ef4444',
+  DAT_CHI_TIEU: '#8b5cf6',
+  DIE:          '#6b7280',
+};
+
+const fmtDate = (d) =>
+  d
+    ? new Date(d).toLocaleDateString('vi-VN', { month: '2-digit', day: '2-digit' })
+    : d;
+
+export default function Stats() {
+  const [days,       setDays]       = useState(7);
+  const [stats,      setStats]      = useState(null);
+  const [daily,      setDaily]      = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [statsRes, dailyRes] = await Promise.all([
+        statsApi.getStats(),
+        statsApi.getDailyStats(days),
+      ]);
+      setStats(statsRes.data);
+      setDaily(dailyRes.data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [days]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Build merged daily chart data
+  const buildDailyData = () => {
+    if (!daily) return [];
+    const map = {};
+
+    (daily.daily_reg || []).forEach(({ date, reg_count }) => {
+      map[date] = { date: fmtDate(date), reg: parseInt(reg_count) || 0, upload: 0 };
+    });
+    (daily.daily_upload || []).forEach(({ date, upload_count }) => {
+      const d = fmtDate(date);
+      if (map[date]) {
+        map[date].upload = parseInt(upload_count) || 0;
+      } else {
+        map[date] = { date: d, reg: 0, upload: parseInt(upload_count) || 0 };
+      }
+    });
+
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+  };
+
+  const buildPieData = () => {
+    if (!stats) return [];
+    return [
+      { name: 'REG_DA_LAM',   value: stats.REG_DA_LAM   || 0 },
+      { name: 'UPVIDEO',      value: stats.UPVIDEO      || 0 },
+      { name: 'UPVIDEO_FAIL', value: stats.UPVIDEO_FAIL || 0 },
+      { name: 'DAT_CHI_TIEU', value: stats.DAT_CHI_TIEU || 0 },
+      { name: 'DIE',          value: stats.DIE           || 0 },
+    ].filter((d) => d.value > 0);
+  };
+
+  const dailyData = buildDailyData();
+  const pieData   = buildPieData();
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h1>📈 Thống kê chi tiết</h1>
+          <div className="subtitle">Tổng quan hoạt động hệ thống</div>
+        </div>
+        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+          {DAYS_OPTIONS.map((d) => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              style={{
+                padding: '.4rem .85rem',
+                borderRadius: 8,
+                border: `1px solid ${days === d ? '#3b82f6' : '#e2e8f0'}`,
+                background: days === d ? '#3b82f6' : '#fff',
+                color: days === d ? '#fff' : '#475569',
+                cursor: 'pointer',
+                fontSize: '.82rem',
+                fontWeight: 600,
+                transition: 'all .15s',
+              }}
+            >
+              {d} ngày
+            </button>
+          ))}
+          <button className="btn btn-secondary btn-sm" onClick={fetchData}>🔄</button>
+        </div>
+      </div>
+
+      {error && <div className="error-bar">⚠️ {error}</div>}
+
+      {loading ? (
+        <div className="loading-wrap">
+          <div className="spinner" /> Đang tải thống kê…
+        </div>
+      ) : (
+        <>
+          {/* Summary cards */}
+          {stats && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                gap: '1rem',
+                marginBottom: '1.25rem',
+              }}
+            >
+              {[
+                { key: 'total',        label: 'Tổng',       color: '#3b82f6' },
+                { key: 'REG_DA_LAM',   label: 'REG_DA_LAM', color: '#f59e0b' },
+                { key: 'UPVIDEO',      label: 'UPVIDEO',    color: '#10b981' },
+                { key: 'UPVIDEO_FAIL', label: 'FAIL',       color: '#ef4444' },
+                { key: 'DAT_CHI_TIEU', label: 'ĐẠT CT',     color: '#8b5cf6' },
+                { key: 'DIE',          label: 'DIE',         color: '#6b7280' },
+                { key: 'today_reg',    label: 'Reg hôm nay',color: '#3b82f6' },
+                { key: 'today_upload', label: 'Up hôm nay', color: '#10b981' },
+                { key: 'today_fail',   label: 'Fail hôm nay',color: '#ef4444'},
+              ].map(({ key, label, color }) => (
+                <div
+                  key={key}
+                  style={{
+                    background: '#fff',
+                    borderRadius: 10,
+                    padding: '1rem',
+                    boxShadow: '0 1px 3px rgba(0,0,0,.1)',
+                    borderLeft: `4px solid ${color}`,
+                  }}
+                >
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a' }}>
+                    {(stats[key] || 0).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '.72rem', color: '#64748b', fontWeight: 600, marginTop: '.2rem' }}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Charts grid */}
+          <div className="charts-grid">
+            {/* Bar chart: Reg & Upload per day */}
+            <div className="chart-card">
+              <div className="chart-title">📅 Reg & Upload theo ngày ({days} ngày)</div>
+              {dailyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={dailyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="reg"    name="Đăng ký"  fill="#3b82f6" radius={[4,4,0,0]} />
+                    <Bar dataKey="upload" name="Upload"   fill="#10b981" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="empty-state" style={{ padding: '2rem' }}>
+                  <div className="empty-icon">📊</div>
+                  <p>Chưa có dữ liệu</p>
+                </div>
+              )}
+            </div>
+
+            {/* Pie chart: Status distribution */}
+            <div className="chart-card">
+              <div className="chart-title">🍰 Phân bố trạng thái</div>
+              {pieData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={3}
+                      dataKey="value"
+                      label={({ name, percent }) =>
+                        `${name.replace('_', ' ')}: ${(percent * 100).toFixed(0)}%`
+                      }
+                      labelLine={false}
+                    >
+                      {pieData.map((entry) => (
+                        <Cell key={entry.name} fill={PIE_COLORS[entry.name] || '#94a3b8'} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(val, name) => [val.toLocaleString(), name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="empty-state" style={{ padding: '2rem' }}>
+                  <div className="empty-icon">🍕</div>
+                  <p>Chưa có dữ liệu</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Line chart: trend */}
+          {dailyData.length > 0 && (
+            <div className="chart-card">
+              <div className="chart-title">📉 Xu hướng đăng ký ({days} ngày gần nhất)</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={dailyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="reg"
+                    name="Đăng ký"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="upload"
+                    name="Upload"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Status distribution table */}
+          {daily?.status_dist && (
+            <div className="card">
+              <div className="card-header">
+                <h3>📋 Chi tiết phân bố</h3>
+              </div>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Số lượng</th>
+                      <th>Tỷ lệ</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {daily.status_dist.map((row) => {
+                      const total = stats?.total || 1;
+                      const pct = ((row.cnt / total) * 100).toFixed(1);
+                      return (
+                        <tr key={row.status}>
+                          <td>
+                            <span
+                              className="badge"
+                              style={{ background: PIE_COLORS[row.status] || '#94a3b8' }}
+                            >
+                              {row.status}
+                            </span>
+                          </td>
+                          <td><strong>{parseInt(row.cnt).toLocaleString()}</strong></td>
+                          <td>{pct}%</td>
+                          <td style={{ width: '40%' }}>
+                            <div
+                              style={{
+                                height: 8,
+                                background: '#f1f5f9',
+                                borderRadius: 4,
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  height: '100%',
+                                  width: `${pct}%`,
+                                  background: PIE_COLORS[row.status] || '#94a3b8',
+                                  borderRadius: 4,
+                                  transition: 'width .5s',
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

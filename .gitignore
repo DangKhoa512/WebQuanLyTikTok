@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.npm
+
+# Environment
+.env
+*.env.local
+
+# Logs
+logs/
+*.log
+
+# Build output
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.claude/
+.vscode/settings.json
+.idea/
+
+# Docker volumes
+mysql_data/
