@@ -317,6 +317,8 @@ tr:hover td { background: #fafbff; cursor: pointer; }
 .btn-success:hover  { background: #059669; }
 .btn-danger   { background: var(--danger); color: #fff; }
 .btn-danger:hover   { background: #dc2626; }
+.btn-warning  { background: var(--warning); color: #fff; }
+.btn-warning:hover  { background: #d97706; }
 .btn-secondary { background: #f1f5f9; color: #475569; border: 1px solid var(--border); }
 .btn-secondary:hover { background: #e2e8f0; }
 .btn-sm { padding: .35rem .75rem; font-size: .8rem; }
@@ -497,6 +499,24 @@ tr:hover td { background: #fafbff; cursor: pointer; }
 }
 .data-table tr.row-selected {
   background: rgba(59,130,246,.08);
+}
+.status-pill {
+  display: inline-block;
+  background: rgba(16,185,129,.15);
+  color: #047857;
+  border-radius: 6px;
+  padding: .2rem .5rem;
+  font-size: .72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.used-status-select {
+  border: 1px solid rgba(255,255,255,.2);
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 7px;
+  padding: .4rem .65rem;
+  font-size: .8rem;
 }
 
 .empty-state {

@@ -1,5 +1,7 @@
 const { Op } = require('sequelize');
 const UsedAccount = require('../models/UsedAccount');
+const Account = require('../models/Account');
+const ChromeAccount = require('../models/ChromeAccount');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin } = require('../utils/owner');
 
@@ -10,6 +12,17 @@ const parseDateRange = (date) => {
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   return { [Op.gte]: start, [Op.lt]: end };
 };
+
+const mapById = (rows) => {
+  const out = new Map();
+  rows.forEach((row) => out.set(row.id, row));
+  return out;
+};
+
+const currentAttributes = [
+  'id','username','password','email','email_pass','proxy','device_id',
+  'status','live_status','video_count','followers','following','note','reg_at',
+];
 
 const listUsedAccounts = async (req, res, next) => {
   try {
@@ -36,8 +49,40 @@ const listUsedAccounts = async (req, res, next) => {
       offset,
     });
 
+    const plainRows = rows.map((row) => row.toJSON());
+    const appIds = plainRows.filter((row) => row.account_type === 'app').map((row) => row.account_id);
+    const chromeIds = plainRows.filter((row) => row.account_type === 'chrome').map((row) => row.account_id);
+    const owner = ownerFromAdmin(req);
+
+    const [appAccounts, chromeAccounts] = await Promise.all([
+      appIds.length > 0
+        ? Account.findAll({ where: { id: { [Op.in]: appIds }, owner_username: owner }, attributes: currentAttributes })
+        : [],
+      chromeIds.length > 0
+        ? ChromeAccount.findAll({ where: { id: { [Op.in]: chromeIds }, owner_username: owner }, attributes: currentAttributes })
+        : [],
+    ]);
+
+    const appMap = mapById(appAccounts.map((row) => row.toJSON()));
+    const chromeMap = mapById(chromeAccounts.map((row) => row.toJSON()));
+    const items = plainRows.map((row) => {
+      const current = row.account_type === 'chrome' ? chromeMap.get(row.account_id) : appMap.get(row.account_id);
+      return {
+        ...row,
+        ...(current || {}),
+        id: row.id,
+        history_id: row.id,
+        account_id: row.account_id,
+        source_status: row.source_status,
+        used_at: row.used_at,
+        batch_id: row.batch_id,
+        account_type: row.account_type,
+        original_exists: !!current,
+      };
+    });
+
     return success(res, {
-      items: rows,
+      items,
       total: count,
       page,
       limit,
