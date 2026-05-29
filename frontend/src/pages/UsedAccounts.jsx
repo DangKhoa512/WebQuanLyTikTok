@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usedAccountApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
@@ -9,6 +10,7 @@ const pipeValue = (value) => value == null || value === '' ? 'null' : value;
 
 export default function UsedAccounts() {
   const [items, setItems] = useState([]);
+  const [selected, setSelected] = useState(new Set());
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 50, totalPages: 1 });
   const [filters, setFilters] = useState({
     date: todayInput(),
@@ -45,25 +47,46 @@ export default function UsedAccounts() {
 
   useEffect(() => {
     load();
+    setSelected(new Set());
   }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setFilter = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
-  const copyRows = async () => {
-    if (items.length === 0) {
+  const copyRows = async (rows = items) => {
+    if (rows.length === 0) {
       toast.error('Không có account để copy');
       return;
     }
-    const text = items.map((item) => [
+    const text = rows.map((item) => [
       item.username || '',
       pipeValue(item.password),
       pipeValue(item.email),
       pipeValue(item.email_pass),
     ].join('|')).join('\n');
     await navigator.clipboard.writeText(text);
-    toast.success(`Đã copy ${items.length} account`);
+    toast.success(`Đã copy ${rows.length} account`);
+  };
+
+  const selectedRows = items.filter((item) => selected.has(item.id));
+  const allPageSelected = items.length > 0 && items.every((item) => selected.has(item.id));
+  const someSelected = items.some((item) => selected.has(item.id));
+
+  const toggleAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      allPageSelected ? items.forEach((item) => next.delete(item.id)) : items.forEach((item) => next.add(item.id));
+      return next;
+    });
+  };
+
+  const toggleOne = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
   return (
@@ -74,6 +97,16 @@ export default function UsedAccounts() {
           <p className="subtitle">Lịch sử account đã lấy ra và đánh dấu theo ngày.</p>
         </div>
         <button className="btn btn-primary" onClick={copyRows}>Copy trang này</button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '.4rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <Link to="/accounts" className="usage-tab">📋 Tất cả</Link>
+        <Link to="/accounts?status=LOGIN_THANH_CONG" className="usage-tab">📤 Upload Thành Công</Link>
+        <Link to="/accounts?status=ACC_DA_KHANG" className="usage-tab">🛡️ Đã Kháng</Link>
+        <Link to="/accounts?status=ACC_CHUA_KHANG" className="usage-tab">⚠️ Chưa Kháng</Link>
+        <Link to="/accounts?status=ACC_DU_DK" className="usage-tab">🎯 Đủ Điều Kiện</Link>
+        <span className="usage-tab active">📦 Đã sử dụng</span>
+        <Link to="/accounts?status=ACC_DIE" className="usage-tab">💀 Die</Link>
       </div>
 
       <div className="card" style={{ marginBottom: '1rem' }}>
@@ -106,11 +139,28 @@ export default function UsedAccounts() {
       {error && <div className="error-bar">⚠️ {error}</div>}
       <div className="info-bar">Tổng: {meta.total} account</div>
 
+      {selected.size > 0 && (
+        <div className="bulk-lite-bar">
+          <div className="bulk-lite-count">✓ {selected.size} đã chọn</div>
+          <div style={{ flex: 1 }} />
+          <button className="btn btn-primary btn-sm" onClick={() => copyRows(selectedRows)}>📋 Copy đã chọn</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set())}>✕ Bỏ chọn</button>
+        </div>
+      )}
+
       <div className="card">
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
+                <th className="cb-cell">
+                  <input
+                    type="checkbox"
+                    checked={allPageSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected && !allPageSelected; }}
+                    onChange={toggleAll}
+                  />
+                </th>
                 <th>ID</th>
                 <th>Loại</th>
                 <th>Username</th>
@@ -122,11 +172,14 @@ export default function UsedAccounts() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="7" className="empty-cell">Đang tải...</td></tr>
+                <tr><td colSpan="8" className="empty-cell">Đang tải...</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan="7" className="empty-cell">Không có lịch sử phù hợp</td></tr>
+                <tr><td colSpan="8" className="empty-cell">Không có lịch sử phù hợp</td></tr>
               ) : items.map((item) => (
-                <tr key={item.id}>
+                <tr key={item.id} className={selected.has(item.id) ? 'row-selected' : ''}>
+                  <td className="cb-cell" onClick={() => toggleOne(item.id)}>
+                    <input type="checkbox" checked={selected.has(item.id)} onChange={() => {}} />
+                  </td>
                   <td className="td-mono">{item.id}</td>
                   <td>{item.account_type === 'chrome' ? 'Chrome' : 'App'}</td>
                   <td><strong>{item.username}</strong></td>
