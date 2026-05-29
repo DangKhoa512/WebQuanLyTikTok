@@ -24,7 +24,8 @@ const getAccount = async (req, res, next) => {
     try {
       const account = await Account.findOne({
         where:  { status: 'LOGIN_THANH_CONG', ...availableLockWhere() },
-        lock:   transaction.LOCK.UPDATE.SKIP_LOCKED,
+        lock:   transaction.LOCK.UPDATE,
+        skipLocked: true,
         transaction,
         attributes: ['id','username','password','email','email_pass','twofa','cookie','token','proxy','status','video_count'],
       });
@@ -64,8 +65,9 @@ const getCanUpvideo = async (req, res, next) => {
     const transaction = await Account.sequelize.transaction();
     try {
       const account = await Account.findOne({
-        where: { status: { [Op.in]: ['ACC_DA_KHANG','ACC_CHUA_KHANG'] }, video_count: { [Op.lt]: 20 }, locked_by: null },
-        lock:  transaction.LOCK.UPDATE.SKIP_LOCKED,
+        where: { status: { [Op.in]: ['ACC_DA_KHANG','ACC_CHUA_KHANG'] }, video_count: { [Op.lt]: 20 }, ...availableLockWhere() },
+        lock:  transaction.LOCK.UPDATE,
+        skipLocked: true,
         transaction,
         attributes: ['id','username','password','email','email_pass','twofa','cookie','token','proxy','status','video_count'],
       });
@@ -101,8 +103,9 @@ const getCanKhang = async (req, res, next) => {
     const transaction = await Account.sequelize.transaction();
     try {
       const account = await Account.findOne({
-        where: { status: 'ACC_CHUA_KHANG', video_count: { [Op.gte]: 20 }, locked_by: null },
-        lock:  transaction.LOCK.UPDATE.SKIP_LOCKED,
+        where: { status: 'ACC_CHUA_KHANG', video_count: { [Op.gte]: 20 }, ...availableLockWhere() },
+        lock:  transaction.LOCK.UPDATE,
+        skipLocked: true,
         transaction,
         attributes: ['id','username','password','email','email_pass','twofa','cookie','token','proxy','video_count'],
       });

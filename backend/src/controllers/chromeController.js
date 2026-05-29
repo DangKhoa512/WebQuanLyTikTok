@@ -89,7 +89,8 @@ const getChoLogin = async (req, res, next) => {
     try {
       const account = await ChromeAccount.findOne({
         where:  { status: 'ACC_LOGIN', ...availableLockWhere() },
-        lock:   transaction.LOCK.UPDATE.SKIP_LOCKED,
+        lock:   transaction.LOCK.UPDATE,
+        skipLocked: true,
         transaction,
         attributes: ['id','username','password','email','email_pass','twofa','cookie','token','proxy','device_id'],
       });
@@ -140,7 +141,8 @@ const getAccount = async (req, res, next) => {
     try {
       const account = await ChromeAccount.findOne({
         where:  { status: 'LOGIN_THANH_CONG', ...availableLockWhere() },
-        lock:   transaction.LOCK.UPDATE.SKIP_LOCKED,
+        lock:   transaction.LOCK.UPDATE,
+        skipLocked: true,
         transaction,
       });
 
@@ -351,9 +353,10 @@ const getCanUpvideo = async (req, res, next) => {
         where: {
           status:      { [Op.in]: ['ACC_DA_KHANG', 'ACC_CHUA_KHANG'] },
           video_count: { [Op.lt]: 20 },
-          locked_by:   null,
+          ...availableLockWhere(),
         },
-        lock:        transaction.LOCK.UPDATE.SKIP_LOCKED,
+        lock:        transaction.LOCK.UPDATE,
+        skipLocked:  true,
         transaction,
         attributes:  ['id','username','password','email','email_pass','twofa','cookie','token','proxy','status','video_count'],
       });
@@ -400,9 +403,10 @@ const getCanKhang = async (req, res, next) => {
         where: {
           status:      'ACC_CHUA_KHANG',
           video_count: { [Op.gte]: 20 },
-          locked_by:   null,
+          ...availableLockWhere(),
         },
-        lock:        transaction.LOCK.UPDATE.SKIP_LOCKED,
+        lock:        transaction.LOCK.UPDATE,
+        skipLocked:  true,
         transaction,
         attributes:  ['id','username','password','email','email_pass','twofa','cookie','token','proxy','video_count'],
       });
