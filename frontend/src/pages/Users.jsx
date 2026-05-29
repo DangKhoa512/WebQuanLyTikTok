@@ -67,7 +67,7 @@ export default function Users() {
   if (authService.getRole() !== 'admin') {
     return (
       <div style={styles.page}>
-        <h1 style={styles.title}>Users</h1>
+        <h1 style={styles.title}>Cap user</h1>
         <div style={styles.notice}>Chi admin moi duoc quan ly user.</div>
       </div>
     );
@@ -77,7 +77,7 @@ export default function Users() {
     <div style={styles.page}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Users</h1>
+          <h1 style={styles.title}>Cap user</h1>
           <p style={styles.sub}>Moi user chi thay va quan ly account cua user do.</p>
         </div>
         <button style={styles.refreshBtn} onClick={loadUsers}>Lam moi</button>

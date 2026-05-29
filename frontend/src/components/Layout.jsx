@@ -10,7 +10,7 @@ const NAV = [
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
   { to: '/export',          icon: '📥', label: 'Xuất file'  },
   { to: '/proxy-settings',  icon: '⚙️', label: 'Proxy'      },
-  { to: '/users',           icon: 'User', label: 'Users', adminOnly: true },
+  { to: '/users',           icon: '👤', label: 'Cấp user', adminOnly: true },
 ];
 
 export default function Layout() {

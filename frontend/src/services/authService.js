@@ -2,6 +2,14 @@ const TOKEN_KEY = 'tiktok_admin_token';
 const USER_KEY  = 'tiktok_admin_user';
 const ROLE_KEY  = 'tiktok_admin_role';
 
+const decodeToken = (token) => {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return null;
+  }
+};
+
 export const authService = {
   /** Store token after successful login */
   saveToken(token, username, role = 'user') {
@@ -24,11 +32,15 @@ export const authService = {
 
   /** Current admin username */
   getUsername() {
-    return localStorage.getItem(USER_KEY) || 'admin';
+    const stored = localStorage.getItem(USER_KEY);
+    if (stored) return stored;
+    return decodeToken(localStorage.getItem(TOKEN_KEY) || '')?.username || 'admin';
   },
 
   getRole() {
-    return localStorage.getItem(ROLE_KEY) || 'user';
+    const stored = localStorage.getItem(ROLE_KEY);
+    if (stored) return stored;
+    return decodeToken(localStorage.getItem(TOKEN_KEY) || '')?.role || 'user';
   },
 
   /** True if token exists (not expired check — API handles that) */
@@ -37,11 +49,7 @@ export const authService = {
     if (!token) return false;
 
     // Quick expiry check by decoding the payload (no signature needed)
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.exp * 1000 > Date.now();
-    } catch {
-      return false;
-    }
+    const payload = decodeToken(token);
+    return !!payload?.exp && payload.exp * 1000 > Date.now();
   },
 };
