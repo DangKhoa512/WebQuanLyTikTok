@@ -187,7 +187,7 @@ const styles = {
   notice: { background: '#fff7ed', color: '#9a3412', border: '1px solid #fed7aa', padding: '1rem', borderRadius: 8 },
   error: { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', padding: '.75rem 1rem', borderRadius: 8, marginBottom: '1rem' },
   message: { background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '.75rem 1rem', borderRadius: 8, marginBottom: '1rem' },
-  form: { display: 'grid', gridTemplateColumns: 'minmax(160px, 1fr) minmax(160px, 1fr) 120px 120px', gap: '.75rem', marginBottom: '1rem' },
+  form: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '.75rem', marginBottom: '1rem' },
   input: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '.65rem .75rem', fontSize: '.9rem' },
   select: { border: '1px solid #cbd5e1', borderRadius: 8, padding: '.65rem .75rem', fontSize: '.9rem', background: '#fff' },
   smallSelect: { border: '1px solid #cbd5e1', borderRadius: 6, padding: '.35rem .5rem', background: '#fff' },
