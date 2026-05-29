@@ -45,6 +45,12 @@ const startServer = async () => {
     }
 
     try {
+      await sequelize.query('ALTER TABLE accounts ADD INDEX idx_accounts_owner_username (owner_username)');
+      logger.info('âœ… accounts owner_username index ready');
+    } catch (e) {
+      logger.warn('Migration accounts owner index skipped:', e.message);
+    }
+    try {
       await sequelize.query('ALTER TABLE accounts DROP INDEX uq_username');
     } catch (e) {
       logger.warn('Migration accounts old unique skipped:', e.message);
@@ -54,6 +60,12 @@ const startServer = async () => {
       logger.info('âœ… accounts owner+username unique index ready');
     } catch (e) {
       logger.warn('Migration accounts owner unique skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE chrome_accounts ADD INDEX idx_chrome_owner_username (owner_username)');
+      logger.info('âœ… chrome_accounts owner_username index ready');
+    } catch (e) {
+      logger.warn('Migration chrome owner index skipped:', e.message);
     }
     try {
       await sequelize.query('ALTER TABLE chrome_accounts DROP INDEX uq_chrome_username');

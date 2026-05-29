@@ -54,8 +54,6 @@ const ChromeAccount = sequelize.define(
       { fields: ['status'] },
       { fields: ['live_status'] },
       { fields: ['device_id'] },
-      { fields: ['owner_username'] },
-      { unique: true, fields: ['owner_username', 'username'], name: 'uq_chrome_owner_username' },
       { fields: ['reg_at'] },
       { fields: ['status', 'live_status'] },
     ],
