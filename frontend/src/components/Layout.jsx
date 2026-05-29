@@ -5,7 +5,7 @@ import { authService } from '../services/authService';
 
 const NAV = [
   { to: '/dashboard',       icon: '📊', label: 'Dashboard'  },
-  { to: '/accounts',        icon: '👥', label: 'Acc App' },
+  { to: '/accounts',        icon: '👥', label: 'Accounts App' },
   { to: '/chrome-accounts', icon: '🖥️', label: 'Chrome Acc' },
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
   { to: '/export',          icon: '📥', label: 'Xuất file'  },

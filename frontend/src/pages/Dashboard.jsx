@@ -8,19 +8,19 @@ const fmt = (d) =>
   d ? new Date(d).toLocaleString('vi-VN', { hour12: false }) : '-';
 
 const STATUS_CARDS = [
-  { key: 'ACC_LOGIN', label: 'Cho login', color: '#f59e0b', icon: '📝' },
+  { key: 'ACC_LOGIN', label: 'Chờ login', color: '#f59e0b', icon: '📝' },
   { key: 'LOGIN_THANH_CONG', label: 'Login xong', color: '#10b981', icon: '✅' },
-  { key: 'ACC_DA_KHANG', label: 'Da khang', color: '#0ea5e9', icon: '🛡️' },
-  { key: 'ACC_CHUA_KHANG', label: 'Chua khang', color: '#f97316', icon: '⚠️' },
-  { key: 'ACC_DU_DK', label: 'Du dieu kien', color: '#8b5cf6', icon: '🎯' },
+  { key: 'ACC_DA_KHANG', label: 'Đã kháng', color: '#0ea5e9', icon: '🛡️' },
+  { key: 'ACC_CHUA_KHANG', label: 'Chưa kháng', color: '#f97316', icon: '⚠️' },
+  { key: 'ACC_DU_DK', label: 'Đủ điều kiện', color: '#8b5cf6', icon: '🎯' },
   { key: 'ACC_DIE', label: 'Die', color: '#6b7280', icon: '☠️' },
 ];
 
 const TASKS = [
   {
     key: 'app',
-    title: 'Task App',
-    description: 'Bang accounts',
+    title: 'Accounts App',
+    description: 'Bảng accounts',
     path: '/accounts',
     accent: '#10b981',
   },
@@ -66,7 +66,7 @@ function StatusDistribution({ data }) {
   return (
     <div className="card" style={{ marginTop: '1rem' }}>
       <div className="card-header">
-        <h3>Phan bo trang thai</h3>
+        <h3>Phân bổ trạng thái</h3>
       </div>
       <div className="card-body">
         <div style={{ display: 'flex', height: 24, borderRadius: 6, overflow: 'hidden', gap: 2 }}>
@@ -111,19 +111,19 @@ function TaskSection({ task, data }) {
             {task.description}
           </div>
         </div>
-        <Link to={task.path} className="btn btn-secondary btn-sm">Mo danh sach</Link>
+        <Link to={task.path} className="btn btn-secondary btn-sm">Mở danh sách</Link>
       </div>
 
       <div className="stats-grid">
-        <StatCard title="Tong account" value={data?.total || 0} color={task.accent} icon="📊" />
+        <StatCard title="Tổng account" value={data?.total || 0} color={task.accent} icon="📊" />
         {STATUS_CARDS.map(({ key, label, color, icon }) => (
           <StatCard key={key} title={label} value={data?.[key] || 0} color={color} icon={icon} />
         ))}
       </div>
 
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-        <StatCard title="Reg hom nay" value={data?.today_reg || 0} color="#3b82f6" icon="🆕" />
-        <StatCard title="Cap nhat hom nay" value={data?.today_updated || 0} color="#10b981" icon="↻" />
+        <StatCard title="Reg hôm nay" value={data?.today_reg || 0} color="#3b82f6" icon="🆕" />
+        <StatCard title="Cập nhật hôm nay" value={data?.today_updated || 0} color="#10b981" icon="↻" />
         <StatCard title="Live" value={data?.live || 0} color="#16a34a" icon="●" />
       </div>
 
@@ -189,7 +189,7 @@ function RecentTable({ title, rows, path, emptyText }) {
     <div className="card">
       <div className="card-header">
         <h3>{title}</h3>
-        <Link to={path} className="btn btn-secondary btn-sm">Xem tat ca</Link>
+        <Link to={path} className="btn btn-secondary btn-sm">Xem tất cả</Link>
       </div>
       <div className="table-container">
         <table>
@@ -275,7 +275,7 @@ export default function Dashboard() {
     return (
       <div className="loading-wrap">
         <div className="spinner" />
-        Dang tai Dashboard...
+        Đang tải Dashboard...
       </div>
     );
   }
@@ -293,26 +293,26 @@ export default function Dashboard() {
           <h1>Dashboard</h1>
           {lastSync && (
             <div className="subtitle">
-              Cap nhat luc {lastSync.toLocaleTimeString('vi-VN')} - tu refresh moi 30 giay
+              Cập nhật lúc {lastSync.toLocaleTimeString('vi-VN')} - tự refresh mỗi 30 giây
             </div>
           )}
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchAll}>
-          Lam moi
+          Làm mới
         </button>
       </div>
 
-      {error && <div className="error-bar">Loi: {error}</div>}
+      {error && <div className="error-bar">Lỗi: {error}</div>}
 
       <TaskSwitcher activeKey={activeTask} onChange={setActiveTask} stats={stats} />
 
       <TaskSection task={currentTask} data={currentStats} />
 
       <RecentTable
-        title={activeTask === 'chrome' ? 'Account Chrome moi nhat' : 'Account App moi nhat'}
+        title={activeTask === 'chrome' ? 'Account Chrome mới nhất' : 'Accounts App mới nhất'}
         rows={currentRows}
         path={currentTask.path}
-        emptyText={activeTask === 'chrome' ? 'Chua co account Chrome nao' : 'Chua co account App nao'}
+        emptyText={activeTask === 'chrome' ? 'Chưa có account Chrome nào' : 'Chưa có Accounts App nào'}
       />
     </div>
   );

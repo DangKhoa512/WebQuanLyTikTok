@@ -30,7 +30,7 @@ export default function Users() {
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!form.username.trim() || !form.password) {
-      setError('Nhap username va password.');
+      setError('Nhập username và password.');
       return;
     }
     setSaving(true);
@@ -43,7 +43,7 @@ export default function Users() {
         role: form.role,
       });
       setForm({ username: '', password: '', role: 'user' });
-      setMessage('Da tao user.');
+      setMessage('Đã tạo user.');
       await loadUsers();
     } catch (err) {
       setError(err.message);
@@ -57,7 +57,7 @@ export default function Users() {
     setMessage('');
     try {
       await userApi.update(user.id, data);
-      setMessage('Da cap nhat user.');
+      setMessage('Đã cập nhật user.');
       await loadUsers();
     } catch (err) {
       setError(err.message);
@@ -67,8 +67,8 @@ export default function Users() {
   if (authService.getRole() !== 'admin') {
     return (
       <div style={styles.page}>
-        <h1 style={styles.title}>Cap user</h1>
-        <div style={styles.notice}>Chi admin moi duoc quan ly user.</div>
+        <h1 style={styles.title}>Cấp user</h1>
+        <div style={styles.notice}>Chỉ admin mới được quản lý user.</div>
       </div>
     );
   }
@@ -77,10 +77,10 @@ export default function Users() {
     <div style={styles.page}>
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Cap user</h1>
-          <p style={styles.sub}>Moi user chi thay va quan ly account cua user do.</p>
+          <h1 style={styles.title}>Cấp user</h1>
+          <p style={styles.sub}>Mỗi user chỉ thấy và quản lý account của user đó.</p>
         </div>
-        <button style={styles.refreshBtn} onClick={loadUsers}>Lam moi</button>
+        <button style={styles.refreshBtn} onClick={loadUsers}>Làm mới</button>
       </div>
 
       {(error || message) && (
@@ -110,7 +110,7 @@ export default function Users() {
           <option value="admin">admin</option>
         </select>
         <button style={styles.primaryBtn} disabled={saving}>
-          {saving ? 'Dang tao...' : 'Tao user'}
+          {saving ? 'Đang tạo...' : 'Tạo user'}
         </button>
       </form>
 
@@ -121,16 +121,16 @@ export default function Users() {
               <th style={styles.th}>ID</th>
               <th style={styles.th}>Username</th>
               <th style={styles.th}>Role</th>
-              <th style={styles.th}>Trang thai</th>
-              <th style={styles.th}>Ngay tao</th>
-              <th style={styles.th}>Thao tac</th>
+              <th style={styles.th}>Trạng thái</th>
+              <th style={styles.th}>Ngày tạo</th>
+              <th style={styles.th}>Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td style={styles.td} colSpan="6">Dang tai...</td></tr>
+              <tr><td style={styles.td} colSpan="6">Đang tải...</td></tr>
             ) : users.length === 0 ? (
-              <tr><td style={styles.td} colSpan="6">Chua co user.</td></tr>
+              <tr><td style={styles.td} colSpan="6">Chưa có user.</td></tr>
             ) : users.map((user) => (
               <tr key={user.id}>
                 <td style={styles.td}>{user.id}</td>
@@ -158,16 +158,16 @@ export default function Users() {
                     onClick={() => updateUser(user, { is_active: !user.is_active })}
                     disabled={user.username === authService.getUsername()}
                   >
-                    {user.is_active ? 'Khoa' : 'Mo'}
+                    {user.is_active ? 'Khóa' : 'Mở'}
                   </button>
                   <button
                     style={styles.secondaryBtn}
                     onClick={() => {
-                      const password = window.prompt(`Password moi cho ${user.username}`);
+                      const password = window.prompt(`Password mới cho ${user.username}`);
                       if (password) updateUser(user, { password });
                     }}
                   >
-                    Doi pass
+                    Đổi pass
                   </button>
                 </td>
               </tr>

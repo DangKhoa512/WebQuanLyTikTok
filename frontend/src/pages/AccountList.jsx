@@ -375,7 +375,7 @@ function ImportModal({ onClose, onImported }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
       <div style={{ background: '#1e293b', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: '560px', boxShadow: '0 20px 60px rgba(0,0,0,.5)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>📥 Import Acc App</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0' }}>📥 Import Accounts App</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
         </div>
         <div style={{ marginBottom: '1rem' }}>
@@ -499,7 +499,7 @@ export default function AccountList() {
       {/* Header */}
       <div className="page-header">
         <div>
-          <h1>📤 Acc App</h1>
+          <h1>📤 Accounts App</h1>
         </div>
         <div style={{ display: 'flex', gap: '.75rem' }}>
           <button onClick={() => setShowImport(true)} style={{ background: '#3b82f6', border: 'none', color: '#fff', borderRadius: '8px', padding: '.55rem 1.1rem', cursor: 'pointer', fontWeight: 600, fontSize: '.875rem' }}>
