@@ -23,6 +23,7 @@ const { success, error } = require('../utils/response');
 const { batchCheckLive, parseProxy } = require('../utils/checkLiveUtils');
 const { withFullData } = require('../utils/response');
 const { ownerFromRequest, ownerFromAdmin, scopedWhere } = require('../utils/owner');
+const { recordUsageHistory } = require('../services/usageHistoryService');
 
 // Phone có thể set: LOGIN_THANH_CONG (login OK), ACC_LOGIN (login fail → về Chờ Login), DA_KHANG, CHUA_KHANG
 const PHONE_STATUSES   = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG'];
@@ -486,6 +487,13 @@ const bulkAction = async (req, res, next) => {
         message    = `Đã cập nhật note cho ${ids.length} accounts`;
         break;
       case 'mark_used':
+        {
+          const usedAccounts = await ChromeAccount.findAll({
+            where: scopedWhere(req, { id: { [Op.in]: ids } }),
+            attributes: ['id','username','password','email','email_pass','status','owner_username'],
+          });
+          await recordUsageHistory(req, usedAccounts, { account_type: 'chrome' });
+        }
         updateData = { note: note || `[Đã dùng] ${new Date().toLocaleString('vi-VN')}`, ...(status && ALL_STATUSES.includes(status) ? { status } : {}) };
         message    = `Đã đánh dấu ${ids.length} accounts là "Đã dùng"`;
         break;

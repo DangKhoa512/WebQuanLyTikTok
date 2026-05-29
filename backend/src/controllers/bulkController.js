@@ -3,6 +3,7 @@ const Account  = require('../models/Account');
 const logger   = require('../config/logger');
 const { success, error } = require('../utils/response');
 const { scopedWhere } = require('../utils/owner');
+const { recordUsageHistory } = require('../services/usageHistoryService');
 
 const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
 const pipeValue = (value) =>
@@ -62,6 +63,13 @@ const bulkAction = async (req, res, next) => {
 
       // Đánh dấu "đã copy/dùng ở tool khác"
       case 'mark_used':
+        {
+          const usedAccounts = await Account.findAll({
+            where: scopedWhere(req, { id: { [Op.in]: ids } }),
+            attributes: ['id','username','password','email','email_pass','status','owner_username'],
+          });
+          await recordUsageHistory(req, usedAccounts, { account_type: 'app' });
+        }
         updateData = {
           note: note || `[Đã dùng] ${new Date().toLocaleString('vi-VN')}`,
           ...(status && VALID_STATUSES.includes(status) ? { status } : {}),
@@ -171,7 +179,7 @@ const copyUnused = async (req, res, next) => {
 
     const accounts = await Account.findAll({
       where:      scopedWhere(req, { status, note: null }),
-      attributes: ['id','username','password','email','email_pass'],
+      attributes: ['id','username','password','email','email_pass','status','owner_username'],
       order:      [['id','ASC']],
       limit:      Math.min(parseInt(limit) || 500, 1000),
     });
@@ -188,10 +196,15 @@ const copyUnused = async (req, res, next) => {
     // Optionally mark as used
     if (mark_used && accounts.length > 0) {
       const ids = accounts.map((a) => a.id);
+      const usage = await recordUsageHistory(req, accounts, {
+        account_type: 'app',
+        source_status: status,
+      });
       await Account.update(
         { note: `[Đã dùng] ${new Date().toLocaleString('vi-VN')}` },
         { where: scopedWhere(req, { id: { [Op.in]: ids } }) }
       );
+      logger.info('Usage history recorded', usage);
     }
 
     logger.info('Copy unused', {

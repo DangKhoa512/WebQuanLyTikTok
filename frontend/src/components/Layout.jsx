@@ -4,6 +4,7 @@ import { statsApi } from '../services/api';
 import { authService } from '../services/authService';
 
 const NAV = [
+  { to: '/used-accounts',   icon: '📦', label: 'Acc đã sử dụng' },
   { to: '/dashboard',       icon: '📊', label: 'Dashboard'  },
   { to: '/accounts',        icon: '👥', label: 'Accounts App' },
   { to: '/chrome-accounts', icon: '🖥️', label: 'Chrome Acc' },

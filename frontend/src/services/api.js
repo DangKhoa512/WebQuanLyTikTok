@@ -98,6 +98,10 @@ export const userApi = {
   update:  (id, data) => api.patch(`/users/${id}`, data),
 };
 
+export const usedAccountApi = {
+  getAll: (params) => api.get('/used-accounts', { params }),
+};
+
 // ── Export endpoints ──────────────────────────────────────────────────────────
 export const exportApi = {
   summary: () => api.get('/export/summary'),

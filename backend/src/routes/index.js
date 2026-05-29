@@ -17,6 +17,7 @@ router.use('/stats',    apiLimiter, jwtAuth, require('./stats'));
 
 // Users — admin JWT required inside controller
 router.use('/users',    apiLimiter, jwtAuth, require('./users'));
+router.use('/used-accounts', apiLimiter, jwtAuth, require('./usedAccounts'));
 
 // Export — JWT required, no strict rate limit (file downloads)
 router.use('/export',   require('./export'));
