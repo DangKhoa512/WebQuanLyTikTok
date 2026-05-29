@@ -13,17 +13,18 @@ const JWT_EXPIRES = '24h';
  */
 const login = async (req, res, next) => {
   const { username, password } = req.body;
+  const normalizedUsername = (username || '').trim().toLowerCase();
 
-  if (!username || !password) {
+  if (!normalizedUsername || !password) {
     return error(res, 'Vui lòng nhập tên đăng nhập và mật khẩu.', 400);
   }
 
   try {
-    const user = await User.findOne({ where: { username, is_active: true } });
+    const user = await User.findOne({ where: { username: normalizedUsername, is_active: true } });
     const ok = user ? await bcrypt.compare(password, user.password_hash) : false;
 
     if (!ok) {
-      logger.warn('Failed login attempt', { username, ip: req.ip });
+      logger.warn('Failed login attempt', { username: normalizedUsername, ip: req.ip });
       return error(res, 'Tên đăng nhập hoặc mật khẩu không đúng.', 401);
     }
 

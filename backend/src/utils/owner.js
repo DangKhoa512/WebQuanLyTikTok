@@ -1,13 +1,15 @@
-const defaultOwner = () => process.env.ADMIN_USER || 'admin';
+const normalizeOwner = (value) => (value || '').toString().trim().toLowerCase();
+
+const defaultOwner = () => normalizeOwner(process.env.ADMIN_USER || 'admin');
 
 const requestedOwner = (req) =>
-  (req.body?.user || req.body?.owner_username || req.query?.user || '').toString().trim();
+  normalizeOwner(req.body?.user || req.body?.owner_username || req.query?.user || '');
 
 const ownerFromRequest = (req) => requestedOwner(req) || defaultOwner();
 
 const ownerFromAdmin = (req) => {
   if (!req.admin) return defaultOwner();
-  return req.admin.username;
+  return normalizeOwner(req.admin.username);
 };
 
 const scopedWhere = (req, extra = {}) => {
@@ -19,4 +21,5 @@ module.exports = {
   ownerFromRequest,
   ownerFromAdmin,
   scopedWhere,
+  normalizeOwner,
 };

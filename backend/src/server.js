@@ -11,7 +11,8 @@ const User       = require('./models/User');
 require('./models/index');
 
 const PORT = parseInt(process.env.PORT) || 3000;
-const adminOwner = () => (process.env.ADMIN_USER || 'admin').replace(/'/g, "''");
+const normalizedAdminUser = () => (process.env.ADMIN_USER || 'admin').trim().toLowerCase();
+const adminOwner = () => normalizedAdminUser().replace(/'/g, "''");
 
 const startServer = async () => {
   try {
@@ -80,7 +81,7 @@ const startServer = async () => {
     }
 
     try {
-      const adminUser = process.env.ADMIN_USER || 'admin';
+      const adminUser = normalizedAdminUser();
       const adminPass = process.env.ADMIN_PASS;
       if (adminPass) {
         const [user, created] = await User.findOrCreate({
