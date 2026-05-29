@@ -390,7 +390,7 @@ export default function ChromeAccountList() {
     video_min:   sp.get('video_min')   || '',
     video_max:   sp.get('video_max')   || '',
     page:        parseInt(sp.get('page') || '1'),
-    limit:       20,
+    limit:       parseInt(sp.get('limit') || '20'),
   });
 
   const fetchAccounts = useCallback(async (f) => {
@@ -407,7 +407,7 @@ export default function ChromeAccountList() {
   useEffect(() => {
     fetchAccounts(filters);
     const params = {};
-    Object.entries(filters).forEach(([k, v]) => { if (v !== '' && v !== null && v !== undefined && k !== 'limit') params[k] = v; });
+    Object.entries(filters).forEach(([k, v]) => { if (v !== '' && v !== null && v !== undefined) params[k] = v; });
     setSp(params, { replace: true });
     setSelected(new Set());
   }, [filters]); // eslint-disable-line
@@ -517,7 +517,13 @@ export default function ChromeAccountList() {
               <label>Đến ngày</label>
               <input type="date" value={filters.date_to} onChange={(e) => setFilter('date_to', e.target.value)} />
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', search: '', date_from: '', date_to: '', video_min: '', video_max: '', page: 1, limit: 20 })}>
+            <div className="filter-group">
+              <label>Số dòng</label>
+              <select value={filters.limit} onChange={(e) => setFilter('limit', parseInt(e.target.value))}>
+                {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} dòng</option>)}
+              </select>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', search: '', date_from: '', date_to: '', video_min: '', video_max: '', page: 1, limit: filters.limit })}>
               ✕ Xoá bộ lọc
             </button>
           </div>

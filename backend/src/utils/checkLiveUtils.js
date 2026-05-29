@@ -141,6 +141,7 @@ const batchCheckLive = async (accounts, proxyPool, concurrency, delay_ms) => {
       if (stats !== null) {
         liveStatus = stats.live ? 'live' : 'die';
         const upd = { live_status: liveStatus, last_live_check_at: new Date(), followers: stats.followers ?? null, following: stats.following ?? null };
+        if (liveStatus === 'die') upd.status = 'ACC_DIE';
         if (stats.videos != null) upd.video_count = stats.videos;
         await acc.update(upd);
       } else {
