@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import api, { chromeAccountApi } from '../services/api';
+import { chromeAccountApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
+import { checkLiveInBatches } from '../services/checkLiveRunner';
 
 const fmt = (d) =>
   d ? new Date(d).toLocaleString('vi-VN', { hour12: false }) : '—';
@@ -379,6 +380,7 @@ export default function ChromeAccountList() {
   const [showImport, setShowImport] = useState(false);
   const [clChecking, setClChecking] = useState(false);
   const [clResults,  setClResults]  = useState(null);
+  const [clProgress, setClProgress] = useState(null);
 
   const [filters, setFilters] = useState({
     status:      sp.get('status')      || '',
@@ -430,16 +432,16 @@ export default function ChromeAccountList() {
   const handleCheckLive = async (ids) => {
     if (ids.length === 0) { toast.error('Tick chọn accounts cần check trước'); return; }
     const settings  = loadCheckLiveSettings();
-    const proxyList = settings.proxies.split('\n').map((l) => l.trim()).filter(Boolean);
-    setClChecking(true); setClResults(null);
+    setClChecking(true); setClResults(null); setClProgress(null);
     try {
-      const res = await chromeAccountApi.checkLive(ids, proxyList, settings.concurrency, settings.delayMs);
-      const { results: rows, live, die, unknown } = res.data;
+      const { rows, live, die, unknown } = await checkLiveInBatches('/chrome-accounts/check-live', ids, settings, setClProgress);
       setClResults({ live, die, unknown, rows: rows || [] });
       toast.success(`Check xong: ${live} live · ${die} die · ${unknown} unknown`);
       fetchAccounts(filters);
-    } catch (e) { toast.error(e.message || 'Check live thất bại'); }
-    finally { setClChecking(false); }
+    } catch (e) {
+      toast.error(e.message?.includes('504') ? 'Check live quá lâu, hãy giảm luồng hoặc số acc mỗi lượt' : (e.message || 'Check live thất bại'));
+    }
+    finally { setClChecking(false); setClProgress(null); }
   };
 
   const currentStatus = filters.status;
@@ -552,6 +554,11 @@ export default function ChromeAccountList() {
           onCheckLive={handleCheckLive}
           clChecking={clChecking}
         />
+      )}
+      {clProgress && (
+        <div className="info-bar">
+          Đang check live: {clProgress.done}/{clProgress.total} · {clProgress.live} live · {clProgress.die} die · {clProgress.unknown} unknown
+        </div>
       )}
 
       {/* Check live results */}

@@ -327,7 +327,7 @@ const checkLive = async (req, res, next) => {
     const proxyPool = (Array.isArray(proxies) ? proxies : String(proxies).split('\n'))
       .map(parseProxy).filter(Boolean);
 
-    concurrency = Math.max(1, Math.min(15,   parseInt(concurrency) || 5));
+    concurrency = Math.max(1, Math.min(30,   parseInt(concurrency) || 5));
     delay_ms    = Math.max(0, Math.min(10000, parseInt(delay_ms)   || 1000));
 
     const accounts = await ChromeAccount.findAll({

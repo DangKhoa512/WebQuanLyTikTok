@@ -52,8 +52,8 @@ export const accountApi = {
   import: (text, status = 'REG_DA_LAM') =>
     api.post('/accounts/import', { text, status }),
   // Live check & promote
-  checkLive: (ids = [], use_proxy = true) =>
-    api.post('/accounts/check-live', { ids, use_proxy }),
+  checkLive: (ids = [], proxies = [], concurrency = 5, delay_ms = 1000) =>
+    api.post('/accounts/check-live', { ids, proxies, concurrency, delay_ms }, { timeout: 600_000 }),
   promoteEligible: (min_age_days = 1) =>
     api.post('/accounts/promote-eligible', { min_age_days }),
   // Bulk operations

@@ -7,11 +7,17 @@ export default function ProxySettings() {
   const [proxies,     setProxies]     = useState(init.proxies);
   const [concurrency, setConcurrency] = useState(init.concurrency);
   const [delayMs,     setDelayMs]     = useState(init.delayMs);
+  const [batchSize,   setBatchSize]   = useState(init.batchSize);
 
   const proxyList = proxies.split('\n').map((l) => l.trim()).filter(Boolean);
 
   const handleSave = () => {
-    saveCheckLiveSettings({ proxies, concurrency: parseInt(concurrency), delayMs: parseInt(delayMs) });
+    saveCheckLiveSettings({
+      proxies,
+      concurrency: parseInt(concurrency),
+      delayMs: parseInt(delayMs),
+      batchSize: parseInt(batchSize),
+    });
     toast.success(`Đã lưu ${proxyList.length} proxy`);
   };
 
@@ -19,7 +25,8 @@ export default function ProxySettings() {
     setProxies('');
     setConcurrency(5);
     setDelayMs(1000);
-    saveCheckLiveSettings({ proxies: '', concurrency: 5, delayMs: 1000 });
+    setBatchSize(50);
+    saveCheckLiveSettings({ proxies: '', concurrency: 5, delayMs: 1000, batchSize: 50 });
     toast.success('Đã reset cài đặt');
   };
 
@@ -81,7 +88,7 @@ export default function ProxySettings() {
                 <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '.95rem' }}>{concurrency}</span>
               </div>
               <input
-                type="range" min={1} max={20} value={concurrency}
+                type="range" min={1} max={30} value={concurrency}
                 onChange={(e) => setConcurrency(e.target.value)}
                 style={{ width: '100%', accentColor: '#3b82f6' }}
               />
@@ -102,6 +109,20 @@ export default function ProxySettings() {
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.72rem', color: '#475569', marginTop: '.2rem' }}>
                 <span>0ms (không delay)</span><span>5000ms</span>
+              </div>
+            </div>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '.4rem' }}>
+                <label style={{ color: '#94a3b8', fontSize: '.85rem' }}>Số acc mỗi lượt</label>
+                <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '.95rem' }}>{batchSize}</span>
+              </div>
+              <input
+                type="range" min={10} max={200} step={10} value={batchSize}
+                onChange={(e) => setBatchSize(e.target.value)}
+                style={{ width: '100%', accentColor: '#10b981' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.72rem', color: '#475569', marginTop: '.2rem' }}>
+                <span>10 (ổn định)</span><span>200 (nhanh)</span>
               </div>
             </div>
           </div>

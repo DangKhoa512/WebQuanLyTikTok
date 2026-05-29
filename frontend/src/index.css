@@ -396,6 +396,20 @@ tr:hover td { background: #fafbff; cursor: pointer; }
   border: 1px solid #fecaca;
 }
 
+.info-bar {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: .75rem 1.1rem;
+  border-radius: 8px;
+  font-size: .875rem;
+  margin-bottom: 1rem;
+  border: 1px solid #bfdbfe;
+  font-weight: 600;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
