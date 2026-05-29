@@ -178,8 +178,7 @@ const updateLive = async (req, res, next) => {
 
 const getAccounts = async (req, res, next) => {
   try {
-    const ownerFilter = req.admin?.role === 'admin' && !req.query.user ? null : ownerFromAdmin(req);
-    const result = await accountService.getAccounts(req.query, ownerFilter);
+    const result = await accountService.getAccounts(req.query, ownerFromAdmin(req));
     return success(res, result, 'Lấy danh sách account thành công');
   } catch (err) {
     next(err);
@@ -188,8 +187,7 @@ const getAccounts = async (req, res, next) => {
 
 const getAccountById = async (req, res, next) => {
   try {
-    const ownerFilter = req.admin?.role === 'admin' && !req.query.user ? null : ownerFromAdmin(req);
-    const account = await accountService.getAccountById(req.params.id, ownerFilter);
+    const account = await accountService.getAccountById(req.params.id, ownerFromAdmin(req));
     return success(res, { account }, 'Lấy thông tin account thành công');
   } catch (err) {
     next(err);
@@ -198,8 +196,7 @@ const getAccountById = async (req, res, next) => {
 
 const updateAccount = async (req, res, next) => {
   try {
-    const ownerFilter = req.admin?.role === 'admin' && !req.query.user ? null : ownerFromAdmin(req);
-    const account = await accountService.updateAccount(req.params.id, req.body, ownerFilter);
+    const account = await accountService.updateAccount(req.params.id, req.body, ownerFromAdmin(req));
     return success(res, { account }, 'Cập nhật account thành công');
   } catch (err) {
     next(err);
