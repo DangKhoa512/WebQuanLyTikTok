@@ -694,11 +694,12 @@ export default function AccountList() {
           )}
         </div>
 
-        {pagination && pagination.pages > 1 && (
+        {pagination && (pagination.totalPages || pagination.pages) > 1 && (
           <Pagination
-            page={pagination.page}
-            pages={pagination.pages}
-            total={pagination.total}
+            pagination={{
+              ...pagination,
+              totalPages: pagination.totalPages || pagination.pages,
+            }}
             onPageChange={setPage}
           />
         )}

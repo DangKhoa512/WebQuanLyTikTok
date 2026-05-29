@@ -233,6 +233,7 @@ const getAccounts = async (query) => {
       total:      count,
       page:       pageNum,
       limit:      limitNum,
+      pages:      Math.ceil(count / limitNum),
       totalPages: Math.ceil(count / limitNum),
     },
   };
