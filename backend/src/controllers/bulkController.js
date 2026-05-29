@@ -5,6 +5,8 @@ const { success, error } = require('../utils/response');
 const { scopedWhere } = require('../utils/owner');
 
 const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
+const pipeValue = (value) =>
+  value === undefined || value === null || value === '' ? 'null' : String(value);
 
 /**
  * POST /api/accounts/bulk-action
@@ -135,9 +137,9 @@ const bulkGet = async (req, res, next) => {
         .filter((a) => a.username)
         .map((a) => [
           a.username   || '',
-          a.password   || '',
-          a.email      || '',
-          a.email_pass || '',
+          pipeValue(a.password),
+          pipeValue(a.email),
+          pipeValue(a.email_pass),
         ].join('|'));
 
       return success(res, { text: lines.join('\n'), count: lines.length }, 'OK');
@@ -178,9 +180,9 @@ const copyUnused = async (req, res, next) => {
       .filter((a) => a.username)
       .map((a) => [
         a.username   || '',
-        a.password   || '',
-        a.email      || '',
-        a.email_pass || '',
+        pipeValue(a.password),
+        pipeValue(a.email),
+        pipeValue(a.email_pass),
       ].join('|'));
 
     // Optionally mark as used

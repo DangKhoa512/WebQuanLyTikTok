@@ -4,6 +4,8 @@ const logger   = require('../config/logger');
 const { scopedWhere } = require('../utils/owner');
 
 const VALID_STATUSES = ['REG_DA_LAM', 'UPVIDEO', 'UPVIDEO_FAIL', 'DAT_CHI_TIEU', 'DIE', 'ALL'];
+const pipeValue = (value) =>
+  value === undefined || value === null || value === '' ? 'null' : String(value);
 
 /**
  * GET /api/export/accounts
@@ -112,9 +114,9 @@ const exportAccounts = async (req, res) => {
         .map((a) =>
           [
             a.username   || '',
-            a.password   || '',
-            a.email      || '',
-            a.email_pass || '',
+            pipeValue(a.password),
+            pipeValue(a.email),
+            pipeValue(a.email_pass),
           ].join('|')
         );
     } else {

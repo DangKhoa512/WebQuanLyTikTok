@@ -32,6 +32,8 @@ const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 1
 
 const nullify = (v) =>
   (!v || v.trim() === '' || v.trim().toLowerCase() === 'null') ? null : v.trim();
+const pipeValue = (value) =>
+  value === undefined || value === null || value === '' ? 'null' : String(value);
 
 const availableLockWhere = () => ({
   [Op.or]: [
@@ -519,7 +521,7 @@ const bulkGet = async (req, res, next) => {
 
     if (format === 'pipe') {
       const lines = accounts.filter((a) => a.username).map((a) =>
-        [a.username || '', a.password || '', a.email || '', a.email_pass || ''].join('|')
+        [a.username || '', pipeValue(a.password), pipeValue(a.email), pipeValue(a.email_pass)].join('|')
       );
       return success(res, { text: lines.join('\n'), count: lines.length }, 'OK');
     }
