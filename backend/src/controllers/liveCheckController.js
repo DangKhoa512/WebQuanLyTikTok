@@ -15,6 +15,7 @@ const { Op } = require('sequelize');
 const Account = require('../models/Account');
 const logger  = require('../config/logger');
 const { success, error } = require('../utils/response');
+const { scopedWhere } = require('../utils/owner');
 const {
   batchCheckLive: sharedBatchCheckLive,
   parseProxy: sharedParseProxy,
@@ -395,7 +396,7 @@ const checkLive = async (req, res, next) => {
     delay_ms    = Math.max(0, Math.min(10000, parseInt(delay_ms)    || 1000));
 
     const accounts = await Account.findAll({
-      where:      { id: { [Op.in]: ids }, username: { [Op.ne]: null } },
+      where:      scopedWhere(req, { id: { [Op.in]: ids }, username: { [Op.ne]: null } }),
       attributes: ['id', 'username'],
       order:      [['id', 'ASC']],
     });
@@ -437,6 +438,7 @@ const promoteEligible = async (req, res, next) => {
           status:      'LOGIN_THANH_CONG',
           video_count: { [Op.gte]: min_videos },
           reg_at:      { [Op.lte]: cutoff },
+          ...scopedWhere(req),
         },
       }
     );

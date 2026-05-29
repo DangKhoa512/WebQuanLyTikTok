@@ -6,7 +6,7 @@ const ChromeAccount = sequelize.define(
   {
     id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
     raw_data:   { type: DataTypes.TEXT,          allowNull: true },
-    username:   { type: DataTypes.STRING(255),   allowNull: true, unique: 'uq_chrome_username' },
+    username:   { type: DataTypes.STRING(255),   allowNull: true },
     password:   { type: DataTypes.STRING(255),   allowNull: true },
     twofa:      { type: DataTypes.STRING(255),   allowNull: true },
     email:      { type: DataTypes.STRING(255),   allowNull: true },
@@ -15,6 +15,11 @@ const ChromeAccount = sequelize.define(
     token:      { type: DataTypes.TEXT('long'),  allowNull: true },
     proxy:      { type: DataTypes.STRING(255),   allowNull: true },
     device_id:  { type: DataTypes.STRING(255),   allowNull: true },
+    owner_username: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      defaultValue: 'admin',
+    },
     status: {
       type: DataTypes.ENUM(
         'ACC_LOGIN',
@@ -49,6 +54,8 @@ const ChromeAccount = sequelize.define(
       { fields: ['status'] },
       { fields: ['live_status'] },
       { fields: ['device_id'] },
+      { fields: ['owner_username'] },
+      { unique: true, fields: ['owner_username', 'username'], name: 'uq_chrome_owner_username' },
       { fields: ['reg_at'] },
       { fields: ['status', 'live_status'] },
     ],

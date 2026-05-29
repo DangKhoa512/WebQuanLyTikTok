@@ -22,6 +22,7 @@ const logger    = require('../config/logger');
 const { success, error } = require('../utils/response');
 const { batchCheckLive, parseProxy } = require('../utils/checkLiveUtils');
 const { withFullData } = require('../utils/response');
+const { ownerFromRequest, ownerFromAdmin, scopedWhere } = require('../utils/owner');
 
 // Phone có thể set: LOGIN_THANH_CONG (login OK), ACC_LOGIN (login fail → về Chờ Login), DA_KHANG, CHUA_KHANG
 const PHONE_STATUSES   = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG'];
@@ -43,6 +44,7 @@ const availableLockWhere = () => ({
 const phoneSubmit = async (req, res, next) => {
   try {
     const { username, password, email, email_pass, device_id, status, note, twofa, cookie, proxy, fail_reason } = req.body;
+    const owner_username = ownerFromRequest(req);
 
     if (!username) return error(res, 'Thiếu username', 400);
     if (!status || !PHONE_STATUSES.includes(status)) {
@@ -50,13 +52,13 @@ const phoneSubmit = async (req, res, next) => {
     }
 
     const [account, created] = await ChromeAccount.findOrCreate({
-      where:    { username },
+      where:    { username, owner_username },
       defaults: {
         username, password: nullify(password), email: nullify(email),
         email_pass: nullify(email_pass), twofa: nullify(twofa),
         cookie: nullify(cookie), proxy: nullify(proxy),
         device_id: nullify(device_id), status, note: nullify(note),
-        fail_reason: nullify(fail_reason), reg_at: new Date(),
+        fail_reason: nullify(fail_reason), reg_at: new Date(), owner_username,
       },
     });
 
@@ -81,6 +83,7 @@ const phoneSubmit = async (req, res, next) => {
 const getChoLogin = async (req, res, next) => {
   try {
     const { device_id } = req.body;
+    const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
 
     const sequelize   = ChromeAccount.sequelize;
@@ -88,7 +91,7 @@ const getChoLogin = async (req, res, next) => {
 
     try {
       const account = await ChromeAccount.findOne({
-        where:  { status: 'ACC_LOGIN', ...availableLockWhere() },
+        where:  { status: 'ACC_LOGIN', owner_username, ...availableLockWhere() },
         lock:   transaction.LOCK.UPDATE,
         skipLocked: true,
         transaction,
@@ -116,10 +119,11 @@ const getChoLogin = async (req, res, next) => {
 const loginSuccess = async (req, res, next) => {
   try {
     const { username, device_id } = req.body;
+    const owner_username = ownerFromRequest(req);
     if (!username)  return error(res, 'Thiếu username', 400);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
 
-    const account = await ChromeAccount.findOne({ where: { username } });
+    const account = await ChromeAccount.findOne({ where: { username, owner_username } });
     if (!account) return error(res, 'Account không tồn tại', 404);
 
     await account.update({ status: 'LOGIN_THANH_CONG', locked_by: null, locked_at: null });
@@ -133,6 +137,7 @@ const loginSuccess = async (req, res, next) => {
 const getAccount = async (req, res, next) => {
   try {
     const { device_id } = req.body;
+    const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
 
     const sequelize  = ChromeAccount.sequelize;
@@ -140,7 +145,7 @@ const getAccount = async (req, res, next) => {
 
     try {
       const account = await ChromeAccount.findOne({
-        where:  { status: 'LOGIN_THANH_CONG', ...availableLockWhere() },
+        where:  { status: 'LOGIN_THANH_CONG', owner_username, ...availableLockWhere() },
         lock:   transaction.LOCK.UPDATE,
         skipLocked: true,
         transaction,
@@ -167,7 +172,7 @@ const getAccount = async (req, res, next) => {
 const getAll = async (req, res, next) => {
   try {
     const { status, live_status, search, device_id, date_from, date_to, video_max, video_min, page = 1, limit = 20 } = req.query;
-    const where = {};
+    const where = scopedWhere(req);
     if (status)      where.status      = status;
     if (live_status) where.live_status = live_status;
     if (device_id)   where.device_id   = device_id;
@@ -201,7 +206,7 @@ const getAll = async (req, res, next) => {
 // ── Dashboard: Detail ────────────────────────────────────────────────────────
 const getById = async (req, res, next) => {
   try {
-    const account = await ChromeAccount.findByPk(req.params.id);
+    const account = await ChromeAccount.findOne({ where: scopedWhere(req, { id: req.params.id }) });
     if (!account) return error(res, 'Không tìm thấy account', 404);
     return success(res, { account }, 'OK');
   } catch (err) { next(err); }
@@ -210,7 +215,7 @@ const getById = async (req, res, next) => {
 // ── Dashboard: Update single ─────────────────────────────────────────────────
 const updateAccount = async (req, res, next) => {
   try {
-    const account = await ChromeAccount.findByPk(req.params.id);
+    const account = await ChromeAccount.findOne({ where: scopedWhere(req, { id: req.params.id }) });
     if (!account) return error(res, 'Không tìm thấy account', 404);
 
     const allowed = ['username','password','email','email_pass','twofa','proxy','device_id','note','status','live_status','cookie','token'];
@@ -256,6 +261,7 @@ const parseLine = (line) => {
 const importChromeAccounts = async (req, res, next) => {
   try {
     const { text, status = 'ACC_LOGIN' } = req.body;
+    const owner_username = ownerFromAdmin(req);
 
     if (!text || typeof text !== 'string') return error(res, 'Thiếu trường text', 400);
     if (!ALL_STATUSES.includes(status)) {
@@ -273,7 +279,7 @@ const importChromeAccounts = async (req, res, next) => {
       try {
         const parsed = parseLine(line);
         if (!parsed) { parseErrors.push(`Thiếu username: "${line.substring(0, 60)}"`); continue; }
-        if (!seenUsernames.has(parsed.username)) seenUsernames.set(parsed.username, { ...parsed, status });
+        if (!seenUsernames.has(parsed.username)) seenUsernames.set(parsed.username, { ...parsed, status, owner_username });
       } catch (_) {
         parseErrors.push(`Lỗi parse: "${line.substring(0, 60)}"`);
       }
@@ -284,7 +290,7 @@ const importChromeAccounts = async (req, res, next) => {
 
     if (unique.length > 0) {
       const existing = await ChromeAccount.findAll({
-        where:      { username: { [Op.in]: unique.map((r) => r.username) } },
+        where:      { username: { [Op.in]: unique.map((r) => r.username) }, owner_username },
         attributes: ['username'],
       });
       const existingSet = new Set(existing.map((r) => r.username));
@@ -293,12 +299,12 @@ const importChromeAccounts = async (req, res, next) => {
 
     if (toInsert.length > 0) {
       await ChromeAccount.bulkCreate(toInsert, {
-        fields: ['username','password','email','email_pass','status','reg_at'],
+        fields: ['username','password','email','email_pass','status','reg_at','owner_username'],
       });
     }
 
     const result = { imported: toInsert.length, duplicates: unique.length - toInsert.length, parse_errors: parseErrors.length, error_samples: parseErrors.slice(0, 10) };
-    logger.info('chrome import', { ...result, status, admin: req.admin?.username });
+    logger.info('chrome import', { ...result, status, owner_username, admin: req.admin?.username });
 
     return success(res, result,
       `Đã import ${result.imported} accounts` +
@@ -323,7 +329,7 @@ const checkLive = async (req, res, next) => {
     delay_ms    = Math.max(0, Math.min(10000, parseInt(delay_ms)   || 1000));
 
     const accounts = await ChromeAccount.findAll({
-      where:      { id: { [Op.in]: ids }, username: { [Op.ne]: null } },
+      where:      scopedWhere(req, { id: { [Op.in]: ids }, username: { [Op.ne]: null } }),
       attributes: ['id','username'],
       order:      [['id','ASC']],
     });
@@ -344,6 +350,7 @@ const checkLive = async (req, res, next) => {
 const getCanUpvideo = async (req, res, next) => {
   try {
     const { device_id } = req.body;
+    const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
 
     const sequelize   = ChromeAccount.sequelize;
@@ -353,6 +360,7 @@ const getCanUpvideo = async (req, res, next) => {
         where: {
           status:      { [Op.in]: ['ACC_DA_KHANG', 'ACC_CHUA_KHANG'] },
           video_count: { [Op.lt]: 20 },
+          owner_username,
           ...availableLockWhere(),
         },
         lock:        transaction.LOCK.UPDATE,
@@ -376,11 +384,12 @@ const getCanUpvideo = async (req, res, next) => {
 const reportUpload = async (req, res, next) => {
   try {
     const { username, device_id, video_count } = req.body;
+    const owner_username = ownerFromRequest(req);
     if (!username)    return error(res, 'Thiếu username', 400);
     if (!device_id)   return error(res, 'Thiếu device_id', 400);
     if (video_count === undefined) return error(res, 'Thiếu video_count', 400);
 
-    const account = await ChromeAccount.findOne({ where: { username } });
+    const account = await ChromeAccount.findOne({ where: { username, owner_username } });
     if (!account) return error(res, 'Account không tồn tại', 404);
 
     await account.update({ video_count: parseInt(video_count), locked_by: null, locked_at: null });
@@ -394,6 +403,7 @@ const reportUpload = async (req, res, next) => {
 const getCanKhang = async (req, res, next) => {
   try {
     const { device_id } = req.body;
+    const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
 
     const sequelize   = ChromeAccount.sequelize;
@@ -403,6 +413,7 @@ const getCanKhang = async (req, res, next) => {
         where: {
           status:      'ACC_CHUA_KHANG',
           video_count: { [Op.gte]: 20 },
+          owner_username,
           ...availableLockWhere(),
         },
         lock:        transaction.LOCK.UPDATE,
@@ -436,6 +447,7 @@ const promoteEligible = async (req, res, next) => {
           status:      'ACC_DA_KHANG',
           video_count: { [Op.gte]: min_videos },
           reg_at:      { [Op.lte]: cutoff },
+          ...scopedWhere(req),
         },
       }
     );
@@ -487,7 +499,7 @@ const bulkAction = async (req, res, next) => {
         return error(res, `action không hợp lệ: ${action}`, 400);
     }
 
-    const [affected] = await ChromeAccount.update(updateData, { where: { id: { [Op.in]: ids } } });
+    const [affected] = await ChromeAccount.update(updateData, { where: scopedWhere(req, { id: { [Op.in]: ids } }) });
     logger.info('chrome bulk-action', { action, affected, admin: req.admin?.username });
     return success(res, { affected, ids: ids.length }, message);
   } catch (err) { next(err); }
@@ -500,7 +512,7 @@ const bulkGet = async (req, res, next) => {
     if (!ids || !Array.isArray(ids) || ids.length === 0) return error(res, 'Cần truyền mảng ids', 400);
 
     const accounts = await ChromeAccount.findAll({
-      where:      { id: { [Op.in]: ids } },
+      where:      scopedWhere(req, { id: { [Op.in]: ids } }),
       attributes: ['id','username','password','email','email_pass','status','live_status','video_count','proxy','device_id'],
       order:      [['id','ASC']],
     });
@@ -523,7 +535,7 @@ const bulkDelete = async (req, res, next) => {
     if (!ids || !Array.isArray(ids) || ids.length === 0) return error(res, 'Cần truyền mảng ids không rỗng', 400);
     if (ids.length > 500) return error(res, 'Tối đa 500 accounts mỗi lần xóa', 400);
 
-    const deleted = await ChromeAccount.destroy({ where: { id: { [Op.in]: ids } } });
+    const deleted = await ChromeAccount.destroy({ where: scopedWhere(req, { id: { [Op.in]: ids } }) });
     logger.info('chrome bulk-delete', { requested: ids.length, deleted, admin: req.admin?.username });
     return success(res, { deleted }, `Đã xóa ${deleted} accounts`);
   } catch (err) { next(err); }

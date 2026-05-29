@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const Account  = require('../models/Account');
 const logger   = require('../config/logger');
+const { scopedWhere } = require('../utils/owner');
 
 const VALID_STATUSES = ['REG_DA_LAM', 'UPVIDEO', 'UPVIDEO_FAIL', 'DAT_CHI_TIEU', 'DIE', 'ALL'];
 
@@ -28,7 +29,7 @@ const exportAccounts = async (req, res) => {
     }
 
     // Build where clause
-    const where = {};
+    const where = scopedWhere(req);
     if (status !== 'ALL') where.status = status;
 
     const accounts = await Account.findAll({
@@ -158,6 +159,7 @@ const exportSummary = async (req, res) => {
         [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'total'],
       ],
       group: ['status'],
+      where: scopedWhere(req),
       raw: true,
     });
 

@@ -15,6 +15,9 @@ router.use('/chrome-accounts', apiLimiter, require('./chrome'));
 // Stats — JWT required for all
 router.use('/stats',    apiLimiter, jwtAuth, require('./stats'));
 
+// Users — admin JWT required inside controller
+router.use('/users',    apiLimiter, jwtAuth, require('./users'));
+
 // Export — JWT required, no strict rate limit (file downloads)
 router.use('/export',   require('./export'));
 

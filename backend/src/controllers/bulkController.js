@@ -2,6 +2,7 @@ const { Op }   = require('sequelize');
 const Account  = require('../models/Account');
 const logger   = require('../config/logger');
 const { success, error } = require('../utils/response');
+const { scopedWhere } = require('../utils/owner');
 
 const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
 
@@ -93,7 +94,7 @@ const bulkAction = async (req, res, next) => {
     }
 
     const [affected] = await Account.update(updateData, {
-      where: { id: { [Op.in]: ids } },
+      where: scopedWhere(req, { id: { [Op.in]: ids } }),
     });
 
     logger.info('Bulk action', {
@@ -122,7 +123,7 @@ const bulkGet = async (req, res, next) => {
     }
 
     const accounts = await Account.findAll({
-      where: { id: { [Op.in]: ids } },
+      where: scopedWhere(req, { id: { [Op.in]: ids } }),
       attributes: ['id','username','password','email','email_pass',
                    'status','live_status','video_count','proxy','device_id'],
       order: [['id','ASC']],
@@ -167,7 +168,7 @@ const copyUnused = async (req, res, next) => {
     }
 
     const accounts = await Account.findAll({
-      where:      { status, note: null },
+      where:      scopedWhere(req, { status, note: null }),
       attributes: ['id','username','password','email','email_pass'],
       order:      [['id','ASC']],
       limit:      Math.min(parseInt(limit) || 500, 1000),
@@ -187,7 +188,7 @@ const copyUnused = async (req, res, next) => {
       const ids = accounts.map((a) => a.id);
       await Account.update(
         { note: `[Đã dùng] ${new Date().toLocaleString('vi-VN')}` },
-        { where: { id: { [Op.in]: ids } } }
+        { where: scopedWhere(req, { id: { [Op.in]: ids } }) }
       );
     }
 
@@ -224,7 +225,7 @@ const bulkDelete = async (req, res, next) => {
     }
 
     const deleted = await Account.destroy({
-      where: { id: { [Op.in]: ids } },
+      where: scopedWhere(req, { id: { [Op.in]: ids } }),
     });
 
     logger.info('Bulk delete', {

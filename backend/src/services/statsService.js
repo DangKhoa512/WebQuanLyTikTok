@@ -15,23 +15,24 @@ const STATUSES = [
 const emptyStatusCounts = () =>
   STATUSES.reduce((out, status) => ({ ...out, [status]: 0 }), {});
 
-const getModelStats = async (Model, todayStart, todayEnd) => {
+const getModelStats = async (Model, todayStart, todayEnd, ownerFilter = null) => {
+  const ownerWhere = ownerFilter ? { owner_username: ownerFilter } : {};
   const statusCounts = await Promise.all(
-    STATUSES.map((status) => Model.count({ where: { status } }))
+    STATUSES.map((status) => Model.count({ where: { ...ownerWhere, status } }))
   );
 
   const stats = {
-    total: await Model.count(),
+    total: await Model.count({ where: ownerWhere }),
     ...emptyStatusCounts(),
     today_reg: await Model.count({
-      where: { reg_at: { [Op.gte]: todayStart, [Op.lt]: todayEnd } },
+      where: { ...ownerWhere, reg_at: { [Op.gte]: todayStart, [Op.lt]: todayEnd } },
     }),
     today_updated: await Model.count({
-      where: { updated_at: { [Op.gte]: todayStart, [Op.lt]: todayEnd } },
+      where: { ...ownerWhere, updated_at: { [Op.gte]: todayStart, [Op.lt]: todayEnd } },
     }),
-    live: await Model.count({ where: { live_status: 'live' } }),
-    die_live: await Model.count({ where: { live_status: 'die' } }),
-    unknown_live: await Model.count({ where: { live_status: 'unknown' } }),
+    live: await Model.count({ where: { ...ownerWhere, live_status: 'live' } }),
+    die_live: await Model.count({ where: { ...ownerWhere, live_status: 'die' } }),
+    unknown_live: await Model.count({ where: { ...ownerWhere, live_status: 'unknown' } }),
   };
 
   STATUSES.forEach((status, idx) => {
@@ -61,15 +62,15 @@ const combineStats = (app, chrome) => {
 /**
  * Returns overall system statistics.
  */
-const getStats = async () => {
+const getStats = async (ownerFilter = null) => {
   const now   = new Date();
   // Today = midnight local time (timezone offset handled by MySQL connection timezone)
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const todayEnd   = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
   const [app, chrome] = await Promise.all([
-    getModelStats(Account, todayStart, todayEnd),
-    getModelStats(ChromeAccount, todayStart, todayEnd),
+    getModelStats(Account, todayStart, todayEnd, ownerFilter),
+    getModelStats(ChromeAccount, todayStart, todayEnd, ownerFilter),
   ]);
 
   const combined = combineStats(app, chrome);
@@ -83,8 +84,11 @@ const getStats = async () => {
 /**
  * Returns per-day registration and upload counts for the past N days.
  */
-const getDailyStats = async (days = 7) => {
+const getDailyStats = async (days = 7, ownerFilter = null) => {
   const daysInt = Math.min(90, Math.max(1, parseInt(days) || 7));
+  const ownerSql = ownerFilter ? 'AND owner_username = :owner' : '';
+  const replacements = { days: daysInt };
+  if (ownerFilter) replacements.owner = ownerFilter;
 
   const dailyReg = await sequelize.query(
     `SELECT
@@ -93,9 +97,10 @@ const getDailyStats = async (days = 7) => {
      FROM accounts
      WHERE reg_at >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
        AND reg_at IS NOT NULL
+       ${ownerSql}
      GROUP BY DATE(reg_at)
      ORDER BY \`date\` ASC`,
-    { replacements: { days: daysInt }, type: QueryTypes.SELECT }
+    { replacements, type: QueryTypes.SELECT }
   );
 
   const dailyUpload = await sequelize.query(
@@ -105,16 +110,18 @@ const getDailyStats = async (days = 7) => {
      FROM accounts
      WHERE last_upload_at >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
        AND last_upload_at IS NOT NULL
+       ${ownerSql}
      GROUP BY DATE(last_upload_at)
      ORDER BY \`date\` ASC`,
-    { replacements: { days: daysInt }, type: QueryTypes.SELECT }
+    { replacements, type: QueryTypes.SELECT }
   );
 
   const statusDist = await sequelize.query(
     `SELECT status, COUNT(*) AS cnt
      FROM accounts
+     ${ownerFilter ? 'WHERE owner_username = :owner' : ''}
      GROUP BY status`,
-    { type: QueryTypes.SELECT }
+    { replacements, type: QueryTypes.SELECT }
   );
 
   return { daily_reg: dailyReg, daily_upload: dailyUpload, status_dist: statusDist };

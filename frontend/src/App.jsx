@@ -10,6 +10,7 @@ import Stats           from './pages/Stats';
 import Export          from './pages/Export';
 import ProxySettings      from './pages/ProxySettings';
 import ChromeAccountList from './pages/ChromeAccountList';
+import Users             from './pages/Users';
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="export"         element={<Export />} />
             <Route path="proxy-settings"   element={<ProxySettings />} />
             <Route path="chrome-accounts"  element={<ChromeAccountList />} />
+            <Route path="users"            element={<Users />} />
           </Route>
 
           {/* Catch-all */}

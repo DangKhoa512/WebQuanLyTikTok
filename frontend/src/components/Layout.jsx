@@ -10,6 +10,7 @@ const NAV = [
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
   { to: '/export',          icon: '📥', label: 'Xuất file'  },
   { to: '/proxy-settings',  icon: '⚙️', label: 'Proxy'      },
+  { to: '/users',           icon: 'User', label: 'Users', adminOnly: true },
 ];
 
 export default function Layout() {
@@ -44,7 +45,7 @@ export default function Layout() {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV.map(({ to, icon, label }) => (
+          {NAV.filter((item) => !item.adminOnly || authService.getRole() === 'admin').map(({ to, icon, label }) => (
             <NavLink key={to} to={to}>
               <span className="nav-icon">{icon}</span>
               <span>{label}</span>

@@ -13,6 +13,7 @@ const { Op } = require('sequelize');
 const Account  = require('../models/Account');
 const logger   = require('../config/logger');
 const { success, error } = require('../utils/response');
+const { ownerFromAdmin } = require('../utils/owner');
 
 const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
 
@@ -63,6 +64,7 @@ const parseLine = (line) => {
 const importAccounts = async (req, res, next) => {
   try {
     const { text, status = 'ACC_LOGIN' } = req.body;
+    const owner_username = ownerFromAdmin(req);
 
     if (!text || typeof text !== 'string') {
       return error(res, 'Thiếu trường text', 400);
@@ -87,7 +89,7 @@ const importAccounts = async (req, res, next) => {
           continue;
         }
         if (!seenUsernames.has(parsed.username)) {
-          seenUsernames.set(parsed.username, { ...parsed, status });
+          seenUsernames.set(parsed.username, { ...parsed, status, owner_username });
         }
       } catch (_) {
         parseErrors.push(`Lỗi parse: "${line.substring(0, 60)}"`);
@@ -100,7 +102,7 @@ const importAccounts = async (req, res, next) => {
     let toInsert = unique;
     if (unique.length > 0) {
       const existing = await Account.findAll({
-        where:      { username: { [Op.in]: unique.map((r) => r.username) } },
+        where:      { username: { [Op.in]: unique.map((r) => r.username) }, owner_username },
         attributes: ['username'],
       });
       const existingSet = new Set(existing.map((r) => r.username));
@@ -110,7 +112,7 @@ const importAccounts = async (req, res, next) => {
     // ── Bulk insert ───────────────────────────────────────────────────────────
     if (toInsert.length > 0) {
       await Account.bulkCreate(toInsert, {
-        fields: ['username', 'password', 'email', 'email_pass', 'status', 'reg_at'],
+        fields: ['username', 'password', 'email', 'email_pass', 'status', 'reg_at', 'owner_username'],
       });
     }
 
@@ -122,7 +124,7 @@ const importAccounts = async (req, res, next) => {
     };
 
     logger.info('Import accounts', {
-      ...result, status, admin: req.admin?.username,
+      ...result, status, owner_username, admin: req.admin?.username,
     });
 
     return success(

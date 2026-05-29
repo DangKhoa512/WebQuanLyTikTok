@@ -37,6 +37,8 @@ const schemas = {
     token: Joi.string().optional().allow('', null),
     proxy: Joi.string().max(255).optional().allow('', null),
     device_id: Joi.string().max(255).optional().allow('', null),
+    user: Joi.string().max(100).optional().allow('', null),
+    owner_username: Joi.string().max(100).optional().allow('', null),
   }).or('data', 'username'),
 
   /**
@@ -44,6 +46,8 @@ const schemas = {
    */
   getUpvideo: Joi.object({
     device_id: Joi.string().max(255).required(),
+    user: Joi.string().max(100).optional().allow('', null),
+    owner_username: Joi.string().max(100).optional().allow('', null),
   }),
 
   /**
@@ -53,17 +57,23 @@ const schemas = {
     username:    Joi.string().max(255).required(),
     device_id:   Joi.string().max(255).required(),
     video_count: Joi.number().integer().min(0).optional(),
+    user: Joi.string().max(100).optional().allow('', null),
+    owner_username: Joi.string().max(100).optional().allow('', null),
   }),
 
   uploadFail: Joi.object({
     username:  Joi.string().max(255).required(),
     device_id: Joi.string().max(255).required(),
     reason:    Joi.string().max(500).optional().allow('', null),
+    user: Joi.string().max(100).optional().allow('', null),
+    owner_username: Joi.string().max(100).optional().allow('', null),
   }),
 
   updateLive: Joi.object({
     username:    Joi.string().max(255).required(),
     live_status: Joi.string().valid('unknown', 'live', 'die').required(),
+    user: Joi.string().max(100).optional().allow('', null),
+    owner_username: Joi.string().max(100).optional().allow('', null),
   }),
 
   updateAccount: Joi.object({

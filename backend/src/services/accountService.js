@@ -48,7 +48,7 @@ const httpError = (message, statusCode) => {
  * Server sets: status, live_status, video_count, reg_at.
  * Does NOT accept timestamps from the phone.
  */
-const regSubmit = async (body) => {
+const regSubmit = async (body, owner_username) => {
   let accountData = {};
 
   if (body.data) {
@@ -68,11 +68,12 @@ const regSubmit = async (body) => {
       device_id:  body.device_id  || null,
     };
   }
+  accountData.owner_username = owner_username || body.user || body.owner_username || process.env.ADMIN_USER || 'admin';
 
   // Guard: check duplicate username (username can be null → MySQL allows multiple NULLs)
   if (accountData.username) {
     const existing = await Account.findOne({
-      where: { username: accountData.username },
+      where: { username: accountData.username, owner_username: accountData.owner_username },
       attributes: ['id'],
     });
     if (existing) {
@@ -100,7 +101,7 @@ const regSubmit = async (body) => {
  *
  * Returns null when no eligible account is available.
  */
-const getUpvideo = async (device_id) => {
+const getUpvideo = async (device_id, owner_username) => {
   return sequelize.transaction(async (t) => {
     const lockCutoff = new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000);
 
@@ -108,6 +109,7 @@ const getUpvideo = async (device_id) => {
       where: {
         status: 'LOGIN_THANH_CONG',
         video_count: { [Op.lt]: 20 },
+        owner_username,
         [Op.or]: [
           { locked_by: null },
           { locked_at: { [Op.lt]: lockCutoff } },
@@ -134,8 +136,8 @@ const getUpvideo = async (device_id) => {
  * Mark an upload as successful.
  * Increments video_count (or sets it explicitly), updates last_upload_at, clears lock.
  */
-const uploadSuccess = async (username, device_id, video_count) => {
-  const account = await Account.findOne({ where: { username } });
+const uploadSuccess = async (username, device_id, video_count, owner_username) => {
+  const account = await Account.findOne({ where: { username, owner_username } });
   if (!account) throw httpError('Account không tồn tại', 404);
 
   const newCount =
@@ -157,8 +159,8 @@ const uploadSuccess = async (username, device_id, video_count) => {
 /**
  * Mark an upload as failed → status UPVIDEO_FAIL, clear lock.
  */
-const uploadFail = async (username, device_id, reason) => {
-  const account = await Account.findOne({ where: { username } });
+const uploadFail = async (username, device_id, reason, owner_username) => {
+  const account = await Account.findOne({ where: { username, owner_username } });
   if (!account) throw httpError('Account không tồn tại', 404);
 
   await account.update({
@@ -174,8 +176,8 @@ const uploadFail = async (username, device_id, reason) => {
 /**
  * Update live status from an external check.
  */
-const updateLive = async (username, live_status) => {
-  const account = await Account.findOne({ where: { username } });
+const updateLive = async (username, live_status, owner_username) => {
+  const account = await Account.findOne({ where: { username, owner_username } });
   if (!account) throw httpError('Account không tồn tại', 404);
 
   await account.update({
@@ -189,7 +191,7 @@ const updateLive = async (username, live_status) => {
 /**
  * List accounts with flexible filtering and pagination.
  */
-const getAccounts = async (query) => {
+const getAccounts = async (query, ownerFilter = null) => {
   const {
     status, live_status, device_id, search,
     date_from, date_to, video_min, video_max,
@@ -199,6 +201,7 @@ const getAccounts = async (query) => {
 
   const where = {};
 
+  if (ownerFilter) where.owner_username = ownerFilter;
   if (status)      where.status      = status;
   if (live_status) where.live_status = live_status;
   if (device_id)   where.device_id   = device_id;
@@ -242,8 +245,10 @@ const getAccounts = async (query) => {
 /**
  * Get a single account by PK.
  */
-const getAccountById = async (id) => {
-  const account = await Account.findByPk(id);
+const getAccountById = async (id, ownerFilter = null) => {
+  const where = { id };
+  if (ownerFilter) where.owner_username = ownerFilter;
+  const account = await Account.findOne({ where });
   if (!account) throw httpError('Account không tồn tại', 404);
   return account;
 };
@@ -251,8 +256,10 @@ const getAccountById = async (id) => {
 /**
  * Manual update from the dashboard (note, status, live_status, proxy, device_id).
  */
-const updateAccount = async (id, data) => {
-  const account = await Account.findByPk(id);
+const updateAccount = async (id, data, ownerFilter = null) => {
+  const where = { id };
+  if (ownerFilter) where.owner_username = ownerFilter;
+  const account = await Account.findOne({ where });
   if (!account) throw httpError('Account không tồn tại', 404);
 
   const allowed = ['note', 'status', 'live_status', 'proxy', 'device_id'];

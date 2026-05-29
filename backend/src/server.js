@@ -4,11 +4,14 @@ const app        = require('./app');
 const sequelize  = require('./config/database');
 const { startCronJobs, stopCronJobs } = require('./cron/scheduler');
 const logger     = require('./config/logger');
+const bcrypt     = require('bcryptjs');
+const User       = require('./models/User');
 
 // Ensure all models are registered before sync
 require('./models/index');
 
 const PORT = parseInt(process.env.PORT) || 3000;
+const adminOwner = () => (process.env.ADMIN_USER || 'admin').replace(/'/g, "''");
 
 const startServer = async () => {
   try {
@@ -21,6 +24,70 @@ const startServer = async () => {
     logger.info('✅ Database tables synchronised');
 
     // 3a. Runtime migrations (idempotent — safe to run every boot)
+    try {
+      await sequelize.query(`
+        ALTER TABLE accounts
+        ADD COLUMN owner_username VARCHAR(100) NOT NULL DEFAULT '${adminOwner()}'
+      `);
+      logger.info('✅ accounts owner_username column added');
+    } catch (e) {
+      logger.warn('Migration accounts owner skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query(`
+        ALTER TABLE chrome_accounts
+        ADD COLUMN owner_username VARCHAR(100) NOT NULL DEFAULT '${adminOwner()}'
+      `);
+      logger.info('✅ chrome_accounts owner_username column added');
+    } catch (e) {
+      logger.warn('Migration chrome_accounts owner skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query('ALTER TABLE accounts DROP INDEX uq_username');
+    } catch (e) {
+      logger.warn('Migration accounts old unique skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE accounts ADD UNIQUE INDEX uq_accounts_owner_username (owner_username, username)');
+      logger.info('âœ… accounts owner+username unique index ready');
+    } catch (e) {
+      logger.warn('Migration accounts owner unique skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE chrome_accounts DROP INDEX uq_chrome_username');
+    } catch (e) {
+      logger.warn('Migration chrome old unique skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE chrome_accounts ADD UNIQUE INDEX uq_chrome_owner_username (owner_username, username)');
+      logger.info('âœ… chrome_accounts owner+username unique index ready');
+    } catch (e) {
+      logger.warn('Migration chrome owner unique skipped:', e.message);
+    }
+
+    try {
+      const adminUser = process.env.ADMIN_USER || 'admin';
+      const adminPass = process.env.ADMIN_PASS;
+      if (adminPass) {
+        const [user, created] = await User.findOrCreate({
+          where: { username: adminUser },
+          defaults: {
+            username: adminUser,
+            password_hash: await bcrypt.hash(adminPass, 10),
+            role: 'admin',
+            is_active: true,
+          },
+        });
+        if (created || user.role !== 'admin') {
+          await user.update({ role: 'admin', is_active: true });
+        }
+        logger.info(`✅ admin user ready: ${adminUser}`);
+      }
+    } catch (e) {
+      logger.warn('Seed admin user skipped:', e.message);
+    }
 
     // Migration: accounts — dùng chung status với Chrome
     try {

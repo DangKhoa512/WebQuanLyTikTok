@@ -92,6 +92,12 @@ export const statsApi = {
   getDailyStats: (days) => api.get('/stats/daily', { params: { days } }),
 };
 
+export const userApi = {
+  getAll:  ()         => api.get('/users'),
+  create:  (data)     => api.post('/users', data),
+  update:  (id, data) => api.patch(`/users/${id}`, data),
+};
+
 // ── Export endpoints ──────────────────────────────────────────────────────────
 export const exportApi = {
   summary: () => api.get('/export/summary'),

@@ -24,7 +24,7 @@ export default function Login() {
 
     try {
       const res = await authApi.login(form.username, form.password);
-      authService.saveToken(res.data.token, res.data.username);
+      authService.saveToken(res.data.token, res.data.username, res.data.role);
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.message || 'Đăng nhập thất bại.');

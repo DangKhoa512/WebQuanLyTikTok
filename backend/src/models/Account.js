@@ -17,7 +17,6 @@ const Account = sequelize.define(
     username: {
       type: DataTypes.STRING(255),
       allowNull: true,
-      unique: 'uq_username',
     },
     password: {
       type: DataTypes.STRING(255),
@@ -51,6 +50,12 @@ const Account = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
       comment: 'Phone device ID that registered this account',
+    },
+    owner_username: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      defaultValue: 'admin',
+      comment: 'Web user that owns this account',
     },
     status: {
       type: DataTypes.ENUM('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'),
@@ -118,6 +123,8 @@ const Account = sequelize.define(
       { fields: ['status'] },
       { fields: ['live_status'] },
       { fields: ['device_id'] },
+      { fields: ['owner_username'] },
+      { unique: true, fields: ['owner_username', 'username'], name: 'uq_accounts_owner_username' },
       { fields: ['reg_at'] },
       { fields: ['status', 'live_status'] },
       { fields: ['status', 'locked_by', 'locked_at'] },

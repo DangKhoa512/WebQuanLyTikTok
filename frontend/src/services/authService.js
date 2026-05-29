@@ -1,17 +1,20 @@
 const TOKEN_KEY = 'tiktok_admin_token';
 const USER_KEY  = 'tiktok_admin_user';
+const ROLE_KEY  = 'tiktok_admin_role';
 
 export const authService = {
   /** Store token after successful login */
-  saveToken(token, username) {
+  saveToken(token, username, role = 'user') {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, username || '');
+    localStorage.setItem(ROLE_KEY, role || 'user');
   },
 
   /** Remove token on logout */
   logout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(ROLE_KEY);
   },
 
   /** Get raw JWT string */
@@ -22,6 +25,10 @@ export const authService = {
   /** Current admin username */
   getUsername() {
     return localStorage.getItem(USER_KEY) || 'admin';
+  },
+
+  getRole() {
+    return localStorage.getItem(ROLE_KEY) || 'user';
   },
 
   /** True if token exists (not expired check — API handles that) */

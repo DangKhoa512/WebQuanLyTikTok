@@ -1,6 +1,8 @@
 const jwt    = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { success, error } = require('../utils/response');
 const logger = require('../config/logger');
+const User   = require('../models/User');
 
 const JWT_EXPIRES = '24h';
 
@@ -9,40 +11,38 @@ const JWT_EXPIRES = '24h';
  * Validates admin credentials from .env (ADMIN_USER / ADMIN_PASS).
  * Returns a signed JWT on success.
  */
-const login = (req, res) => {
+const login = async (req, res, next) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
     return error(res, 'Vui lòng nhập tên đăng nhập và mật khẩu.', 400);
   }
 
-  // Compare against .env values (simple single-admin setup)
-  const validUser = process.env.ADMIN_USER;
-  const validPass = process.env.ADMIN_PASS;
+  try {
+    const user = await User.findOne({ where: { username, is_active: true } });
+    const ok = user ? await bcrypt.compare(password, user.password_hash) : false;
 
-  if (!validUser || !validPass) {
-    logger.error('ADMIN_USER or ADMIN_PASS not set in environment!');
-    return error(res, 'Server chưa cấu hình admin.', 500);
+    if (!ok) {
+      logger.warn('Failed login attempt', { username, ip: req.ip });
+      return error(res, 'Tên đăng nhập hoặc mật khẩu không đúng.', 401);
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: JWT_EXPIRES }
+    );
+
+    logger.info('User logged in', { username: user.username, role: user.role, ip: req.ip });
+
+    return success(
+      res,
+      { token, expiresIn: JWT_EXPIRES, username: user.username, role: user.role },
+      'Đăng nhập thành công'
+    );
+  } catch (err) {
+    next(err);
   }
-
-  if (username !== validUser || password !== validPass) {
-    logger.warn('Failed login attempt', { username, ip: req.ip });
-    return error(res, 'Tên đăng nhập hoặc mật khẩu không đúng.', 401);
-  }
-
-  const token = jwt.sign(
-    { username, role: 'admin' },
-    process.env.JWT_SECRET,
-    { expiresIn: JWT_EXPIRES }
-  );
-
-  logger.info('Admin logged in', { username, ip: req.ip });
-
-  return success(
-    res,
-    { token, expiresIn: JWT_EXPIRES, username },
-    'Đăng nhập thành công'
-  );
 };
 
 /**
