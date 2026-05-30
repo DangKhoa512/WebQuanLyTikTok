@@ -23,10 +23,10 @@ export default function ProxySettings() {
 
   const handleReset = () => {
     setProxies('');
-    setConcurrency(5);
-    setDelayMs(1000);
-    setBatchSize(50);
-    saveCheckLiveSettings({ proxies: '', concurrency: 5, delayMs: 1000, batchSize: 50 });
+    setConcurrency(12);
+    setDelayMs(200);
+    setBatchSize(60);
+    saveCheckLiveSettings({ proxies: '', concurrency: 12, delayMs: 200, batchSize: 60 });
     toast.success('Đã reset cài đặt');
   };
 
@@ -88,12 +88,12 @@ export default function ProxySettings() {
                 <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '.95rem' }}>{concurrency}</span>
               </div>
               <input
-                type="range" min={1} max={30} value={concurrency}
+                type="range" min={1} max={50} value={concurrency}
                 onChange={(e) => setConcurrency(e.target.value)}
                 style={{ width: '100%', accentColor: '#3b82f6' }}
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.72rem', color: '#475569', marginTop: '.2rem' }}>
-                <span>1 (chậm, an toàn)</span><span>20 (nhanh)</span>
+                <span>1 (chậm, an toàn)</span><span>50 (rất nhanh)</span>
               </div>
             </div>
 

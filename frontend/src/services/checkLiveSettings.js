@@ -1,5 +1,5 @@
 const LS_KEY = 'cl_settings';
-const DEFAULTS = { proxies: '', concurrency: 5, delayMs: 1000, batchSize: 50 };
+const DEFAULTS = { proxies: '', concurrency: 12, delayMs: 200, batchSize: 60 };
 
 export function loadCheckLiveSettings() {
   try {

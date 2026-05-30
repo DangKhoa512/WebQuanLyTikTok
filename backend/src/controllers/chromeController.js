@@ -321,15 +321,15 @@ const importChromeAccounts = async (req, res, next) => {
 const checkLive = async (req, res, next) => {
   req.socket?.setTimeout?.(600_000);
   try {
-    let { ids, proxies = [], concurrency = 5, delay_ms = 1000 } = req.body;
+    let { ids, proxies = [], concurrency = 12, delay_ms = 200 } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) return error(res, 'Cần truyền mảng ids', 400);
     if (ids.length > 1000) return error(res, 'Tối đa 1000 accounts/lần', 400);
 
     const proxyPool = (Array.isArray(proxies) ? proxies : String(proxies).split('\n'))
       .map(parseProxy).filter(Boolean);
 
-    concurrency = Math.max(1, Math.min(30,   parseInt(concurrency) || 5));
-    delay_ms    = Math.max(0, Math.min(10000, parseInt(delay_ms)   || 1000));
+    concurrency = Math.max(1, Math.min(50,   parseInt(concurrency) || 12));
+    delay_ms    = Math.max(0, Math.min(10000, parseInt(delay_ms)   || 200));
 
     const accounts = await ChromeAccount.findAll({
       where:      scopedWhere(req, { id: { [Op.in]: ids }, username: { [Op.ne]: null } }),

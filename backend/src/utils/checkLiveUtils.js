@@ -99,9 +99,9 @@ const parseTikTokPage = (html, username) => {
 };
 
 const checkOne = async (username, proxyUrl, attempt = 0) => {
-  await sleep(jitter(300, 0.8));
+  if (attempt === 0) await sleep(jitter(60, 0.8));
   const url    = `https://www.tiktok.com/@${encodeURIComponent(username)}`;
-  const config = { headers: buildHeaders(username), timeout: 18_000, maxRedirects: 4, validateStatus: (s) => s < 500, decompress: true };
+  const config = { headers: buildHeaders(username), timeout: 9_000, maxRedirects: 3, validateStatus: (s) => s < 500, decompress: true };
   if (proxyUrl) {
     try { config.httpsAgent = new HttpsProxyAgent(proxyUrl); config.proxy = false; } catch (_) {}
   }
@@ -109,13 +109,13 @@ const checkOne = async (username, proxyUrl, attempt = 0) => {
   try {
     resp = await axios.get(url, config);
   } catch (e) {
-    if (attempt < 1) { await sleep(jitter(4000, 0.5)); return checkOne(username, proxyUrl, attempt + 1); }
+    if (attempt < 1 && !proxyUrl) { await sleep(jitter(600, 0.5)); return checkOne(username, proxyUrl, attempt + 1); }
     return null;
   }
   if (resp.status === 404) return { live: false, banned: true, followers: 0, following: 0, videos: 0, likes: 0 };
   if (resp.status !== 200) return null;
   const result = parseTikTokPage(resp.data, username);
-  if (result === null && attempt < 1) { await sleep(jitter(5000, 0.4)); return checkOne(username, proxyUrl, attempt + 1); }
+  if (result === null && attempt < 1 && !proxyUrl) { await sleep(jitter(800, 0.4)); return checkOne(username, proxyUrl, attempt + 1); }
   return result;
 };
 
