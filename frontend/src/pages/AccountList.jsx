@@ -163,7 +163,7 @@ function BulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }) {
 }
 
 // ── Upload Toolbar (Promote) ─────────────────────────────────────────────────
-function UploadToolbar({ onRefresh }) {
+function UploadToolbar({ onRefresh, onCheckAll, checking }) {
   const settings   = loadCheckLiveSettings();
   const proxyCount = settings.proxies.split('\n').map((l) => l.trim()).filter(Boolean).length;
 
@@ -181,6 +181,19 @@ function UploadToolbar({ onRefresh }) {
         </Link>
       </div>
       <div style={{ flex: 1 }} />
+      <button
+        onClick={onCheckAll}
+        disabled={checking}
+        style={{
+          background: '#0ea5e9', border: 'none', color: '#fff',
+          borderRadius: '7px', padding: '.4rem .85rem',
+          cursor: checking ? 'not-allowed' : 'pointer',
+          fontSize: '.8rem', fontWeight: 700, whiteSpace: 'nowrap',
+          opacity: checking ? 0.65 : 1,
+        }}
+      >
+        🔍 {checking ? 'Đang check...' : 'Check live toàn bộ'}
+      </button>
       <div style={{ fontSize: '.68rem', color: '#475569' }}>Điều kiện: Đang UP + ≥20 video + reg ≥ 5 ngày</div>
     </div>
   );
@@ -487,6 +500,46 @@ export default function AccountList() {
     finally { setClChecking(false); setClProgress(null); }
   };
 
+  const collectAllFilteredIds = async () => {
+    const pageLimit = 100;
+    let page = 1;
+    let pages = 1;
+    const ids = [];
+
+    do {
+      const params = Object.fromEntries(Object.entries({
+        ...filters,
+        page,
+        limit: pageLimit,
+      }).filter(([, v]) => v !== '' && v !== null && v !== undefined));
+      const res = await accountApi.getAll(params);
+      ids.push(...(res.data?.accounts || []).map((acc) => acc.id));
+      const p = res.data?.pagination || {};
+      pages = p.totalPages || p.pages || 1;
+      page += 1;
+    } while (page <= pages);
+
+    return ids;
+  };
+
+  const handleCheckLiveAll = async () => {
+    setClChecking(true);
+    setClResults(null);
+    setClProgress(null);
+    try {
+      const ids = await collectAllFilteredIds();
+      if (ids.length === 0) {
+        toast.error('Không có account nào trong bảng hiện tại');
+        return;
+      }
+      await handleCheckLive(ids);
+    } catch (e) {
+      toast.error(e.message || 'Không lấy được danh sách account để check');
+    } finally {
+      setClChecking(false);
+    }
+  };
+
   const currentStatus = filters.status;
 
   return (
@@ -584,7 +637,11 @@ export default function AccountList() {
       </div>
 
       {/* Toolbar */}
-      <UploadToolbar onRefresh={() => fetchAccounts(filters)} />
+      <UploadToolbar
+        onRefresh={() => fetchAccounts(filters)}
+        onCheckAll={handleCheckLiveAll}
+        checking={clChecking}
+      />
 
       {/* Quick bars */}
       {currentStatus === 'LOGIN_THANH_CONG' && (
