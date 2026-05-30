@@ -419,37 +419,43 @@ tr:hover td { background: #fafbff; cursor: pointer; }
 }
 .filters-grid label {
   display: block;
-  margin-bottom: .35rem;
+  margin-bottom: .4rem;
   color: #475569;
-  font-size: .75rem;
+  font-size: .68rem;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: .02em;
 }
 .filters-grid input,
 .filters-grid select {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: .6rem .75rem;
+  padding: .58rem .75rem;
   background: #fff;
+  font-size: .82rem;
+  color: #0f172a;
 }
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: .875rem;
+  font-size: .82rem;
 }
 .data-table th {
   text-align: left;
-  padding: .75rem;
+  padding: .65rem .75rem;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
   color: #475569;
   text-transform: uppercase;
-  font-size: .72rem;
+  font-size: .66rem;
+  letter-spacing: .02em;
 }
 .data-table td {
-  padding: .75rem;
+  padding: .68rem .75rem;
   border-bottom: 1px solid #e2e8f0;
+  color: #334155;
+  vertical-align: middle;
 }
 .empty-cell {
   text-align: center;
@@ -505,10 +511,24 @@ tr:hover td { background: #fafbff; cursor: pointer; }
   background: rgba(16,185,129,.15);
   color: #047857;
   border-radius: 6px;
-  padding: .2rem .5rem;
-  font-size: .72rem;
+  padding: .18rem .48rem;
+  font-size: .68rem;
   font-weight: 700;
   white-space: nowrap;
+}
+.used-account-name {
+  font-size: .82rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+.used-account-sub {
+  font-size: .66rem;
+  color: #8b5cf6;
+  margin-top: .15rem;
+}
+.used-metric {
+  font-size: .82rem;
+  font-weight: 800;
 }
 .used-status-select {
   border: 1px solid rgba(255,255,255,.2);

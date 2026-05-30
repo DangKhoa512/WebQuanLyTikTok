@@ -334,8 +334,8 @@ export default function UsedAccounts() {
                   </td>
                   <td className="td-mono">{item.id}</td>
                   <td>
-                    <strong>{item.username}</strong>
-                    <div style={{ fontSize: '.7rem', color: '#8b5cf6', marginTop: 2 }}>
+                    <div className="used-account-name">{item.username}</div>
+                    <div className="used-account-sub">
                       📝 {item.account_type === 'chrome' ? 'Chrome' : 'App'} · {fmt(item.used_at)}
                     </div>
                   </td>
@@ -343,12 +343,12 @@ export default function UsedAccounts() {
                   <td className="td-mono">{item.proxy ? item.proxy.split('@').pop()?.substring(0, 18) : '—'}</td>
                   <td className="td-mono">{item.device_id ? `${item.device_id}`.substring(0, 12) : '—'}</td>
                   <td><span className="status-pill">{item.status || item.source_status || '—'}</span></td>
-                  <td style={{ color: LIVE_COLOR[item.live_status] || LIVE_COLOR.unknown, fontWeight: 700 }}>• {item.live_status || 'unknown'}</td>
-                  <td style={{ color: item.video_count >= 20 ? '#047857' : '#64748b', fontWeight: 800 }}>
+                  <td style={{ color: LIVE_COLOR[item.live_status] || LIVE_COLOR.unknown, fontWeight: 700, fontSize: '.78rem' }}>• {item.live_status || 'unknown'}</td>
+                  <td className="used-metric" style={{ color: item.video_count >= 20 ? '#047857' : '#64748b' }}>
                     {item.video_count ?? 0}{item.video_count >= 20 && <span style={{ color: '#22c55e', marginLeft: '.3rem' }}>✓</span>}
                   </td>
-                  <td style={{ color: '#2563eb', fontWeight: 700 }}>{fmtNum(item.followers)}</td>
-                  <td style={{ color: '#7c3aed', fontWeight: 700 }}>{fmtNum(item.following)}</td>
+                  <td className="used-metric" style={{ color: '#2563eb' }}>{fmtNum(item.followers)}</td>
+                  <td className="used-metric" style={{ color: '#7c3aed' }}>{fmtNum(item.following)}</td>
                   <td>{item.note ? `${item.note}`.substring(0, 28) : '—'}</td>
                   <td>{fmt(item.used_at)}</td>
                 </tr>
