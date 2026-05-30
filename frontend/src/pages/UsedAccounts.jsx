@@ -310,8 +310,8 @@ export default function UsedAccounts() {
 
       <div className="page-header">
         <div>
-          <h1>📦 Acc đã sử dụng</h1>
-          <p className="subtitle">Lịch sử account đã lấy ra và đánh dấu theo ngày.</p>
+          <h1>{isChrome ? '🖥️ Chrome Accounts' : '📤 Accounts App'}</h1>
+          <p className="subtitle">Đang xem tab Đã sử dụng theo ngày.</p>
         </div>
         <button className="btn btn-primary" onClick={() => copyRows()}>Copy trang này</button>
       </div>
