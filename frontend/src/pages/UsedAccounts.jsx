@@ -27,6 +27,31 @@ const STATUS_COLOR = {
   ACC_DIE:          { bg: 'rgba(107,114,128,.15)', color: '#9ca3af'  },
 };
 
+function UsedToolbar({ isChrome }) {
+  const settings = loadCheckLiveSettings();
+  const proxyCount = settings.proxies.split('\n').map((line) => line.trim()).filter(Boolean).length;
+
+  return (
+    <div style={{
+      background: '#0f172a', borderRadius: '12px', padding: '.75rem 1.25rem',
+      marginBottom: '1rem', boxShadow: '0 4px 16px rgba(0,0,0,.3)',
+      border: '1px solid rgba(255,255,255,.07)', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem' }}>
+        <span style={{ color: '#94a3b8' }}>🌐</span>
+        <span style={{ color: proxyCount > 0 ? '#6ee7b7' : '#f87171', fontWeight: 600 }}>{proxyCount} proxy</span>
+        <Link to="/proxy-settings" style={{ color: '#3b82f6', textDecoration: 'none', fontSize: '.78rem', background: 'rgba(59,130,246,.1)', borderRadius: '6px', padding: '.15rem .5rem', border: '1px solid rgba(59,130,246,.2)' }}>
+          ⚙ Cài đặt
+        </Link>
+      </div>
+      <div style={{ flex: 1 }} />
+      <div style={{ fontSize: '.68rem', color: '#475569' }}>
+        Điều kiện: {isChrome ? '≥20 video + reg ≥ 5 ngày' : 'Đang UP + ≥20 video + reg ≥ 5 ngày'}
+      </div>
+    </div>
+  );
+}
+
 export default function UsedAccounts() {
   const [sp, setSp] = useSearchParams();
   const [items, setItems] = useState([]);
@@ -331,6 +356,8 @@ export default function UsedAccounts() {
       </div>
 
       {error && <div className="error-bar">⚠️ {error}</div>}
+
+      <UsedToolbar isChrome={isChrome} />
 
       {selected.size > 0 && (
         <div style={{
