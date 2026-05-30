@@ -11,8 +11,15 @@ const todayInput = () => new Date().toISOString().slice(0, 10);
 const fmt = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '-';
 const pipeValue = (value) => value == null || value === '' ? 'null' : value;
 const fmtNum = (value) => value == null ? '—' : Number(value).toLocaleString('vi-VN');
-const LIVE_COLOR = { live: '#16a34a', die: '#dc2626', unknown: '#64748b' };
 const STATUS_OPTIONS = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
+const STATUS_COLOR = {
+  ACC_LOGIN:        { bg: 'rgba(6,182,212,.15)',   color: '#67e8f9'  },
+  LOGIN_THANH_CONG: { bg: 'rgba(16,185,129,.15)',  color: '#6ee7b7'  },
+  ACC_DA_KHANG:     { bg: 'rgba(139,92,246,.15)',  color: '#c4b5fd'  },
+  ACC_CHUA_KHANG:   { bg: 'rgba(249,115,22,.15)',  color: '#fdba74'  },
+  ACC_DU_DK:        { bg: 'rgba(34,197,94,.15)',   color: '#86efac'  },
+  ACC_DIE:          { bg: 'rgba(107,114,128,.15)', color: '#9ca3af'  },
+};
 
 export default function UsedAccounts() {
   const [sp, setSp] = useSearchParams();
@@ -20,6 +27,7 @@ export default function UsedAccounts() {
   const [selected, setSelected] = useState(new Set());
   const [busy, setBusy] = useState(false);
   const [statusPick, setStatusPick] = useState('');
+  const [showStatusDlg, setShowStatusDlg] = useState(false);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 50, totalPages: 1 });
   const [filters, setFilters] = useState({
     date: todayInput(),
@@ -181,6 +189,22 @@ export default function UsedAccounts() {
       await runForOriginals(selectedRows, (api, ids) => api.bulkAction(ids, 'set_status', { status: statusPick }));
       toast.success(`Đã đổi trạng thái ${selectedRows.length} account`);
       setStatusPick('');
+      setShowStatusDlg(false);
+      setSelected(new Set());
+      await load();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleMoveEligible = async () => {
+    if (selectedRows.length === 0) return;
+    setBusy(true);
+    try {
+      await runForOriginals(selectedRows, (api, ids) => api.bulkAction(ids, 'set_status', { status: 'ACC_DU_DK' }));
+      toast.success(`Đã chuyển ${selectedRows.length} account sang đủ ĐK`);
       setSelected(new Set());
       await load();
     } catch (err) {
@@ -225,9 +249,31 @@ export default function UsedAccounts() {
 
   const isChrome = filters.account_type === 'chrome';
   const basePath = isChrome ? '/chrome-accounts' : '/accounts';
+  const bulkBtn = (label, onClick, color) => (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      style={{
+        background: color, border: 'none', color: '#fff',
+        borderRadius: '7px', padding: '.4rem .85rem',
+        cursor: busy ? 'not-allowed' : 'pointer',
+        fontSize: '.8rem', fontWeight: 600, whiteSpace: 'nowrap',
+        opacity: busy ? 0.65 : 1, transition: 'opacity .15s',
+      }}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="page">
+      <style>{`
+        @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+        .used-row:hover { background: rgba(59,130,246,.05) !important; cursor: default; }
+        .used-row.row-selected { background: rgba(59,130,246,.08) !important; }
+        .cb-cell { width: 40px; padding: 0 8px !important; text-align: center; }
+      `}</style>
+
       <div className="page-header">
         <div>
           <h1>📦 Acc đã sử dụng</h1>
@@ -247,12 +293,13 @@ export default function UsedAccounts() {
       </div>
 
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <div className="filters-grid">
-          <div>
+        <div className="filter-bar">
+          <div className="filter-row">
+          <div className="filter-group">
             <label>Ngày lấy</label>
             <input type="date" value={filters.date} onChange={(e) => setFilter('date', e.target.value)} />
           </div>
-          <div>
+          <div className="filter-group">
             <label>Loại account</label>
             <select value={filters.account_type} onChange={(e) => setFilter('account_type', e.target.value)}>
               <option value="">Tất cả</option>
@@ -260,44 +307,71 @@ export default function UsedAccounts() {
               <option value="chrome">Chrome Acc</option>
             </select>
           </div>
-          <div>
+          <div className="filter-group">
             <label>Tìm username</label>
             <input value={filters.username} onChange={(e) => setFilter('username', e.target.value)} placeholder="username..." />
           </div>
-          <div>
+          <div className="filter-group">
             <label>Số dòng</label>
             <select value={filters.limit} onChange={(e) => setFilter('limit', Number(e.target.value))}>
               {[20, 50, 100, 200].map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           </div>
+          </div>
         </div>
       </div>
 
       {error && <div className="error-bar">⚠️ {error}</div>}
-      <div className="info-bar">Tổng: {meta.total} account</div>
 
       {selected.size > 0 && (
-        <div className="bulk-lite-bar">
-          <div className="bulk-lite-count">✓ {selected.size} đã chọn</div>
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 100, background: '#1e293b', color: '#f8fafc',
+          borderRadius: '10px', padding: '.75rem 1rem', marginBottom: '1rem',
+          display: 'flex', alignItems: 'center', gap: '.75rem', flexWrap: 'wrap',
+          boxShadow: '0 4px 16px rgba(0,0,0,.25)', animation: 'slideDown .2s ease',
+        }}>
+          <div style={{ background: '#3b82f6', borderRadius: '20px', padding: '.25rem .75rem', fontWeight: 700, fontSize: '.875rem' }}>
+            ✓ {selected.size} đã chọn
+          </div>
           <div style={{ flex: 1 }} />
-          <button className="btn btn-primary btn-sm" disabled={busy} onClick={handleCheckLive}>🔍 Check Live</button>
-          <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => copyRows(selectedRows)}>📋 Copy đã chọn</button>
-          <button className="btn btn-primary btn-sm" disabled={busy} onClick={handleCopyAndMark}>📋✅ Copy & Đánh dấu</button>
-          <button className="btn btn-warning btn-sm" disabled={busy} onClick={handleMarkUsed}>🏷️ Đánh dấu Đã dùng</button>
-          <button className="btn btn-danger btn-sm" disabled={busy} onClick={handleDeleteOriginals}>🗑️ Xóa</button>
-          <select className="used-status-select" value={statusPick} onChange={(e) => setStatusPick(e.target.value)} disabled={busy}>
-            <option value="">Đổi trạng thái</option>
-            {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
-          </select>
-          <button className="btn btn-success btn-sm" disabled={busy || !statusPick} onClick={handleSetStatus}>Xác nhận</button>
-          <button className="btn btn-secondary btn-sm" disabled={busy} onClick={handleDeleteHistory}>Xóa lịch sử</button>
-          <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setSelected(new Set())}>✕ Bỏ chọn</button>
+          {bulkBtn('🔍 Check Live', handleCheckLive, '#0ea5e9')}
+          {bulkBtn('🎯 Chuyển đủ ĐK', handleMoveEligible, '#8b5cf6')}
+          {bulkBtn('📋 Copy', () => copyRows(selectedRows), '#3b82f6')}
+          {bulkBtn('📋✅ Copy & Đánh dấu', handleCopyAndMark, '#8b5cf6')}
+          {bulkBtn('🏷️ Đánh dấu Đã dùng', handleMarkUsed, '#f59e0b')}
+          {bulkBtn('🗑️ Xóa', handleDeleteOriginals, '#dc2626')}
+          <div style={{ position: 'relative' }}>
+            {bulkBtn('🔄 Đổi trạng thái', () => setShowStatusDlg((v) => !v), '#10b981')}
+            {showStatusDlg && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                background: '#fff', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,.15)',
+                padding: '1rem', minWidth: '220px', zIndex: 200, color: '#0f172a',
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: '.5rem', fontSize: '.85rem' }}>Chọn trạng thái:</div>
+                <select
+                  value={statusPick}
+                  onChange={(e) => setStatusPick(e.target.value)}
+                  style={{ width: '100%', padding: '.5rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '.75rem' }}
+                >
+                  <option value="">-- Chọn --</option>
+                  {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{status}</option>)}
+                </select>
+                <div style={{ display: 'flex', gap: '.5rem' }}>
+                  <button onClick={handleSetStatus} disabled={!statusPick || busy} style={{ flex: 1, padding: '.5rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>Xác nhận</button>
+                  <button onClick={() => setShowStatusDlg(false)} style={{ padding: '.5rem .75rem', background: '#f1f5f9', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Huỷ</button>
+                </div>
+              </div>
+            )}
+          </div>
+          <button onClick={handleDeleteHistory} disabled={busy} style={{ background: '#f1f5f9', border: 'none', color: '#475569', borderRadius: '7px', padding: '.4rem .85rem', cursor: busy ? 'not-allowed' : 'pointer', fontSize: '.8rem', fontWeight: 600, whiteSpace: 'nowrap', opacity: busy ? .65 : 1 }}>Xóa lịch sử</button>
+          <button onClick={() => setSelected(new Set())} disabled={busy} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.2)', color: '#94a3b8', borderRadius: '6px', padding: '.35rem .65rem', cursor: busy ? 'not-allowed' : 'pointer', fontSize: '.8rem' }}>✕ Bỏ chọn</button>
         </div>
       )}
 
       <div className="card">
-        <div className="table-wrap">
-          <table className="data-table">
+        <div className="table-container">
+          <table>
             <thead>
               <tr>
                 <th className="cb-cell">
@@ -327,32 +401,54 @@ export default function UsedAccounts() {
                 <tr><td colSpan="13" className="empty-cell">Đang tải...</td></tr>
               ) : items.length === 0 ? (
                 <tr><td colSpan="13" className="empty-cell">Không có lịch sử phù hợp</td></tr>
-              ) : items.map((item) => (
-                <tr key={item.id} className={selected.has(item.id) ? 'row-selected' : ''}>
+              ) : items.map((item) => {
+                const sc = STATUS_COLOR[item.status || item.source_status] || { bg: 'rgba(100,116,139,.1)', color: '#94a3b8' };
+                return (
+                <tr key={item.id} className={`used-row${selected.has(item.id) ? ' row-selected' : ''}`}>
                   <td className="cb-cell" onClick={() => toggleOne(item.id)}>
-                    <input type="checkbox" checked={selected.has(item.id)} onChange={() => {}} />
+                    <input type="checkbox" checked={selected.has(item.id)} onChange={() => {}} style={{ cursor: 'pointer', width: 15, height: 15 }} />
                   </td>
-                  <td className="td-mono">{item.id}</td>
+                  <td className="td-mono" style={{ color: '#94a3b8' }}>{item.id}</td>
                   <td>
-                    <div className="used-account-name">{item.username}</div>
-                    <div className="used-account-sub">
+                    <strong style={{ fontSize: '.85rem' }}>{item.username || <span style={{ color: '#94a3b8' }}>N/A</span>}</strong>
+                    <div style={{ fontSize: '.7rem', color: '#8b5cf6', marginTop: 2 }}>
                       📝 {item.account_type === 'chrome' ? 'Chrome' : 'App'} · {fmt(item.used_at)}
                     </div>
                   </td>
-                  <td>{item.email || '—'}</td>
-                  <td className="td-mono">{item.proxy ? item.proxy.split('@').pop()?.substring(0, 18) : '—'}</td>
-                  <td className="td-mono">{item.device_id ? `${item.device_id}`.substring(0, 12) : '—'}</td>
-                  <td><span className="status-pill">{item.status || item.source_status || '—'}</span></td>
-                  <td style={{ color: LIVE_COLOR[item.live_status] || LIVE_COLOR.unknown, fontWeight: 700, fontSize: '.78rem' }}>• {item.live_status || 'unknown'}</td>
-                  <td className="used-metric" style={{ color: item.video_count >= 20 ? '#047857' : '#64748b' }}>
-                    {item.video_count ?? 0}{item.video_count >= 20 && <span style={{ color: '#22c55e', marginLeft: '.3rem' }}>✓</span>}
+                  <td style={{ color: '#64748b', fontSize: '.78rem', fontFamily: 'monospace' }}>
+                    {item.email ? item.email.substring(0, 20) + (item.email.length > 20 ? '…' : '') : '—'}
                   </td>
-                  <td className="used-metric" style={{ color: '#2563eb' }}>{fmtNum(item.followers)}</td>
-                  <td className="used-metric" style={{ color: '#7c3aed' }}>{fmtNum(item.following)}</td>
-                  <td>{item.note ? `${item.note}`.substring(0, 28) : '—'}</td>
-                  <td>{fmt(item.used_at)}</td>
+                  <td style={{ color: '#475569', fontSize: '.75rem', fontFamily: 'monospace' }}>
+                    {item.proxy ? item.proxy.split('@').pop()?.substring(0, 16) : <span style={{ color: '#334155' }}>—</span>}
+                  </td>
+                  <td style={{ color: '#475569', fontSize: '.75rem', fontFamily: 'monospace' }}>
+                    {item.device_id ? `${item.device_id}`.substring(0, 10) + '…' : '—'}
+                  </td>
+                  <td>
+                    <span style={{ background: sc.bg, color: sc.color, borderRadius: '6px', padding: '.2rem .5rem', fontSize: '.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {item.status || item.source_status || '—'}
+                    </span>
+                  </td>
+                  <td>
+                    {item.live_status === 'live'
+                      ? <span style={{ color: '#4ade80', fontWeight: 700, fontSize: '.78rem' }}>• live</span>
+                      : item.live_status === 'die'
+                      ? <span style={{ color: '#f87171', fontWeight: 700, fontSize: '.78rem' }}>• die</span>
+                      : <span style={{ color: '#475569', fontSize: '.78rem' }}>• unknown</span>}
+                  </td>
+                  <td style={{ color: item.video_count > 0 ? '#047857' : '#64748b', fontWeight: item.video_count >= 20 ? 800 : 700 }}>
+                    {item.video_count ?? 0}
+                    {item.video_count >= 20 && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
+                  </td>
+                  <td style={{ color: '#2563eb', fontWeight: 700 }}>{fmtNum(item.followers)}</td>
+                  <td style={{ color: '#7c3aed', fontWeight: 700 }}>{fmtNum(item.following)}</td>
+                  <td style={{ color: '#64748b', fontSize: '.75rem' }}>
+                    {item.note ? `${item.note}`.substring(0, 25) + (`${item.note}`.length > 25 ? '…' : '') : '—'}
+                  </td>
+                  <td style={{ color: '#475569', fontSize: '.75rem', whiteSpace: 'nowrap' }}>{fmt(item.used_at)}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
