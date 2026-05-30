@@ -5,34 +5,50 @@ const axios  = require('axios');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 
 const UA_PROFILES = [
-  { ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.199 Safari/537.36', extra: { 'sec-ch-ua': '"Not_A Brand";v="8","Chromium";v="120","Google Chrome";v="120"', 'sec-ch-ua-mobile': '?0', 'sec-ch-ua-platform': '"Windows"', 'Sec-Fetch-User': '?1' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' },
-  { ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.199 Safari/537.36', extra: { 'sec-ch-ua': '"Google Chrome";v="119","Not?A_Brand";v="24","Chromium";v="119"', 'sec-ch-ua-mobile': '?0', 'sec-ch-ua-platform': '"Windows"', 'Sec-Fetch-User': '?1' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' },
-  { ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.199 Safari/537.36', extra: { 'sec-ch-ua': '"Not_A Brand";v="8","Chromium";v="120","Google Chrome";v="120"', 'sec-ch-ua-mobile': '?0', 'sec-ch-ua-platform': '"macOS"', 'Sec-Fetch-User': '?1' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' },
-  { ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0', extra: { 'Sec-Fetch-User': '?1', 'TE': 'trailers' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8', noSecCh: true },
-  { ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15', extra: {}, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', noSecCh: true },
-  { ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1', extra: { 'sec-ch-ua-mobile': '?1', 'sec-ch-ua-platform': '"iOS"' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', mobile: true },
-  { ua: 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.144 Mobile Safari/537.36', extra: { 'sec-ch-ua': '"Not_A Brand";v="8","Chromium";v="120","Google Chrome";v="120"', 'sec-ch-ua-mobile': '?1', 'sec-ch-ua-platform': '"Android"' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8', mobile: true },
+  { weight: 1, ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.199 Safari/537.36', extra: { 'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"', 'sec-ch-ua-mobile': '?0', 'sec-ch-ua-platform': '"Windows"', 'Sec-Fetch-User': '?1' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' },
+  { weight: 1, ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.199 Safari/537.36', extra: { 'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"', 'sec-ch-ua-mobile': '?0', 'sec-ch-ua-platform': '"macOS"', 'Sec-Fetch-User': '?1' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' },
+  { weight: 1, ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0', extra: { 'TE': 'trailers' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8', noSecCh: true },
+  { weight: 2, ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.178 Mobile Safari/537.36', extra: { 'sec-ch-ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"', 'sec-ch-ua-mobile': '?1', 'sec-ch-ua-platform': '"Android"', 'Sec-Fetch-User': '?1' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8', mobile: true },
+  { weight: 2, ua: 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.178 Mobile Safari/537.36', extra: { 'sec-ch-ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"', 'sec-ch-ua-mobile': '?1', 'sec-ch-ua-platform': '"Android"', 'Sec-Fetch-User': '?1' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8', mobile: true },
+  { weight: 2, ua: 'Mozilla/5.0 (Linux; Android 13; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36', extra: { 'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"', 'sec-ch-ua-mobile': '?1', 'sec-ch-ua-platform': '"Android"', 'Sec-Fetch-User': '?1' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8', mobile: true },
+  { weight: 1, ua: 'Mozilla/5.0 (Linux; Android 14; SAMSUNG SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/24.0 Chrome/117.0.0.0 Mobile Safari/537.36', extra: { 'sec-ch-ua': '"Samsung Internet";v="24", "Chromium";v="117", "Not A(Brand";v="99"', 'sec-ch-ua-mobile': '?1', 'sec-ch-ua-platform': '"Android"', 'Sec-Fetch-User': '?1' }, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8', mobile: true },
+  { weight: 2, ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1', extra: {}, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', noSecCh: true, mobile: true, safari: true },
+  { weight: 2, ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1', extra: {}, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', noSecCh: true, mobile: true, safari: true },
+  { weight: 1, ua: 'Mozilla/5.0 (iPad; CPU OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1', extra: {}, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', noSecCh: true, mobile: true, safari: true },
 ];
 
 const ACCEPT_LANGUAGES = ['en-US,en;q=0.9', 'en-US,en;q=0.9,vi;q=0.8', 'en-GB,en;q=0.9', 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'];
-const REFERERS = [null, 'https://www.google.com/', 'https://www.tiktok.com/'];
+const MOBILE_LANGUAGES = ['en-US,en;q=0.9', 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'];
+const REFERERS = [null, null, 'https://www.google.com/', 'https://www.tiktok.com/'];
 
 const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const getWeightedProfile = () => {
+  const total = UA_PROFILES.reduce((sum, profile) => sum + (profile.weight || 1), 0);
+  let pick = Math.random() * total;
+  for (const profile of UA_PROFILES) {
+    pick -= profile.weight || 1;
+    if (pick <= 0) return profile;
+  }
+  return UA_PROFILES[UA_PROFILES.length - 1];
+};
 const sleep     = (ms)  => new Promise((r) => setTimeout(r, ms));
 const jitter    = (base, pct = 0.4) => base + Math.floor(Math.random() * base * pct);
 
 const buildHeaders = (username) => {
-  const profile = getRandom(UA_PROFILES);
-  const lang    = getRandom(ACCEPT_LANGUAGES);
+  const profile = getWeightedProfile();
+  const lang    = getRandom(profile.mobile ? MOBILE_LANGUAGES : ACCEPT_LANGUAGES);
   const referer = getRandom(REFERERS)?.replace('%USERNAME%', encodeURIComponent(username));
   const headers = {
     'User-Agent': profile.ua, 'Accept': profile.accept,
     'Accept-Language': lang, 'Accept-Encoding': 'gzip, deflate, br',
-    'Cache-Control': 'no-cache', 'Pragma': 'no-cache',
     'Sec-Fetch-Dest': 'document', 'Sec-Fetch-Mode': 'navigate',
     'Sec-Fetch-Site': referer ? 'cross-site' : 'none',
     'Upgrade-Insecure-Requests': '1', ...profile.extra,
   };
+  if (!profile.safari) {
+    headers['Cache-Control'] = 'max-age=0';
+    headers.Pragma = 'no-cache';
+  }
   if (referer) headers['Referer'] = referer;
   return headers;
 };
