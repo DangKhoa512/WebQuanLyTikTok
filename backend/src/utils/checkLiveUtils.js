@@ -143,16 +143,22 @@ const checkOne = async (username, proxyUrl, attempt = 0) => {
 const batchCheckLive = async (accounts, proxyPool, concurrency, delay_ms) => {
   const results = [];
   let proxyIdx  = 0;
+  const nextProxy = () => (proxyPool.length > 0 ? proxyPool[proxyIdx++ % proxyPool.length] : null);
 
   for (let i = 0; i < accounts.length; i += concurrency) {
     const batch = accounts.slice(i, i + concurrency);
 
     const batchOut = await Promise.all(batch.map(async (acc) => {
-      const proxyUrl = proxyPool.length > 0 ? proxyPool[proxyIdx++ % proxyPool.length] : null;
       let stats      = null;
       let liveStatus = 'unknown';
+      let proxyUrl   = nextProxy();
+      const maxAttempts = proxyPool.length > 1 ? Math.min(3, proxyPool.length) : 1;
 
-      try { stats = await checkOne(acc.username, proxyUrl); } catch (_) {}
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        try { stats = await checkOne(acc.username, proxyUrl); } catch (_) { stats = null; }
+        if (stats !== null) break;
+        if (attempt + 1 < maxAttempts) proxyUrl = nextProxy();
+      }
 
       if (stats !== null) {
         liveStatus = stats.live ? 'live' : 'die';
