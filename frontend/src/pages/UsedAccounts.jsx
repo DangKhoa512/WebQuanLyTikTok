@@ -7,7 +7,13 @@ import { toast } from '../components/Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
 import { checkLiveInBatches } from '../services/checkLiveRunner';
 
-const todayInput = () => new Date().toISOString().slice(0, 10);
+const todayInput = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 const fmt = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '-';
 const pipeValue = (value) => value == null || value === '' ? 'null' : value;
 const fmtNum = (value) => value == null ? '—' : Number(value).toLocaleString('vi-VN');
@@ -272,6 +278,9 @@ export default function UsedAccounts() {
         .used-row:hover { background: rgba(59,130,246,.05) !important; cursor: default; }
         .used-row.row-selected { background: rgba(59,130,246,.08) !important; }
         .cb-cell { width: 40px; padding: 0 8px !important; text-align: center; }
+        .used-filter-row .filter-group { flex: 1 1 220px; }
+        .used-filter-row .filter-group input,
+        .used-filter-row .filter-group select { width: 100%; }
       `}</style>
 
       <div className="page-header">
@@ -294,29 +303,29 @@ export default function UsedAccounts() {
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="filter-bar">
-          <div className="filter-row">
-          <div className="filter-group">
-            <label>Ngày lấy</label>
-            <input type="date" value={filters.date} onChange={(e) => setFilter('date', e.target.value)} />
-          </div>
-          <div className="filter-group">
-            <label>Loại account</label>
-            <select value={filters.account_type} onChange={(e) => setFilter('account_type', e.target.value)}>
-              <option value="">Tất cả</option>
-              <option value="app">Accounts App</option>
-              <option value="chrome">Chrome Acc</option>
-            </select>
-          </div>
-          <div className="filter-group">
-            <label>Tìm username</label>
-            <input value={filters.username} onChange={(e) => setFilter('username', e.target.value)} placeholder="username..." />
-          </div>
-          <div className="filter-group">
-            <label>Số dòng</label>
-            <select value={filters.limit} onChange={(e) => setFilter('limit', Number(e.target.value))}>
-              {[20, 50, 100, 200].map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
-          </div>
+          <div className="filter-row used-filter-row">
+            <div className="filter-group">
+              <label>Ngày lấy</label>
+              <input type="date" value={filters.date} onChange={(e) => setFilter('date', e.target.value)} />
+            </div>
+            <div className="filter-group">
+              <label>Loại account</label>
+              <select value={filters.account_type} onChange={(e) => setFilter('account_type', e.target.value)}>
+                <option value="">Tất cả</option>
+                <option value="app">Accounts App</option>
+                <option value="chrome">Chrome Acc</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <label>Tìm username</label>
+              <input value={filters.username} onChange={(e) => setFilter('username', e.target.value)} placeholder="username..." />
+            </div>
+            <div className="filter-group">
+              <label>Số dòng</label>
+              <select value={filters.limit} onChange={(e) => setFilter('limit', Number(e.target.value))}>
+                {[20, 50, 100, 200].map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </div>
           </div>
         </div>
       </div>
