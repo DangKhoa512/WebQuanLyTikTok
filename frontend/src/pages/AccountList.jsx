@@ -495,7 +495,10 @@ export default function AccountList() {
       toast.success(`Check xong: ${live} live · ${die} die · ${unknown} unknown`);
       fetchAccounts(filters);
     } catch (e) {
-      toast.error(e.message?.includes('504') ? 'Check live quá lâu, hãy giảm luồng hoặc số acc mỗi lượt' : (e.message || 'Check live thất bại'));
+      const msg = e.message || '';
+      toast.error(msg.includes('504') || msg.toLowerCase().includes('timeout')
+        ? 'Check live quá lâu, hãy giảm số acc mỗi lượt hoặc đổi proxy'
+        : (msg || 'Check live thất bại'));
     }
     finally { setClChecking(false); setClProgress(null); }
   };

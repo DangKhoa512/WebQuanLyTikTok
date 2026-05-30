@@ -12,18 +12,20 @@ export async function checkLiveInBatches(endpoint, ids, settings, onProgress) {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const batchSize = clampNumber(settings.batchSize, 10, 200, 50);
+  const batchSize = clampNumber(settings.batchSize, 1, 100, 20);
   const concurrency = clampNumber(settings.concurrency, 1, 30, 5);
   const delayMs = clampNumber(settings.delayMs, 0, 10000, 1000);
 
   const totals = { live: 0, die: 0, unknown: 0, rows: [] };
+  onProgress?.({ done: 0, total: ids.length, live: 0, die: 0, unknown: 0 });
 
   for (let index = 0; index < ids.length; index += batchSize) {
     const batch = ids.slice(index, index + batchSize);
+    const timeoutMs = Math.max(45_000, Math.min(180_000, Math.ceil(batch.length / concurrency) * 35_000));
     const res = await api.post(
       endpoint,
       { ids: batch, proxies: proxyList, concurrency, delay_ms: delayMs },
-      { timeout: 600_000 }
+      { timeout: timeoutMs }
     );
     const data = res.data || {};
 
