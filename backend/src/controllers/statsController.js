@@ -21,4 +21,13 @@ const getDailyStats = async (req, res, next) => {
   }
 };
 
-module.exports = { getStats, getDailyStats };
+const getDeviceStats = async (req, res, next) => {
+  try {
+    const devices = await statsService.getDeviceStats(ownerFromAdmin(req));
+    return success(res, { devices }, 'Lấy thống kê theo máy thành công');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getStats, getDailyStats, getDeviceStats };

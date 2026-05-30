@@ -127,4 +127,87 @@ const getDailyStats = async (days = 7, ownerFilter = null) => {
   return { daily_reg: dailyReg, daily_upload: dailyUpload, status_dist: statusDist };
 };
 
-module.exports = { getStats, getDailyStats };
+const zeroDeviceStats = () => ({
+  total: 0,
+  today_reg: 0,
+  today_updated: 0,
+  live: 0,
+  die_live: 0,
+  unknown_live: 0,
+  ACC_LOGIN: 0,
+  LOGIN_THANH_CONG: 0,
+  ACC_DA_KHANG: 0,
+  ACC_CHUA_KHANG: 0,
+  ACC_DU_DK: 0,
+  ACC_DIE: 0,
+});
+
+const buildDeviceQuery = (tableName, task, hasOwner) => `
+  SELECT
+    device_id,
+    '${task}' AS task,
+    COUNT(*) AS total,
+    SUM(DATE(reg_at) = CURDATE()) AS today_reg,
+    SUM(DATE(updated_at) = CURDATE()) AS today_updated,
+    SUM(live_status = 'live') AS live,
+    SUM(live_status = 'die') AS die_live,
+    SUM(live_status = 'unknown') AS unknown_live,
+    SUM(status = 'ACC_LOGIN') AS ACC_LOGIN,
+    SUM(status = 'LOGIN_THANH_CONG') AS LOGIN_THANH_CONG,
+    SUM(status = 'ACC_DA_KHANG') AS ACC_DA_KHANG,
+    SUM(status = 'ACC_CHUA_KHANG') AS ACC_CHUA_KHANG,
+    SUM(status = 'ACC_DU_DK') AS ACC_DU_DK,
+    SUM(status = 'ACC_DIE') AS ACC_DIE,
+    MAX(updated_at) AS last_seen
+  FROM ${tableName}
+  WHERE device_id IS NOT NULL
+    AND device_id <> ''
+    ${hasOwner ? 'AND owner_username = :owner' : ''}
+  GROUP BY device_id
+`;
+
+const addStats = (target, row) => {
+  Object.keys(zeroDeviceStats()).forEach((key) => {
+    target[key] += parseInt(row[key], 10) || 0;
+  });
+};
+
+const getDeviceStats = async (ownerFilter = null) => {
+  const replacements = {};
+  if (ownerFilter) replacements.owner = ownerFilter;
+
+  const rows = await sequelize.query(
+    `${buildDeviceQuery('accounts', 'app', !!ownerFilter)} UNION ALL ${buildDeviceQuery('chrome_accounts', 'chrome', !!ownerFilter)}`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+
+  const map = new Map();
+  rows.forEach((row) => {
+    const deviceId = row.device_id || 'unknown';
+    if (!map.has(deviceId)) {
+      map.set(deviceId, {
+        device_id: deviceId,
+        ...zeroDeviceStats(),
+        tasks: {
+          app: zeroDeviceStats(),
+          chrome: zeroDeviceStats(),
+        },
+        last_seen: null,
+      });
+    }
+
+    const item = map.get(deviceId);
+    const task = row.task === 'chrome' ? 'chrome' : 'app';
+    addStats(item, row);
+    addStats(item.tasks[task], row);
+
+    const lastSeen = row.last_seen ? new Date(row.last_seen) : null;
+    if (lastSeen && (!item.last_seen || lastSeen > new Date(item.last_seen))) {
+      item.last_seen = lastSeen.toISOString();
+    }
+  });
+
+  return [...map.values()].sort((a, b) => new Date(b.last_seen || 0) - new Date(a.last_seen || 0));
+};
+
+module.exports = { getStats, getDailyStats, getDeviceStats };

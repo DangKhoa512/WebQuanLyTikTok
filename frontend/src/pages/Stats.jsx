@@ -25,6 +25,8 @@ export default function Stats() {
   const [days,       setDays]       = useState(7);
   const [stats,      setStats]      = useState(null);
   const [daily,      setDaily]      = useState(null);
+  const [deviceStats,setDeviceStats]= useState([]);
+  const [deviceSearch,setDeviceSearch]= useState('');
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
 
@@ -32,12 +34,14 @@ export default function Stats() {
     setLoading(true);
     setError(null);
     try {
-      const [statsRes, dailyRes] = await Promise.all([
+      const [statsRes, dailyRes, deviceRes] = await Promise.all([
         statsApi.getStats(),
         statsApi.getDailyStats(days),
+        statsApi.getDeviceStats(),
       ]);
       setStats(statsRes.data);
       setDaily(dailyRes.data);
+      setDeviceStats(deviceRes.data?.devices || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -80,6 +84,15 @@ export default function Stats() {
 
   const dailyData = buildDailyData();
   const pieData   = buildPieData();
+  const filteredDevices = deviceStats.filter((device) =>
+    device.device_id.toLowerCase().includes(deviceSearch.trim().toLowerCase())
+  );
+  const deviceTotals = deviceStats.reduce((acc, device) => ({
+    machines: acc.machines + 1,
+    total: acc.total + (device.total || 0),
+    today_updated: acc.today_updated + (device.today_updated || 0),
+    live: acc.live + (device.live || 0),
+  }), { machines: 0, total: 0, today_updated: 0, live: 0 });
 
   return (
     <div className="page">
@@ -161,6 +174,79 @@ export default function Stats() {
               ))}
             </div>
           )}
+
+          {/* Device progress */}
+          <div className="card" style={{ marginBottom: '1.25rem' }}>
+            <div className="card-header">
+              <div>
+                <h3>🖥️ Tiến độ theo máy</h3>
+                <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.2rem' }}>
+                  {deviceTotals.machines.toLocaleString()} máy · {deviceTotals.total.toLocaleString()} account · {deviceTotals.today_updated.toLocaleString()} cập nhật hôm nay · {deviceTotals.live.toLocaleString()} live
+                </div>
+              </div>
+              <input
+                value={deviceSearch}
+                onChange={(e) => setDeviceSearch(e.target.value)}
+                placeholder="Tìm tên máy..."
+                style={{
+                  width: 240,
+                  maxWidth: '100%',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: 8,
+                  padding: '.45rem .75rem',
+                  fontSize: '.85rem',
+                }}
+              />
+            </div>
+            <div className="table-container" style={{ maxHeight: 520, overflowY: 'auto' }}>
+              <table>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                  <tr>
+                    <th>Máy</th>
+                    <th>Tổng</th>
+                    <th>App</th>
+                    <th>Chrome</th>
+                    <th>Hôm nay</th>
+                    <th>Live</th>
+                    <th>Chờ/Login</th>
+                    <th>Đủ ĐK</th>
+                    <th>Die</th>
+                    <th>Hoạt động cuối</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDevices.length === 0 ? (
+                    <tr><td colSpan="10" className="empty-cell">Chưa có dữ liệu theo máy</td></tr>
+                  ) : filteredDevices.map((device) => {
+                    const appTotal = device.tasks?.app?.total || 0;
+                    const chromeTotal = device.tasks?.chrome?.total || 0;
+                    const active = (device.ACC_LOGIN || 0) + (device.LOGIN_THANH_CONG || 0);
+                    return (
+                      <tr key={device.device_id}>
+                        <td>
+                          <strong style={{ fontSize: '.85rem' }}>{device.device_id}</strong>
+                          <div style={{ color: '#64748b', fontSize: '.72rem', marginTop: 2 }}>
+                            App {appTotal.toLocaleString()} · Chrome {chromeTotal.toLocaleString()}
+                          </div>
+                        </td>
+                        <td><strong>{(device.total || 0).toLocaleString()}</strong></td>
+                        <td style={{ color: '#2563eb', fontWeight: 700 }}>{appTotal.toLocaleString()}</td>
+                        <td style={{ color: '#7c3aed', fontWeight: 700 }}>{chromeTotal.toLocaleString()}</td>
+                        <td style={{ color: '#0f766e', fontWeight: 700 }}>{(device.today_updated || 0).toLocaleString()}</td>
+                        <td style={{ color: '#16a34a', fontWeight: 700 }}>{(device.live || 0).toLocaleString()}</td>
+                        <td>{active.toLocaleString()}</td>
+                        <td style={{ color: '#8b5cf6', fontWeight: 700 }}>{(device.ACC_DU_DK || 0).toLocaleString()}</td>
+                        <td style={{ color: '#dc2626', fontWeight: 700 }}>{(device.ACC_DIE || 0).toLocaleString()}</td>
+                        <td style={{ color: '#64748b', fontSize: '.75rem', whiteSpace: 'nowrap' }}>
+                          {device.last_seen ? new Date(device.last_seen).toLocaleString('vi-VN', { hour12: false }) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
           {/* Charts grid */}
           <div className="charts-grid">

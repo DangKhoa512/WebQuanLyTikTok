@@ -129,7 +129,7 @@ const loginSuccess = async (req, res, next) => {
     const account = await ChromeAccount.findOne({ where: { username, owner_username } });
     if (!account) return error(res, 'Account không tồn tại', 404);
 
-    await account.update({ status: 'LOGIN_THANH_CONG', locked_by: null, locked_at: null });
+    await account.update({ status: 'LOGIN_THANH_CONG', device_id, locked_by: null, locked_at: null });
 
     logger.info('chrome login-success', { id: account.id, username, device_id });
     return success(res, { account }, 'Cập nhật Login Thành Công');
@@ -395,7 +395,7 @@ const reportUpload = async (req, res, next) => {
     const account = await ChromeAccount.findOne({ where: { username, owner_username } });
     if (!account) return error(res, 'Account không tồn tại', 404);
 
-    await account.update({ video_count: parseInt(video_count), locked_by: null, locked_at: null });
+    await account.update({ video_count: parseInt(video_count), device_id, locked_by: null, locked_at: null });
 
     logger.info('chrome report-upload', { id: account.id, username, video_count, device_id });
     return success(res, { account }, `Cập nhật video_count = ${video_count}`);

@@ -149,6 +149,7 @@ const uploadSuccess = async (username, device_id, video_count, owner_username) =
     video_count:    newCount,
     status:         'LOGIN_THANH_CONG',
     last_upload_at: new Date(),
+    device_id,
     locked_by:      null,
     locked_at:      null,
   });
@@ -166,6 +167,7 @@ const uploadFail = async (username, device_id, reason, owner_username) => {
   await account.update({
     status:      'LOGIN_THANH_CONG',   // upload fail → về lại Upload Thành Công
     fail_reason: reason || null,
+    device_id,
     locked_by:   null,
     locked_at:   null,
   });

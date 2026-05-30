@@ -90,6 +90,7 @@ export const chromeAccountApi = {
 export const statsApi = {
   getStats:      ()     => api.get('/stats'),
   getDailyStats: (days) => api.get('/stats/daily', { params: { days } }),
+  getDeviceStats: ()    => api.get('/stats/devices'),
 };
 
 export const userApi = {

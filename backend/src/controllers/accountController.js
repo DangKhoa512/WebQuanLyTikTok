@@ -52,6 +52,7 @@ const phoneSubmit = async (req, res, next) => {
     const account = await Account.findOne({ where: { username, owner_username } });
     if (!account) return error(res, 'Account không tồn tại', 404);
     const upd = { status, locked_by: null, locked_at: null };
+    if (device_id)    upd.device_id    = device_id;
     if (note)        upd.note        = note;
     if (fail_reason) upd.fail_reason = fail_reason;
     await account.update(upd);
@@ -94,7 +95,7 @@ const reportUpload = async (req, res, next) => {
     if (video_count === undefined) return error(res, 'Thiếu video_count', 400);
     const account = await Account.findOne({ where: { username, owner_username } });
     if (!account) return error(res, 'Account không tồn tại', 404);
-    await account.update({ video_count: parseInt(video_count), locked_by: null, locked_at: null });
+    await account.update({ video_count: parseInt(video_count), device_id, locked_by: null, locked_at: null });
     logger.info('upload report-upload', { username, video_count, device_id });
     return success(res, { account }, `Cập nhật video_count = ${video_count}`);
   } catch (err) { next(err); }
