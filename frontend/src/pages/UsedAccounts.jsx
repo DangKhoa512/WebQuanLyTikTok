@@ -6,6 +6,7 @@ import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
 import { checkLiveInBatches } from '../services/checkLiveRunner';
+import { copyText } from '../services/clipboard';
 
 const todayInput = () => {
   const now = new Date();
@@ -118,7 +119,7 @@ export default function UsedAccounts() {
       pipeValue(item.email),
       pipeValue(item.email_pass),
     ].join('|')).join('\n');
-    await navigator.clipboard.writeText(text);
+    await copyText(text);
     toast.success(`Đã copy ${rows.length} account`);
   };
 

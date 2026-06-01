@@ -6,6 +6,7 @@ import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
 import { checkLiveInBatches } from '../services/checkLiveRunner';
+import { copyText } from '../services/clipboard';
 
 const fmt = (d) =>
   d ? new Date(d).toLocaleString('vi-VN', { hour12: false }) : '—';
@@ -45,7 +46,7 @@ function BulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }) {
     setBusy(true);
     try {
       const res = await accountApi.bulkGet(ids, 'pipe');
-      await navigator.clipboard.writeText(res.data?.text || '');
+      await copyText(res.data?.text || '');
       toast.success(`Đã copy ${res.data?.count || ids.length} accounts`);
     } catch (e) { toast.error(e.message); }
     finally { setBusy(false); }
@@ -55,7 +56,7 @@ function BulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }) {
     setBusy(true);
     try {
       const res = await accountApi.bulkGet(ids, 'pipe');
-      await navigator.clipboard.writeText(res.data?.text || '');
+      await copyText(res.data?.text || '');
       await accountApi.bulkAction(ids, 'mark_used');
       toast.success(`Đã copy & đánh dấu ${res.data?.count || ids.length} accounts`);
       onClear(); onRefresh();
@@ -210,7 +211,7 @@ function CopyUnusedBar({ onRefresh }) {
       const res = await accountApi.copyUnused('ACC_DU_DK', markUsed);
       const { text, count } = res.data;
       if (count === 0) { toast.error('Không có account nào chưa dùng'); return; }
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       setLastCount(count);
       toast.success(markUsed ? `Đã copy & đánh dấu ${count} accounts` : `Đã copy ${count} accounts`);
       if (markUsed) onRefresh();

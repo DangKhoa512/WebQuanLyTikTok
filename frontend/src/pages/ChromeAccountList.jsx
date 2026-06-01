@@ -6,6 +6,7 @@ import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
 import { checkLiveInBatches } from '../services/checkLiveRunner';
+import { copyText } from '../services/clipboard';
 
 const fmt = (d) =>
   d ? new Date(d).toLocaleString('vi-VN', { hour12: false }) : '—';
@@ -46,7 +47,7 @@ function ChromeBulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }
     setBusy(true);
     try {
       const res = await chromeAccountApi.bulkGet(ids, 'pipe');
-      await navigator.clipboard.writeText(res.data?.text || '');
+      await copyText(res.data?.text || '');
       toast.success(`Đã copy ${res.data?.count || ids.length} accounts`);
     } catch (e) { toast.error(e.message); }
     finally { setBusy(false); }
@@ -56,7 +57,7 @@ function ChromeBulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }
     setBusy(true);
     try {
       const res = await chromeAccountApi.bulkGet(ids, 'pipe');
-      await navigator.clipboard.writeText(res.data?.text || '');
+      await copyText(res.data?.text || '');
       await chromeAccountApi.bulkAction(ids, 'mark_used');
       toast.success(`Đã copy & đánh dấu ${res.data?.count || ids.length} accounts`);
       onClear(); onRefresh();
