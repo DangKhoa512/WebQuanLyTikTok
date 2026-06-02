@@ -1,4 +1,4 @@
-const { Op, QueryTypes } = require('sequelize');
+const { QueryTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const Account = require('../models/Account');
 const ChromeAccount = require('../models/ChromeAccount');
@@ -16,27 +16,41 @@ const emptyStatusCounts = () =>
   STATUSES.reduce((out, status) => ({ ...out, [status]: 0 }), {});
 
 const getModelStats = async (Model, todayStart, todayEnd, ownerFilter = null) => {
-  const ownerWhere = ownerFilter ? { owner_username: ownerFilter } : {};
-  const statusCounts = await Promise.all(
-    STATUSES.map((status) => Model.count({ where: { ...ownerWhere, status } }))
+  const tableName = Model.getTableName();
+  const replacements = { todayStart, todayEnd };
+  const ownerSql = ownerFilter ? 'WHERE owner_username = :owner' : '';
+  if (ownerFilter) replacements.owner = ownerFilter;
+
+  const [row = {}] = await sequelize.query(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(reg_at >= :todayStart AND reg_at < :todayEnd) AS today_reg,
+       SUM(updated_at >= :todayStart AND updated_at < :todayEnd) AS today_updated,
+       SUM(live_status = 'live') AS live,
+       SUM(live_status = 'die') AS die_live,
+       SUM(live_status = 'unknown') AS unknown_live,
+       SUM(status = 'ACC_LOGIN') AS ACC_LOGIN,
+       SUM(status = 'LOGIN_THANH_CONG') AS LOGIN_THANH_CONG,
+       SUM(status = 'ACC_DA_KHANG') AS ACC_DA_KHANG,
+       SUM(status = 'ACC_CHUA_KHANG') AS ACC_CHUA_KHANG,
+       SUM(status = 'ACC_DU_DK') AS ACC_DU_DK,
+       SUM(status = 'ACC_DIE') AS ACC_DIE
+     FROM ${tableName}
+     ${ownerSql}`,
+    { replacements, type: QueryTypes.SELECT }
   );
 
-  const stats = {
-    total: await Model.count({ where: ownerWhere }),
-    ...emptyStatusCounts(),
-    today_reg: await Model.count({
-      where: { ...ownerWhere, reg_at: { [Op.gte]: todayStart, [Op.lt]: todayEnd } },
-    }),
-    today_updated: await Model.count({
-      where: { ...ownerWhere, updated_at: { [Op.gte]: todayStart, [Op.lt]: todayEnd } },
-    }),
-    live: await Model.count({ where: { ...ownerWhere, live_status: 'live' } }),
-    die_live: await Model.count({ where: { ...ownerWhere, live_status: 'die' } }),
-    unknown_live: await Model.count({ where: { ...ownerWhere, live_status: 'unknown' } }),
-  };
-
-  STATUSES.forEach((status, idx) => {
-    stats[status] = statusCounts[idx];
+  const stats = { ...emptyStatusCounts() };
+  [
+    'total',
+    'today_reg',
+    'today_updated',
+    'live',
+    'die_live',
+    'unknown_live',
+    ...STATUSES,
+  ].forEach((key) => {
+    stats[key] = parseInt(row[key], 10) || 0;
   });
 
   return stats;

@@ -88,9 +88,9 @@ export const chromeAccountApi = {
 
 // ── Stats endpoints ───────────────────────────────────────────────────────────
 export const statsApi = {
-  getStats:      ()     => api.get('/stats'),
-  getDailyStats: (days) => api.get('/stats/daily', { params: { days } }),
-  getDeviceStats: ()    => api.get('/stats/devices'),
+  getStats:      ()     => api.get('/stats', { timeout: 60_000 }),
+  getDailyStats: (days) => api.get('/stats/daily', { params: { days }, timeout: 60_000 }),
+  getDeviceStats: ()    => api.get('/stats/devices', { timeout: 60_000 }),
 };
 
 export const userApi = {
