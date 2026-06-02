@@ -17,9 +17,9 @@ router.post('/update-live',                 validate(schemas.updateLive),  ctrl.
 // Giống Chrome: kháng flow
 router.post('/get-account',     ctrl.getAccount);      // lấy LOGIN_THANH_CONG để xử lý kháng
 router.post('/phone-submit',    ctrl.phoneSubmit);     // báo DA_KHANG / CHUA_KHANG / về ACC_LOGIN
-router.post('/get-can-upvideo', ctrl.getCanUpvideo);   // lấy DA_KHANG/CHUA_KHANG < 20 video
+router.post('/get-can-upvideo', ctrl.getCanUpvideo);   // lấy DA_KHANG/CHUA_KHANG < 12 video
 router.post('/report-upload',   ctrl.reportUpload);    // báo đã upload xong
-router.post('/get-can-khang',   ctrl.getCanKhang);     // lấy CHUA_KHANG ≥ 20 video để kháng
+router.post('/get-can-khang',   ctrl.getCanKhang);     // lấy CHUA_KHANG > 10 video để kháng
 
 // ── Dashboard Bulk API  (require JWT Bearer token) ────────────────────────────
 router.post('/import',           jwtAuth, importAccounts);

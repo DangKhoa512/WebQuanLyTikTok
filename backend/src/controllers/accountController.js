@@ -7,6 +7,8 @@ const { ownerFromRequest, ownerFromAdmin } = require('../utils/owner');
 
 const PHONE_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 10;
+const UPVIDEO_MAX_VIDEOS = 12;
+const KHANG_MIN_VIDEOS = 10;
 
 const availableLockWhere = () => ({
   [Op.or]: [
@@ -61,7 +63,7 @@ const phoneSubmit = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ── Lấy acc DA_KHANG/CHUA_KHANG < 20 video để upload thêm ───────────────────
+// ── Lấy acc DA_KHANG/CHUA_KHANG < 12 video để upload thêm ───────────────────
 const getCanUpvideo = async (req, res, next) => {
   try {
     const { device_id } = req.body;
@@ -70,7 +72,7 @@ const getCanUpvideo = async (req, res, next) => {
     const transaction = await Account.sequelize.transaction();
     try {
       const account = await Account.findOne({
-        where: { status: { [Op.in]: ['ACC_DA_KHANG','ACC_CHUA_KHANG'] }, video_count: { [Op.lt]: 20 }, owner_username, ...availableLockWhere() },
+        where: { status: { [Op.in]: ['ACC_DA_KHANG','ACC_CHUA_KHANG'] }, video_count: { [Op.lt]: UPVIDEO_MAX_VIDEOS }, owner_username, ...availableLockWhere() },
         lock:  transaction.LOCK.UPDATE,
         skipLocked: true,
         transaction,
@@ -101,7 +103,7 @@ const reportUpload = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ── Lấy acc CHUA_KHANG ≥ 20 video để kháng ──────────────────────────────────
+// ── Lấy acc CHUA_KHANG > 10 video để kháng ──────────────────────────────────
 const getCanKhang = async (req, res, next) => {
   try {
     const { device_id } = req.body;
@@ -110,7 +112,7 @@ const getCanKhang = async (req, res, next) => {
     const transaction = await Account.sequelize.transaction();
     try {
       const account = await Account.findOne({
-        where: { status: 'ACC_CHUA_KHANG', video_count: { [Op.gte]: 20 }, owner_username, ...availableLockWhere() },
+        where: { status: 'ACC_CHUA_KHANG', video_count: { [Op.gt]: KHANG_MIN_VIDEOS }, owner_username, ...availableLockWhere() },
         lock:  transaction.LOCK.UPDATE,
         skipLocked: true,
         transaction,

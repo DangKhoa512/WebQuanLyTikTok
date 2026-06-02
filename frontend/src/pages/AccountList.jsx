@@ -99,7 +99,7 @@ function BulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }) {
   const handlePromote = async () => {
     setPromoting(true);
     try {
-      const res = await accountApi.promoteEligible(5, 20);
+      const res = await accountApi.promoteEligible(4, 10);
       toast.success(res.message);
       onRefresh();
     } catch (e) { toast.error(e.message); }
@@ -195,7 +195,7 @@ function UploadToolbar({ onRefresh, onCheckAll, checking }) {
       >
         🔍 {checking ? 'Đang check...' : 'Check live toàn bộ'}
       </button>
-      <div style={{ fontSize: '.68rem', color: '#475569' }}>Điều kiện: Đang UP + ≥20 video + reg ≥ 5 ngày</div>
+      <div style={{ fontSize: '.68rem', color: '#475569' }}>Điều kiện: Đang UP + &gt; 10 video + reg ≥ 4 ngày</div>
     </div>
   );
 }
@@ -321,9 +321,9 @@ function DangUpQuickBar({ onFilter, onClearFilter, videoMax }) {
       <span style={{ color, fontWeight: 700, fontSize: '.9rem' }}>⚡ Đang Upload</span>
       <span style={{ color: '#94a3b8', fontSize: '.8rem' }}>Lọc nhanh acc cần up thêm:</span>
       <div style={{ flex: 1 }} />
-      <button onClick={() => videoMax === '19' ? onClearFilter() : onFilter(19)}
-        style={{ background: videoMax === '19' ? color : 'transparent', border: `1px solid ${color}`, color: videoMax === '19' ? '#fff' : color, borderRadius: '8px', padding: '.4rem .9rem', cursor: 'pointer', fontWeight: 600, fontSize: '.82rem', whiteSpace: 'nowrap', transition: 'all .15s' }}>
-        📹 Dưới 20 video {videoMax === '19' && '✓'}
+      <button onClick={() => videoMax === '11' ? onClearFilter() : onFilter(11)}
+        style={{ background: videoMax === '11' ? color : 'transparent', border: `1px solid ${color}`, color: videoMax === '11' ? '#fff' : color, borderRadius: '8px', padding: '.4rem .9rem', cursor: 'pointer', fontWeight: 600, fontSize: '.82rem', whiteSpace: 'nowrap', transition: 'all .15s' }}>
+        📹 Dưới 12 video {videoMax === '11' && '✓'}
       </button>
       <button onClick={() => videoMax === '0' ? onClearFilter() : onFilter(0)}
         style={{ background: videoMax === '0' ? color : 'transparent', border: `1px solid ${color}`, color: videoMax === '0' ? '#fff' : color, borderRadius: '8px', padding: '.4rem .9rem', cursor: 'pointer', fontWeight: 600, fontSize: '.82rem', whiteSpace: 'nowrap', transition: 'all .15s' }}>
@@ -351,9 +351,9 @@ function KhangQuickBar({ status, onFilter, onClearFilter, videoMax }) {
       <span style={{ color, fontWeight: 700, fontSize: '.9rem' }}>⚡ {label}</span>
       <span style={{ color: '#94a3b8', fontSize: '.8rem' }}>Lọc nhanh acc cần xử lý:</span>
       <div style={{ flex: 1 }} />
-      <button onClick={() => videoMax === '19' ? onClearFilter() : onFilter(19)}
-        style={{ background: videoMax === '19' ? color : 'transparent', border: `1px solid ${color}`, color: videoMax === '19' ? '#fff' : color, borderRadius: '8px', padding: '.4rem .9rem', cursor: 'pointer', fontWeight: 600, fontSize: '.82rem', whiteSpace: 'nowrap', transition: 'all .15s' }}>
-        📹 Dưới 20 video {videoMax === '19' && '✓'}
+      <button onClick={() => videoMax === '11' ? onClearFilter() : onFilter(11)}
+        style={{ background: videoMax === '11' ? color : 'transparent', border: `1px solid ${color}`, color: videoMax === '11' ? '#fff' : color, borderRadius: '8px', padding: '.4rem .9rem', cursor: 'pointer', fontWeight: 600, fontSize: '.82rem', whiteSpace: 'nowrap', transition: 'all .15s' }}>
+        📹 Dưới 12 video {videoMax === '11' && '✓'}
       </button>
       <button onClick={() => videoMax === '0' ? onClearFilter() : onFilter(0)}
         style={{ background: videoMax === '0' ? color : 'transparent', border: `1px solid ${color}`, color: videoMax === '0' ? '#fff' : color, borderRadius: '8px', padding: '.4rem .9rem', cursor: 'pointer', fontWeight: 600, fontSize: '.82rem', whiteSpace: 'nowrap', transition: 'all .15s' }}>
@@ -761,9 +761,9 @@ export default function AccountList() {
                           ? <span style={{ color: '#f87171', fontWeight: 700, fontSize: '.78rem' }}>• die</span>
                           : <span style={{ color: '#475569', fontSize: '.78rem' }}>• unknown</span>}
                       </td>
-                      <td style={{ color: acc.video_count > 0 ? '#047857' : '#64748b', fontWeight: acc.video_count >= 20 ? 800 : 700 }}>
+                      <td style={{ color: acc.video_count > 0 ? '#047857' : '#64748b', fontWeight: acc.video_count > 10 ? 800 : 700 }}>
                         {acc.video_count ?? 0}
-                        {acc.video_count >= 20 && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
+                        {acc.video_count > 10 && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
                       </td>
                       <td style={{ color: '#2563eb', fontWeight: 700 }}>{fmtNum(acc.followers)}</td>
                       <td style={{ color: '#7c3aed', fontWeight: 700 }}>{fmtNum(acc.following)}</td>

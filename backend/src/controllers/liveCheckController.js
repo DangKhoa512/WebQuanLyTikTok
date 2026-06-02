@@ -21,6 +21,9 @@ const {
   parseProxy: sharedParseProxy,
 } = require('../utils/checkLiveUtils');
 
+const ELIGIBLE_MIN_AGE_DAYS = 4;
+const ELIGIBLE_MIN_VIDEOS = 10;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // UA profiles: mỗi profile có UA + header đặc trưng khớp nhau
 // ─────────────────────────────────────────────────────────────────────────────
@@ -428,7 +431,7 @@ const checkLive = async (req, res, next) => {
 // ── Promote eligible ──────────────────────────────────────────────────────
 const promoteEligible = async (req, res, next) => {
   try {
-    const { min_age_days = 5, min_videos = 20 } = req.body;
+    const { min_age_days = ELIGIBLE_MIN_AGE_DAYS, min_videos = ELIGIBLE_MIN_VIDEOS } = req.body;
     const cutoff = new Date(Date.now() - min_age_days * 24 * 60 * 60 * 1000);
 
     const [affected] = await Account.update(
@@ -436,7 +439,7 @@ const promoteEligible = async (req, res, next) => {
       {
         where: {
           status:      'LOGIN_THANH_CONG',
-          video_count: { [Op.gte]: min_videos },
+          video_count: { [Op.gt]: min_videos },
           reg_at:      { [Op.lte]: cutoff },
           ...scopedWhere(req),
         },
@@ -447,7 +450,7 @@ const promoteEligible = async (req, res, next) => {
     return success(res, { affected },
       affected > 0
         ? `Đã chuyển ${affected} accounts đủ điều kiện → ACC_DU_DK`
-        : `Không có account đủ điều kiện (cần: Login Thành Công + ≥${min_videos} video + reg ≥ ${min_age_days} ngày)`);
+        : `Không có account đủ điều kiện (cần: Login Thành Công + > ${min_videos} video + reg ≥ ${min_age_days} ngày)`);
 
   } catch (err) { next(err); }
 };

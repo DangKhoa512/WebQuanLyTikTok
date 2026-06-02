@@ -47,7 +47,7 @@ function UsedToolbar({ isChrome }) {
       </div>
       <div style={{ flex: 1 }} />
       <div style={{ fontSize: '.68rem', color: '#475569' }}>
-        Điều kiện: {isChrome ? '≥20 video + reg ≥ 5 ngày' : 'Đang UP + ≥20 video + reg ≥ 5 ngày'}
+        Điều kiện: {isChrome ? '> 10 video + reg ≥ 4 ngày' : 'Đang UP + > 10 video + reg ≥ 4 ngày'}
       </div>
     </div>
   );
@@ -474,9 +474,9 @@ export default function UsedAccounts() {
                       ? <span style={{ color: '#f87171', fontWeight: 700, fontSize: '.78rem' }}>• die</span>
                       : <span style={{ color: '#475569', fontSize: '.78rem' }}>• unknown</span>}
                   </td>
-                  <td style={{ color: item.video_count > 0 ? '#047857' : '#64748b', fontWeight: item.video_count >= 20 ? 800 : 700 }}>
+                  <td style={{ color: item.video_count > 0 ? '#047857' : '#64748b', fontWeight: item.video_count > 10 ? 800 : 700 }}>
                     {item.video_count ?? 0}
-                    {item.video_count >= 20 && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
+                    {item.video_count > 10 && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
                   </td>
                   <td style={{ color: '#2563eb', fontWeight: 700 }}>{fmtNum(item.followers)}</td>
                   <td style={{ color: '#7c3aed', fontWeight: 700 }}>{fmtNum(item.following)}</td>

@@ -100,7 +100,7 @@ function ChromeBulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }
   const handlePromote = async () => {
     setPromoting(true);
     try {
-      const res = await chromeAccountApi.promoteEligible(5, 20);
+      const res = await chromeAccountApi.promoteEligible(4, 10);
       toast.success(res.message);
       onRefresh();
     } catch (e) { toast.error(e.message); }
@@ -196,7 +196,7 @@ function ChromeToolbar({ onRefresh, onCheckAll, checking }) {
       >
         🔍 {checking ? 'Đang check...' : 'Check live toàn bộ'}
       </button>
-      <div style={{ fontSize: '.68rem', color: '#475569' }}>Điều kiện: ≥20 video + reg ≥ 5 ngày</div>
+      <div style={{ fontSize: '.68rem', color: '#475569' }}>Điều kiện: &gt; 10 video + reg ≥ 4 ngày</div>
     </div>
   );
 }
@@ -338,19 +338,19 @@ function KhangQuickBar({ status, onFilter, onClearFilter, videoMax }) {
       <span style={{ color: '#94a3b8', fontSize: '.8rem' }}>Lọc nhanh acc cần xử lý:</span>
       <div style={{ flex: 1 }} />
 
-      {/* Nút lọc dưới 20 video */}
+      {/* Nút lọc dưới 12 video */}
       <button
-        onClick={() => videoMax === '19' ? onClearFilter() : onFilter(19)}
+        onClick={() => videoMax === '11' ? onClearFilter() : onFilter(11)}
         style={{
-          background: videoMax === '19' ? color : 'transparent',
+          background: videoMax === '11' ? color : 'transparent',
           border:     `1px solid ${color}`,
-          color:      videoMax === '19' ? '#fff' : color,
+          color:      videoMax === '11' ? '#fff' : color,
           borderRadius: '8px', padding: '.4rem .9rem',
           cursor: 'pointer', fontWeight: 600, fontSize: '.82rem', whiteSpace: 'nowrap',
           transition: 'all .15s',
         }}
       >
-        📹 Dưới 20 video {videoMax === '19' && '✓'}
+        📹 Dưới 12 video {videoMax === '11' && '✓'}
       </button>
 
       {/* Nút lọc 0 video */}
@@ -709,9 +709,9 @@ export default function ChromeAccountList() {
                         : acc.live_status === 'die'    ? <span style={{ color: '#f87171', fontWeight: 700, fontSize: '.78rem' }}>• die</span>
                         : <span style={{ color: '#475569', fontSize: '.78rem' }}>• unknown</span>}
                       </td>
-                      <td style={{ color: acc.video_count > 0 ? '#047857' : '#64748b', fontWeight: acc.video_count >= 20 ? 800 : 700 }}>
+                      <td style={{ color: acc.video_count > 0 ? '#047857' : '#64748b', fontWeight: acc.video_count > 10 ? 800 : 700 }}>
                         {acc.video_count ?? 0}
-                        {acc.video_count >= 20 && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
+                        {acc.video_count > 10 && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
                       </td>
                       <td style={{ color: '#2563eb', fontWeight: 700 }}>{fmtNum(acc.followers)}</td>
                       <td style={{ color: '#7c3aed', fontWeight: 700 }}>{fmtNum(acc.following)}</td>

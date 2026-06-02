@@ -54,8 +54,8 @@ export const accountApi = {
   // Live check & promote
   checkLive: (ids = [], proxies = [], concurrency = 5, delay_ms = 1000) =>
     api.post('/accounts/check-live', { ids, proxies, concurrency, delay_ms }, { timeout: 600_000 }),
-  promoteEligible: (min_age_days = 1) =>
-    api.post('/accounts/promote-eligible', { min_age_days }),
+  promoteEligible: (min_age_days = 4, min_videos = 10) =>
+    api.post('/accounts/promote-eligible', { min_age_days, min_videos }),
   // Bulk operations
   bulkAction: (ids, action, opts = {}) =>
     api.post('/accounts/bulk-action', { ids, action, ...opts }),
@@ -76,7 +76,7 @@ export const chromeAccountApi = {
     api.post('/chrome-accounts/import', { text, status }),
   checkLive: (ids, proxies, concurrency, delay_ms) =>
     api.post('/chrome-accounts/check-live', { ids, proxies, concurrency, delay_ms }, { timeout: 600_000 }),
-  promoteEligible: (min_age_days = 5, min_videos = 20) =>
+  promoteEligible: (min_age_days = 4, min_videos = 10) =>
     api.post('/chrome-accounts/promote-eligible', { min_age_days, min_videos }),
   bulkAction: (ids, action, opts = {}) =>
     api.post('/chrome-accounts/bulk-action', { ids, action, ...opts }),
