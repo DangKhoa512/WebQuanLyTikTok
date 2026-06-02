@@ -477,6 +477,7 @@ export default function AccountList() {
   const allPageIds      = accounts.map((a) => a.id);
   const allPageSelected = allPageIds.length > 0 && allPageIds.every((id) => selected.has(id));
   const someSelected    = allPageIds.some((id) => selected.has(id));
+  const rowOffset       = ((pagination?.page || filters.page || 1) - 1) * (pagination?.limit || filters.limit || 20);
 
   const toggleAll = () =>
     setSelected((prev) => { const next = new Set(prev); allPageSelected ? allPageIds.forEach((id) => next.delete(id)) : allPageIds.forEach((id) => next.add(id)); return next; });
@@ -711,7 +712,7 @@ export default function AccountList() {
                       ref={(el) => { if (el) el.indeterminate = someSelected && !allPageSelected; }}
                       onChange={toggleAll} style={{ cursor: 'pointer', width: 15, height: 15 }} />
                   </th>
-                  <th>#</th>
+                  <th>STT</th>
                   <th>Username</th>
                   <th>Email</th>
                   <th>Proxy</th>
@@ -726,14 +727,14 @@ export default function AccountList() {
                 </tr>
               </thead>
               <tbody>
-                {accounts.map((acc) => {
+                {accounts.map((acc, index) => {
                   const sc = STATUS_COLOR[acc.status] || { bg: 'rgba(100,116,139,.1)', color: '#94a3b8' };
                   return (
                     <tr key={acc.id} className={`upload-row${selected.has(acc.id) ? ' row-selected' : ''}`}>
                       <td className="cb-cell" onClick={(e) => toggleOne(acc.id, e)}>
                         <input type="checkbox" checked={selected.has(acc.id)} onChange={() => {}} style={{ cursor: 'pointer', width: 15, height: 15 }} />
                       </td>
-                      <td className="td-mono" style={{ color: '#94a3b8' }}>{acc.id}</td>
+                      <td className="td-mono" style={{ color: '#94a3b8' }}>{rowOffset + index + 1}</td>
                       <td>
                         <strong style={{ fontSize: '.85rem' }}>{acc.username || <span style={{ color: '#94a3b8' }}>N/A</span>}</strong>
                         {acc.note && <div style={{ fontSize: '.7rem', color: '#8b5cf6', marginTop: 2 }}>📝 {acc.note.length > 30 ? acc.note.substring(0, 30) + '…' : acc.note}</div>}

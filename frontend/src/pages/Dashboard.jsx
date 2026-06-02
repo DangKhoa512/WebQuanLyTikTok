@@ -195,7 +195,7 @@ function RecentTable({ title, rows, path, emptyText }) {
         <table>
           <thead>
             <tr>
-              <th>ID</th>
+              <th>STT</th>
               <th>Username</th>
               <th>Device</th>
               <th>Status</th>
@@ -216,9 +216,9 @@ function RecentTable({ title, rows, path, emptyText }) {
                 </td>
               </tr>
             ) : (
-              rows.map((acc) => (
+              rows.map((acc, index) => (
                 <tr key={acc.id} onClick={() => navigate(`${path}/${acc.id}`)}>
-                  <td className="td-mono">{acc.id}</td>
+                  <td className="td-mono">{index + 1}</td>
                   <td><strong>{acc.username || <span className="text-muted">N/A</span>}</strong></td>
                   <td className="td-mono">{acc.device_id || '-'}</td>
                   <td><StatusBadge status={acc.status} /></td>

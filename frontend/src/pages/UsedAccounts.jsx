@@ -126,6 +126,7 @@ export default function UsedAccounts() {
   const selectedRows = items.filter((item) => selected.has(item.id));
   const allPageSelected = items.length > 0 && items.every((item) => selected.has(item.id));
   const someSelected = items.some((item) => selected.has(item.id));
+  const rowOffset = ((meta.page || filters.page || 1) - 1) * (meta.limit || filters.limit || 50);
 
   const toggleAll = () => {
     setSelected((prev) => {
@@ -419,7 +420,7 @@ export default function UsedAccounts() {
                     onChange={toggleAll}
                   />
                 </th>
-                <th>ID</th>
+                <th>STT</th>
                 <th>Username</th>
                 <th>Email</th>
                 <th>Proxy</th>
@@ -438,14 +439,14 @@ export default function UsedAccounts() {
                 <tr><td colSpan="13" className="empty-cell">Đang tải...</td></tr>
               ) : items.length === 0 ? (
                 <tr><td colSpan="13" className="empty-cell">Không có lịch sử phù hợp</td></tr>
-              ) : items.map((item) => {
+              ) : items.map((item, index) => {
                 const sc = STATUS_COLOR[item.status || item.source_status] || { bg: 'rgba(100,116,139,.1)', color: '#94a3b8' };
                 return (
                 <tr key={item.id} className={`used-row${selected.has(item.id) ? ' row-selected' : ''}`}>
                   <td className="cb-cell" onClick={() => toggleOne(item.id)}>
                     <input type="checkbox" checked={selected.has(item.id)} onChange={() => {}} style={{ cursor: 'pointer', width: 15, height: 15 }} />
                   </td>
-                  <td className="td-mono" style={{ color: '#94a3b8' }}>{item.id}</td>
+                  <td className="td-mono" style={{ color: '#94a3b8' }}>{rowOffset + index + 1}</td>
                   <td>
                     <strong style={{ fontSize: '.85rem' }}>{item.username || <span style={{ color: '#94a3b8' }}>N/A</span>}</strong>
                     <div style={{ fontSize: '.7rem', color: '#8b5cf6', marginTop: 2 }}>
