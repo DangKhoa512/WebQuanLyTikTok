@@ -22,7 +22,7 @@ const {
 } = require('../utils/checkLiveUtils');
 
 const ELIGIBLE_MIN_AGE_DAYS = 4;
-const ELIGIBLE_MIN_VIDEOS = 10;
+const ELIGIBLE_MIN_VIDEOS = 20;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UA profiles: mỗi profile có UA + header đặc trưng khớp nhau
@@ -439,7 +439,7 @@ const promoteEligible = async (req, res, next) => {
       {
         where: {
           status:      'LOGIN_THANH_CONG',
-          video_count: { [Op.gt]: min_videos },
+          video_count: { [Op.gte]: min_videos },
           reg_at:      { [Op.lte]: cutoff },
           ...scopedWhere(req),
         },
@@ -450,7 +450,7 @@ const promoteEligible = async (req, res, next) => {
     return success(res, { affected },
       affected > 0
         ? `Đã chuyển ${affected} accounts đủ điều kiện → ACC_DU_DK`
-        : `Không có account đủ điều kiện (cần: Login Thành Công + > ${min_videos} video + reg ≥ ${min_age_days} ngày)`);
+        : `Không có account đủ điều kiện (cần: Login Thành Công + ≥ ${min_videos} video + reg ≥ ${min_age_days} ngày)`);
 
   } catch (err) { next(err); }
 };

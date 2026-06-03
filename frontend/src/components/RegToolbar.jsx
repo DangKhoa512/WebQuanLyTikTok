@@ -13,7 +13,7 @@ export default function RegToolbar({ onRefresh }) {
   const handlePromote = async () => {
     setPromoting(true);
     try {
-      const res = await api.post('/accounts/promote-eligible', { min_age_days: 1 });
+      const res = await api.post('/accounts/promote-eligible', { min_age_days: 4, min_videos: 20 });
       toast.success(res.message);
       onRefresh();
     } catch (e) {
@@ -71,7 +71,7 @@ export default function RegToolbar({ onRefresh }) {
         {promoting ? '⏳ Đang chuyển...' : '🎯 Chuyển Đủ ĐK → DU_DK'}
       </button>
       <div style={{ fontSize: '.68rem', color: '#475569' }}>
-        Điều kiện: Đang UP + &gt; 10 video + reg ≥ 4 ngày
+        Điều kiện: Đang UP + ≥ 20 video + reg ≥ 4 ngày
       </div>
     </div>
   );

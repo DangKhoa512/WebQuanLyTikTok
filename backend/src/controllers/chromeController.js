@@ -30,8 +30,9 @@ const PHONE_STATUSES   = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHU
 const MANUAL_STATUSES  = ['ACC_LOGIN'];
 const ALL_STATUSES     = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
-const UPVIDEO_MAX_VIDEOS = 12;
-const ELIGIBLE_MIN_VIDEOS = 10;
+const UPVIDEO_MAX_VIDEOS = 20;
+const KHANG_MIN_VIDEOS = 10;
+const ELIGIBLE_MIN_VIDEOS = 20;
 const ELIGIBLE_MIN_AGE_DAYS = 4;
 
 const nullify = (v) =>
@@ -91,7 +92,7 @@ const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) =
     updateData.status = 'ACC_DIE';
     action = 'die';
     message = 'Account die, đã chuyển sang ACC_DIE';
-  } else if (videoCount > ELIGIBLE_MIN_VIDEOS && isEligibleAge(account.reg_at)) {
+  } else if (videoCount >= ELIGIBLE_MIN_VIDEOS && isEligibleAge(account.reg_at)) {
     updateData.status = 'ACC_DU_DK';
     action = 'eligible';
     message = 'Đã đủ video';
@@ -434,7 +435,7 @@ const checkLive = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ── Phone: Lấy acc cần UPVIDEO (DA_KHANG hoặc CHUA_KHANG mà < 12 video) ──────
+// ── Phone: Lấy acc cần UPVIDEO (DA_KHANG hoặc CHUA_KHANG mà < 20 video) ──────
 const getCanUpvideo = async (req, res, next) => {
   try {
     const { device_id } = req.body;
@@ -498,7 +499,7 @@ const getCanKhang = async (req, res, next) => {
       const account = await ChromeAccount.findOne({
         where: {
           status:      'ACC_CHUA_KHANG',
-          video_count: { [Op.gt]: ELIGIBLE_MIN_VIDEOS },
+          video_count: { [Op.gt]: KHANG_MIN_VIDEOS },
           owner_username,
           ...availableLockWhere(),
         },
@@ -520,7 +521,7 @@ const getCanKhang = async (req, res, next) => {
 };
 
 // ── Dashboard: Promote Eligible ──────────────────────────────────────────────
-// Chỉ promote ACC_DA_KHANG có > 10 video và reg >= 4 ngày → ACC_DU_DK
+// Chỉ promote ACC_DA_KHANG có >= 20 video và reg >= 4 ngày → ACC_DU_DK
 const promoteEligible = async (req, res, next) => {
   try {
     const { min_age_days = ELIGIBLE_MIN_AGE_DAYS, min_videos = ELIGIBLE_MIN_VIDEOS } = req.body;
@@ -531,7 +532,7 @@ const promoteEligible = async (req, res, next) => {
       {
         where: {
           status:      'ACC_DA_KHANG',
-          video_count: { [Op.gt]: min_videos },
+          video_count: { [Op.gte]: min_videos },
           reg_at:      { [Op.lte]: cutoff },
           ...scopedWhere(req),
         },
@@ -542,7 +543,7 @@ const promoteEligible = async (req, res, next) => {
     return success(res, { affected },
       affected > 0
         ? `Đã chuyển ${affected} accounts đủ điều kiện → ACC_DU_DK`
-        : `Không có account đủ điều kiện (cần: Đã Kháng + > ${min_videos} video + reg ≥ ${min_age_days} ngày)`
+        : `Không có account đủ điều kiện (cần: Đã Kháng + ≥ ${min_videos} video + reg ≥ ${min_age_days} ngày)`
     );
   } catch (err) { next(err); }
 };

@@ -8,8 +8,9 @@ const { checkOne, parseProxy } = require('../utils/checkLiveUtils');
 
 const PHONE_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','UPVIDEO_DONE'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
-const UPVIDEO_MAX_VIDEOS = 12;
+const UPVIDEO_MAX_VIDEOS = 20;
 const KHANG_MIN_VIDEOS = 10;
+const ELIGIBLE_MIN_VIDEOS = 20;
 const ELIGIBLE_MIN_AGE_DAYS = 4;
 
 const isEligibleAge = (regAt) => {
@@ -58,7 +59,7 @@ const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) =
     updateData.status = 'ACC_DIE';
     action = 'die';
     message = 'Account die, đã chuyển sang ACC_DIE';
-  } else if (videoCount > KHANG_MIN_VIDEOS && isEligibleAge(account.reg_at)) {
+  } else if (videoCount >= ELIGIBLE_MIN_VIDEOS && isEligibleAge(account.reg_at)) {
     updateData.status = 'ACC_DU_DK';
     action = 'eligible';
     message = 'Đã đủ video';
@@ -132,7 +133,7 @@ const phoneSubmit = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ── Lấy acc DA_KHANG/CHUA_KHANG < 12 video để upload thêm ───────────────────
+// ── Lấy acc DA_KHANG/CHUA_KHANG < 20 video để upload thêm ───────────────────
 const getCanUpvideo = async (req, res, next) => {
   try {
     const { device_id } = req.body;

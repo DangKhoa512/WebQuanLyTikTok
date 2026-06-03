@@ -8,7 +8,7 @@ router.post('/phone-submit',    ctrl.phoneSubmit);
 router.post('/get-cho-login',   ctrl.getChoLogin);    // lấy acc Chờ Login
 router.post('/login-success',   ctrl.loginSuccess);   // báo login thành công
 router.post('/get-account',     ctrl.getAccount);     // lấy acc Login Thành Công → xử lý kháng
-router.post('/get-can-upvideo', ctrl.getCanUpvideo);  // lấy acc DA_KHANG/CHUA_KHANG < 12 video
+router.post('/get-can-upvideo', ctrl.getCanUpvideo);  // lấy acc DA_KHANG/CHUA_KHANG < 20 video
 router.post('/report-upload',   ctrl.reportUpload);   // báo đã upload video xong
 router.post('/get-can-khang',   ctrl.getCanKhang);    // lấy acc CHUA_KHANG > 10 video để kháng
 
