@@ -406,6 +406,8 @@ export default function ChromeAccountList() {
     date_to:     sp.get('date_to')     || '',
     video_min:   sp.get('video_min')   || '',
     video_max:   sp.get('video_max')   || '',
+    sort_by:     sp.get('sort_by')      || '',
+    sort_dir:    sp.get('sort_dir')     || '',
     page:        parseInt(sp.get('page') || '1'),
     limit:       parseInt(sp.get('limit') || '20'),
   });
@@ -431,6 +433,23 @@ export default function ChromeAccountList() {
 
   const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   const setPage   = (page) => setFilters((prev) => ({ ...prev, page }));
+  const setSort = (field) => setFilters((prev) => ({
+    ...prev,
+    sort_by: field,
+    sort_dir: prev.sort_by === field && prev.sort_dir === 'desc' ? 'asc' : 'desc',
+    page: 1,
+  }));
+  const SortTh = ({ field, children }) => {
+    const active = filters.sort_by === field;
+    return (
+      <th>
+        <button type="button" className={`sort-th${active ? ' active' : ''}`} onClick={() => setSort(field)}>
+          <span>{children}</span>
+          <span>{active ? (filters.sort_dir === 'asc' ? '▲' : '▼') : '↕'}</span>
+        </button>
+      </th>
+    );
+  };
 
   const allPageIds      = accounts.map((a) => a.id);
   const allPageSelected = allPageIds.length > 0 && allPageIds.every((id) => selected.has(id));
@@ -512,6 +531,9 @@ export default function ChromeAccountList() {
         @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
         .chrome-row:hover { background: rgba(6,182,212,.05) !important; cursor: pointer; }
         .chrome-row.row-selected { background: rgba(6,182,212,.08) !important; }
+        .sort-th { display: inline-flex; align-items: center; gap: .35rem; border: 0; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: inherit; letter-spacing: inherit; cursor: pointer; text-transform: inherit; }
+        .sort-th span:last-child { color: #94a3b8; font-size: .68rem; line-height: 1; }
+        .sort-th.active span:last-child { color: #2563eb; }
       `}</style>
 
       {/* Header */}
@@ -594,7 +616,7 @@ export default function ChromeAccountList() {
                 {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} dòng</option>)}
               </select>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', search: '', date_from: '', date_to: '', video_min: '', video_max: '', page: 1, limit: filters.limit })}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', search: '', date_from: '', date_to: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
               ✕ Xoá bộ lọc
             </button>
           </div>
@@ -668,11 +690,11 @@ export default function ChromeAccountList() {
                   <th>Device</th>
                   <th>Status</th>
                   <th>Live</th>
-                  <th>Videos</th>
-                  <th>Followers</th>
-                  <th>Following</th>
+                  <SortTh field="video_count">Videos</SortTh>
+                  <SortTh field="followers">Followers</SortTh>
+                  <SortTh field="following">Following</SortTh>
                   <th>Note</th>
-                  <th>Reg At</th>
+                  <SortTh field="reg_at">Reg At</SortTh>
                 </tr>
               </thead>
               <tbody>

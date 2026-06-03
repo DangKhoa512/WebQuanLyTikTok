@@ -41,6 +41,22 @@ const httpError = (message, statusCode) => {
   return err;
 };
 
+const SORT_FIELDS = {
+  video_count: 'video_count',
+  followers:   'followers',
+  following:   'following',
+  reg_at:      'reg_at',
+  created_at:  'created_at',
+};
+
+const buildSortOrder = (sort_by, sort_dir) => {
+  const field = SORT_FIELDS[sort_by] || 'created_at';
+  const dir = String(sort_dir || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const order = [[field, dir]];
+  if (field !== 'created_at') order.push(['created_at', 'DESC']);
+  return order;
+};
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -197,6 +213,7 @@ const getAccounts = async (query, ownerFilter = null) => {
   const {
     status, live_status, device_id, search,
     date_from, date_to, video_min, video_max,
+    sort_by, sort_dir,
     page  = 1,
     limit = 20,
   } = query;
@@ -227,7 +244,7 @@ const getAccounts = async (query, ownerFilter = null) => {
 
   const { count, rows } = await Account.findAndCountAll({
     where,
-    order: [['created_at', 'DESC']],
+    order: buildSortOrder(sort_by, sort_dir),
     limit:  limitNum,
     offset,
   });

@@ -22,6 +22,38 @@ const currentAttributes = [
   'status','live_status','video_count','followers','following','note','reg_at',
 ];
 
+const SORT_FIELDS = new Set(['video_count', 'followers', 'following', 'reg_at', 'used_at']);
+const normalizeSort = (sort_by, sort_dir) => ({
+  field: SORT_FIELDS.has(sort_by) ? sort_by : 'used_at',
+  dir: String(sort_dir || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc',
+});
+
+const compareValues = (a, b, dir) => {
+  const aEmpty = a === null || a === undefined || a === '';
+  const bEmpty = b === null || b === undefined || b === '';
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+
+  let left = a;
+  let right = b;
+  if (a instanceof Date || b instanceof Date || String(a).includes('T') || String(b).includes('T')) {
+    left = new Date(a).getTime();
+    right = new Date(b).getTime();
+  } else {
+    left = Number(a);
+    right = Number(b);
+  }
+
+  if (!Number.isFinite(left) || !Number.isFinite(right)) {
+    left = String(a);
+    right = String(b);
+  }
+
+  if (left === right) return 0;
+  return (left > right ? 1 : -1) * (dir === 'asc' ? 1 : -1);
+};
+
 const listUsedAccounts = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -39,13 +71,20 @@ const listUsedAccounts = async (req, res, next) => {
     if (accountType) where.account_type = accountType;
     if (dateFilter) where[Op.and] = [dateFilter];
     if (req.query.username) where.username = { [Op.like]: `%${req.query.username}%` };
+    const sort = normalizeSort(req.query.sort_by, req.query.sort_dir);
 
-    const { rows, count } = await UsedAccount.findAndCountAll({
+    const historyQuery = {
       where,
-      order: [['used_at', 'DESC'], ['id', 'DESC']],
-      limit,
-      offset,
-    });
+      order: sort.field === 'used_at'
+        ? [['used_at', sort.dir.toUpperCase()], ['id', 'DESC']]
+        : [['used_at', 'DESC'], ['id', 'DESC']],
+    };
+    if (sort.field === 'used_at') {
+      historyQuery.limit = limit;
+      historyQuery.offset = offset;
+    }
+
+    const { rows, count } = await UsedAccount.findAndCountAll(historyQuery);
 
     const plainRows = rows.map((row) => row.toJSON());
     const appIds = plainRows.filter((row) => row.account_type === 'app').map((row) => row.account_id);
@@ -63,7 +102,7 @@ const listUsedAccounts = async (req, res, next) => {
 
     const appMap = mapById(appAccounts.map((row) => row.toJSON()));
     const chromeMap = mapById(chromeAccounts.map((row) => row.toJSON()));
-    const items = plainRows.map((row) => {
+    let items = plainRows.map((row) => {
       const current = row.account_type === 'chrome' ? chromeMap.get(row.account_id) : appMap.get(row.account_id);
       return {
         ...row,
@@ -78,6 +117,12 @@ const listUsedAccounts = async (req, res, next) => {
         original_exists: !!current,
       };
     });
+
+    if (sort.field !== 'used_at') {
+      items = items
+        .sort((a, b) => compareValues(a[sort.field], b[sort.field], sort.dir) || (b.id - a.id))
+        .slice(offset, offset + limit);
+    }
 
     return success(res, {
       items,

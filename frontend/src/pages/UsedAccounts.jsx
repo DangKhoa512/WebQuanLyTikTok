@@ -62,11 +62,13 @@ export default function UsedAccounts() {
   const [showStatusDlg, setShowStatusDlg] = useState(false);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 50, totalPages: 1 });
   const [filters, setFilters] = useState({
-    date: todayInput(),
+    date: sp.get('date') || todayInput(),
     account_type: sp.get('account_type') || 'app',
-    username: '',
-    page: 1,
-    limit: 50,
+    username: sp.get('username') || '',
+    sort_by: sp.get('sort_by') || '',
+    sort_dir: sp.get('sort_dir') || '',
+    page: parseInt(sp.get('page') || '1'),
+    limit: parseInt(sp.get('limit') || '50'),
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -106,6 +108,23 @@ export default function UsedAccounts() {
 
   const setFilter = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
+  };
+  const setSort = (field) => setFilters((prev) => ({
+    ...prev,
+    sort_by: field,
+    sort_dir: prev.sort_by === field && prev.sort_dir === 'desc' ? 'asc' : 'desc',
+    page: 1,
+  }));
+  const SortTh = ({ field, children }) => {
+    const active = filters.sort_by === field;
+    return (
+      <th>
+        <button type="button" className={`sort-th${active ? ' active' : ''}`} onClick={() => setSort(field)}>
+          <span>{children}</span>
+          <span>{active ? (filters.sort_dir === 'asc' ? '▲' : '▼') : '↕'}</span>
+        </button>
+      </th>
+    );
   };
 
   const copyRows = async (rows = items) => {
@@ -308,6 +327,9 @@ export default function UsedAccounts() {
         .used-filter-row .filter-group { flex: 1 1 220px; }
         .used-filter-row .filter-group input,
         .used-filter-row .filter-group select { width: 100%; }
+        .sort-th { display: inline-flex; align-items: center; gap: .35rem; border: 0; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: inherit; letter-spacing: inherit; cursor: pointer; text-transform: inherit; }
+        .sort-th span:last-child { color: #94a3b8; font-size: .68rem; line-height: 1; }
+        .sort-th.active span:last-child { color: #2563eb; }
       `}</style>
 
       <div className="page-header">
@@ -427,11 +449,11 @@ export default function UsedAccounts() {
                 <th>Device</th>
                 <th>Status</th>
                 <th>Live</th>
-                <th>Videos</th>
-                <th>Followers</th>
-                <th>Following</th>
+                <SortTh field="video_count">Videos</SortTh>
+                <SortTh field="followers">Followers</SortTh>
+                <SortTh field="following">Following</SortTh>
                 <th>Note</th>
-                <th>Ngày lấy</th>
+                <SortTh field="used_at">Ngày lấy</SortTh>
               </tr>
             </thead>
             <tbody>

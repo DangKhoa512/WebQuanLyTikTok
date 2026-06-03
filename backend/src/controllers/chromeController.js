@@ -46,6 +46,22 @@ const availableLockWhere = () => ({
   ],
 });
 
+const SORT_FIELDS = {
+  video_count: 'video_count',
+  followers:   'followers',
+  following:   'following',
+  reg_at:      'reg_at',
+  id:          'id',
+};
+
+const buildSortOrder = (sort_by, sort_dir) => {
+  const field = SORT_FIELDS[sort_by] || 'id';
+  const dir = String(sort_dir || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const order = [[field, dir]];
+  if (field !== 'id') order.push(['id', 'DESC']);
+  return order;
+};
+
 // ── Phone endpoint ──────────────────────────────────────────────────────────
 const phoneSubmit = async (req, res, next) => {
   try {
@@ -177,7 +193,7 @@ const getAccount = async (req, res, next) => {
 // ── Dashboard: List ──────────────────────────────────────────────────────────
 const getAll = async (req, res, next) => {
   try {
-    const { status, live_status, search, device_id, date_from, date_to, video_max, video_min, page = 1, limit = 20 } = req.query;
+    const { status, live_status, search, device_id, date_from, date_to, video_max, video_min, sort_by, sort_dir, page = 1, limit = 20 } = req.query;
     const where = scopedWhere(req);
     if (status)      where.status      = status;
     if (live_status) where.live_status = live_status;
@@ -199,7 +215,7 @@ const getAll = async (req, res, next) => {
     const offset    = (pageNum - 1) * pageLimit;
 
     const { count, rows } = await ChromeAccount.findAndCountAll({
-      where, order: [['id', 'DESC']], limit: pageLimit, offset,
+      where, order: buildSortOrder(sort_by, sort_dir), limit: pageLimit, offset,
     });
 
     return success(res, {
