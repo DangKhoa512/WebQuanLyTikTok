@@ -14,7 +14,7 @@ const Account = require('../models/Account');
 const logger = require('../config/logger');
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const LOCK_TIMEOUT_MIN    = 10;  // minutes before a lock expires
+const LOCK_TIMEOUT_MIN    = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;  // minutes before a lock expires
 const CHO_UP_LOW_THRESHOLD = 10; // replenish CHO_UP from UP_FAIL when below this
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

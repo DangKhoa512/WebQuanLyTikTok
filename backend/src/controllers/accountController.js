@@ -4,11 +4,72 @@ const accountService = require('../services/accountService');
 const { success, error, withFullData } = require('../utils/response');
 const logger = require('../config/logger');
 const { ownerFromRequest, ownerFromAdmin } = require('../utils/owner');
+const { checkOne, parseProxy } = require('../utils/checkLiveUtils');
 
-const PHONE_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG'];
-const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 10;
+const PHONE_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','UPVIDEO_DONE'];
+const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
 const UPVIDEO_MAX_VIDEOS = 12;
 const KHANG_MIN_VIDEOS = 10;
+const ELIGIBLE_MIN_AGE_DAYS = 4;
+
+const isEligibleAge = (regAt) => {
+  if (!regAt) return false;
+  return new Date(regAt).getTime() <= Date.now() - ELIGIBLE_MIN_AGE_DAYS * 24 * 60 * 60 * 1000;
+};
+
+const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) => {
+  let stats = null;
+  const proxyUrl = parseProxy(account.proxy || '');
+
+  if (fallbackVideoCount !== undefined && fallbackVideoCount !== null && fallbackVideoCount !== '') {
+    stats = {
+      live: true,
+      videos: parseInt(fallbackVideoCount, 10),
+      followers: account.followers ?? null,
+      following: account.following ?? null,
+    };
+  } else {
+    stats = await checkOne(account.username, proxyUrl);
+  }
+
+  const updateData = {
+    device_id,
+    locked_by: null,
+    locked_at: null,
+    last_upload_at: new Date(),
+    last_live_check_at: new Date(),
+  };
+
+  let action = 'check_unknown';
+  let message = 'Không check được số video, đã mở lock để chạy lại sau';
+
+  if (stats === null) {
+    await account.update(updateData);
+    return { account, stats: null, action, message };
+  }
+
+  const videoCount = Number.isFinite(Number(stats.videos)) ? Number(stats.videos) : 0;
+  updateData.live_status = stats.live ? 'live' : 'die';
+  updateData.video_count = videoCount;
+  updateData.followers = stats.followers ?? null;
+  updateData.following = stats.following ?? null;
+
+  if (!stats.live) {
+    updateData.status = 'ACC_DIE';
+    action = 'die';
+    message = 'Account die, đã chuyển sang ACC_DIE';
+  } else if (videoCount > KHANG_MIN_VIDEOS && isEligibleAge(account.reg_at)) {
+    updateData.status = 'ACC_DU_DK';
+    action = 'eligible';
+    message = `Đã check ${videoCount} video, đủ điều kiện → ACC_DU_DK`;
+  } else {
+    action = 'unlock_for_retry';
+    message = `Đã check ${videoCount} video, chưa đủ điều kiện nên đã mở lock`;
+  }
+
+  await account.update(updateData);
+  return { account, stats, action, message };
+};
 
 const availableLockWhere = () => ({
   [Op.or]: [
@@ -45,9 +106,17 @@ const getAccount = async (req, res, next) => {
 // ── Phone submit status (kháng/login fail) ────────────────────────────────────
 const phoneSubmit = async (req, res, next) => {
   try {
-    const { username, device_id, status, note, fail_reason } = req.body;
+    const { username, device_id, status, note, fail_reason, video_count } = req.body;
     const owner_username = ownerFromRequest(req);
     if (!username) return error(res, 'Thiếu username', 400);
+    if (status === 'UPVIDEO_DONE' || req.body.action === 'upvideo_done') {
+      if (!device_id) return error(res, 'Thiếu device_id', 400);
+      const account = await Account.findOne({ where: { username, owner_username } });
+      if (!account) return error(res, 'Account không tồn tại', 404);
+      const result = await checkAndFinalizeUpvideo(account, device_id, video_count);
+      logger.info('upload phone-submit upvideo-done', { username, device_id, action: result.action, videos: result.stats?.videos ?? null });
+      return success(res, { account: result.account, check: result.stats, action: result.action }, result.message);
+    }
     if (!status || !PHONE_STATUSES.includes(status)) {
       return error(res, `status không hợp lệ. Dùng: ${PHONE_STATUSES.join(', ')}`, 400);
     }
@@ -94,12 +163,11 @@ const reportUpload = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     if (!username)               return error(res, 'Thiếu username', 400);
     if (!device_id)              return error(res, 'Thiếu device_id', 400);
-    if (video_count === undefined) return error(res, 'Thiếu video_count', 400);
     const account = await Account.findOne({ where: { username, owner_username } });
     if (!account) return error(res, 'Account không tồn tại', 404);
-    await account.update({ video_count: parseInt(video_count), device_id, locked_by: null, locked_at: null });
-    logger.info('upload report-upload', { username, video_count, device_id });
-    return success(res, { account }, `Cập nhật video_count = ${video_count}`);
+    const result = await checkAndFinalizeUpvideo(account, device_id, video_count);
+    logger.info('upload report-upload', { username, device_id, action: result.action, videos: result.stats?.videos ?? video_count ?? null });
+    return success(res, { account: result.account, check: result.stats, action: result.action }, result.message);
   } catch (err) { next(err); }
 };
 

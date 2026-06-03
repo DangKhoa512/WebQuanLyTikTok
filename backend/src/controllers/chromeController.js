@@ -20,16 +20,16 @@ const { Op }    = require('sequelize');
 const ChromeAccount = require('../models/ChromeAccount');
 const logger    = require('../config/logger');
 const { success, error } = require('../utils/response');
-const { batchCheckLive, parseProxy } = require('../utils/checkLiveUtils');
+const { checkOne, batchCheckLive, parseProxy } = require('../utils/checkLiveUtils');
 const { withFullData } = require('../utils/response');
 const { ownerFromRequest, ownerFromAdmin, scopedWhere } = require('../utils/owner');
 const { recordUsageHistory } = require('../services/usageHistoryService');
 
 // Phone có thể set: LOGIN_THANH_CONG (login OK), ACC_LOGIN (login fail → về Chờ Login), DA_KHANG, CHUA_KHANG
-const PHONE_STATUSES   = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG'];
+const PHONE_STATUSES   = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','UPVIDEO_DONE'];
 const MANUAL_STATUSES  = ['ACC_LOGIN'];
 const ALL_STATUSES     = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
-const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 10;
+const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
 const UPVIDEO_MAX_VIDEOS = 12;
 const ELIGIBLE_MIN_VIDEOS = 10;
 const ELIGIBLE_MIN_AGE_DAYS = 4;
@@ -45,6 +45,64 @@ const availableLockWhere = () => ({
     { locked_at: { [Op.lt]: new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000) } },
   ],
 });
+
+const isEligibleAge = (regAt) => {
+  if (!regAt) return false;
+  return new Date(regAt).getTime() <= Date.now() - ELIGIBLE_MIN_AGE_DAYS * 24 * 60 * 60 * 1000;
+};
+
+const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) => {
+  let stats = null;
+  const proxyUrl = parseProxy(account.proxy || '');
+
+  if (fallbackVideoCount !== undefined && fallbackVideoCount !== null && fallbackVideoCount !== '') {
+    stats = {
+      live: true,
+      videos: parseInt(fallbackVideoCount, 10),
+      followers: account.followers ?? null,
+      following: account.following ?? null,
+    };
+  } else {
+    stats = await checkOne(account.username, proxyUrl);
+  }
+
+  const updateData = {
+    device_id,
+    locked_by: null,
+    locked_at: null,
+    last_live_check_at: new Date(),
+  };
+
+  let action = 'check_unknown';
+  let message = 'Không check được số video, đã mở lock để chạy lại sau';
+
+  if (stats === null) {
+    await account.update(updateData);
+    return { account, stats: null, action, message };
+  }
+
+  const videoCount = Number.isFinite(Number(stats.videos)) ? Number(stats.videos) : 0;
+  updateData.live_status = stats.live ? 'live' : 'die';
+  updateData.video_count = videoCount;
+  updateData.followers = stats.followers ?? null;
+  updateData.following = stats.following ?? null;
+
+  if (!stats.live) {
+    updateData.status = 'ACC_DIE';
+    action = 'die';
+    message = 'Account die, đã chuyển sang ACC_DIE';
+  } else if (videoCount > ELIGIBLE_MIN_VIDEOS && isEligibleAge(account.reg_at)) {
+    updateData.status = 'ACC_DU_DK';
+    action = 'eligible';
+    message = `Đã check ${videoCount} video, đủ điều kiện → ACC_DU_DK`;
+  } else {
+    action = 'unlock_for_retry';
+    message = `Đã check ${videoCount} video, chưa đủ điều kiện nên đã mở lock`;
+  }
+
+  await account.update(updateData);
+  return { account, stats, action, message };
+};
 
 const SORT_FIELDS = {
   video_count: 'video_count',
@@ -65,10 +123,18 @@ const buildSortOrder = (sort_by, sort_dir) => {
 // ── Phone endpoint ──────────────────────────────────────────────────────────
 const phoneSubmit = async (req, res, next) => {
   try {
-    const { username, password, email, email_pass, device_id, status, note, twofa, cookie, proxy, fail_reason } = req.body;
+    const { username, password, email, email_pass, device_id, status, note, twofa, cookie, proxy, fail_reason, video_count } = req.body;
     const owner_username = ownerFromRequest(req);
 
     if (!username) return error(res, 'Thiếu username', 400);
+    if (status === 'UPVIDEO_DONE' || req.body.action === 'upvideo_done') {
+      if (!device_id) return error(res, 'Thiếu device_id', 400);
+      const account = await ChromeAccount.findOne({ where: { username, owner_username } });
+      if (!account) return error(res, 'Account không tồn tại', 404);
+      const result = await checkAndFinalizeUpvideo(account, device_id, video_count);
+      logger.info('chrome phone-submit upvideo-done', { username, device_id, action: result.action, videos: result.stats?.videos ?? null });
+      return success(res, { account: result.account, check: result.stats, action: result.action }, result.message);
+    }
     if (!status || !PHONE_STATUSES.includes(status)) {
       return error(res, `status không hợp lệ. Phone dùng: ${PHONE_STATUSES.join(', ')}`, 400);
     }
@@ -409,15 +475,13 @@ const reportUpload = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     if (!username)    return error(res, 'Thiếu username', 400);
     if (!device_id)   return error(res, 'Thiếu device_id', 400);
-    if (video_count === undefined) return error(res, 'Thiếu video_count', 400);
 
     const account = await ChromeAccount.findOne({ where: { username, owner_username } });
     if (!account) return error(res, 'Account không tồn tại', 404);
 
-    await account.update({ video_count: parseInt(video_count), device_id, locked_by: null, locked_at: null });
-
-    logger.info('chrome report-upload', { id: account.id, username, video_count, device_id });
-    return success(res, { account }, `Cập nhật video_count = ${video_count}`);
+    const result = await checkAndFinalizeUpvideo(account, device_id, video_count);
+    logger.info('chrome report-upload', { id: account.id, username, device_id, action: result.action, videos: result.stats?.videos ?? video_count ?? null });
+    return success(res, { account: result.account, check: result.stats, action: result.action }, result.message);
   } catch (err) { next(err); }
 };
 
