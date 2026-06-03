@@ -94,10 +94,10 @@ const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) =
   } else if (videoCount > ELIGIBLE_MIN_VIDEOS && isEligibleAge(account.reg_at)) {
     updateData.status = 'ACC_DU_DK';
     action = 'eligible';
-    message = `Đã check ${videoCount} video, đủ điều kiện → ACC_DU_DK`;
+    message = 'Đã đủ video';
   } else {
     action = 'unlock_for_retry';
-    message = `Đã check ${videoCount} video, chưa đủ điều kiện nên đã mở lock`;
+    message = 'Chưa đủ video';
   }
 
   await account.update(updateData);
