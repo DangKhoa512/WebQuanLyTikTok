@@ -81,19 +81,30 @@ const startServer = async () => {
     }
 
     try {
+      await sequelize.query('ALTER TABLE used_accounts DROP INDEX uq_used_owner_type_account');
+    } catch (e) {
+      logger.warn('Migration used_accounts old account unique skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query('ALTER TABLE used_accounts DROP INDEX uq_used_owner_type_username');
+    } catch (e) {
+      logger.warn('Migration used_accounts old username unique skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query('DROP TEMPORARY TABLE IF EXISTS tmp_used_accounts_keep');
       await sequelize.query(`
-        DELETE ua FROM used_accounts ua
-        JOIN (
-          SELECT owner_username, account_type, username, MAX(id) AS keep_id
-          FROM used_accounts
-          GROUP BY owner_username, account_type, username
-          HAVING COUNT(*) > 1
-        ) dup
-          ON dup.owner_username = ua.owner_username
-         AND dup.account_type = ua.account_type
-         AND dup.username = ua.username
-        WHERE ua.id <> dup.keep_id
+        CREATE TEMPORARY TABLE tmp_used_accounts_keep AS
+        SELECT MAX(id) AS keep_id
+        FROM used_accounts
+        GROUP BY owner_username, account_type, username
       `);
+      await sequelize.query(`
+        DELETE FROM used_accounts
+        WHERE id NOT IN (SELECT keep_id FROM tmp_used_accounts_keep)
+      `);
+      await sequelize.query('DROP TEMPORARY TABLE IF EXISTS tmp_used_accounts_keep');
       logger.info('used_accounts duplicate rows cleaned');
     } catch (e) {
       logger.warn('Migration used_accounts dedupe skipped:', e.message);
