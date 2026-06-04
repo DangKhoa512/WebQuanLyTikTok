@@ -78,7 +78,7 @@ const schemas = {
 
   updateAccount: Joi.object({
     note:       Joi.string().optional().allow('', null),
-    status:     Joi.string().valid('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE').optional(),
+    status:     Joi.string().valid('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE').optional(),
     live_status:Joi.string().valid('unknown', 'live', 'die').optional(),
     proxy:      Joi.string().max(255).optional().allow('', null),
     device_id:  Joi.string().max(255).optional().allow('', null),

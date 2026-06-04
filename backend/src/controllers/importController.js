@@ -15,7 +15,7 @@ const logger   = require('../config/logger');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin } = require('../utils/owner');
 
-const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
+const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'];
 
 const nullify = (v) =>
   (!v || v.trim() === '' || v.trim().toLowerCase() === 'null') ? null : v.trim();

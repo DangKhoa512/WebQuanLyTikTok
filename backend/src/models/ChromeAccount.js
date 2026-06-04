@@ -25,7 +25,7 @@ const ChromeAccount = sequelize.define(
         'ACC_LOGIN',
         'LOGIN_THANH_CONG',
         'ACC_DA_KHANG','ACC_CHUA_KHANG',
-        'ACC_DU_DK','ACC_DIE'
+        'ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'
       ),
       defaultValue: 'ACC_LOGIN',
       allowNull: false,

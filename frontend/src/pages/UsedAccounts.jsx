@@ -18,13 +18,14 @@ const todayInput = () => {
 const fmt = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '-';
 const pipeValue = (value) => value == null || value === '' ? 'null' : value;
 const fmtNum = (value) => value == null ? '—' : Number(value).toLocaleString('vi-VN');
-const STATUS_OPTIONS = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
+const STATUS_OPTIONS = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'];
 const STATUS_COLOR = {
   ACC_LOGIN:        { bg: 'rgba(6,182,212,.15)',   color: '#67e8f9'  },
   LOGIN_THANH_CONG: { bg: 'rgba(16,185,129,.15)',  color: '#6ee7b7'  },
   ACC_DA_KHANG:     { bg: 'rgba(139,92,246,.15)',  color: '#c4b5fd'  },
   ACC_CHUA_KHANG:   { bg: 'rgba(249,115,22,.15)',  color: '#fdba74'  },
   ACC_DU_DK:        { bg: 'rgba(34,197,94,.15)',   color: '#86efac'  },
+  ACC_DA_DUNG:      { bg: 'rgba(100,116,139,.18)', color: '#cbd5e1'  },
   ACC_DIE:          { bg: 'rgba(107,114,128,.15)', color: '#9ca3af'  },
 };
 

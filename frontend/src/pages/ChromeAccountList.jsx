@@ -30,6 +30,7 @@ const STATUS_COLOR = {
   ACC_DA_KHANG:     { bg: 'rgba(139,92,246,.15)',  color: '#c4b5fd'  },
   ACC_CHUA_KHANG:   { bg: 'rgba(249,115,22,.15)',  color: '#fdba74'  },
   ACC_DU_DK:        { bg: 'rgba(34,197,94,.15)',   color: '#86efac'  },
+  ACC_DA_DUNG:      { bg: 'rgba(100,116,139,.18)', color: '#cbd5e1'  },
   ACC_DIE:          { bg: 'rgba(107,114,128,.15)', color: '#9ca3af'  },
 };
 

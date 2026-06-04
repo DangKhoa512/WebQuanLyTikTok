@@ -148,7 +148,7 @@ const startServer = async () => {
       await sequelize.query(`
         ALTER TABLE accounts
         MODIFY COLUMN status
-          ENUM('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE')
+          ENUM('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE')
           NOT NULL DEFAULT 'LOGIN_THANH_CONG'
       `);
       logger.info('✅ accounts ENUM migrated (dùng chung với Chrome)');
@@ -161,12 +161,20 @@ const startServer = async () => {
       await sequelize.query(`
         ALTER TABLE chrome_accounts
         MODIFY COLUMN status
-          ENUM('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE')
+          ENUM('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE')
           NOT NULL DEFAULT 'ACC_LOGIN'
       `);
       logger.info('✅ chrome_accounts ENUM migrated');
     } catch (e) {
       logger.warn('Migration chrome_accounts ENUM skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query(`UPDATE accounts SET status='ACC_DA_DUNG' WHERE status='ACC_DU_DK' AND note LIKE '[Đã dùng]%'`);
+      await sequelize.query(`UPDATE chrome_accounts SET status='ACC_DA_DUNG' WHERE status='ACC_DU_DK' AND note LIKE '[Đã dùng]%'`);
+      logger.info('used source accounts moved to ACC_DA_DUNG');
+    } catch (e) {
+      logger.warn('Migration used source status skipped:', e.message);
     }
 
     // 3. Start background jobs

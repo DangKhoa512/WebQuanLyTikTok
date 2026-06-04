@@ -9,6 +9,7 @@ const STATUSES = [
   'ACC_DA_KHANG',
   'ACC_CHUA_KHANG',
   'ACC_DU_DK',
+  'ACC_DA_DUNG',
   'ACC_DIE',
 ];
 
@@ -34,6 +35,7 @@ const getModelStats = async (Model, todayStart, todayEnd, ownerFilter = null) =>
        SUM(status = 'ACC_DA_KHANG') AS ACC_DA_KHANG,
        SUM(status = 'ACC_CHUA_KHANG') AS ACC_CHUA_KHANG,
        SUM(status = 'ACC_DU_DK') AS ACC_DU_DK,
+       SUM(status = 'ACC_DA_DUNG') AS ACC_DA_DUNG,
        SUM(status = 'ACC_DIE') AS ACC_DIE
      FROM ${tableName}
      ${ownerSql}`,
@@ -153,6 +155,7 @@ const zeroDeviceStats = () => ({
   ACC_DA_KHANG: 0,
   ACC_CHUA_KHANG: 0,
   ACC_DU_DK: 0,
+  ACC_DA_DUNG: 0,
   ACC_DIE: 0,
 });
 
@@ -171,6 +174,7 @@ const buildDeviceQuery = (tableName, task, hasOwner) => `
     SUM(status = 'ACC_DA_KHANG') AS ACC_DA_KHANG,
     SUM(status = 'ACC_CHUA_KHANG') AS ACC_CHUA_KHANG,
     SUM(status = 'ACC_DU_DK') AS ACC_DU_DK,
+    SUM(status = 'ACC_DA_DUNG') AS ACC_DA_DUNG,
     SUM(status = 'ACC_DIE') AS ACC_DIE,
     MAX(updated_at) AS last_seen
   FROM ${tableName}

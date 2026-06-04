@@ -28,7 +28,7 @@ const { recordUsageHistory } = require('../services/usageHistoryService');
 // Phone có thể set: LOGIN_THANH_CONG (login OK), ACC_LOGIN (login fail → về Chờ Login), DA_KHANG, CHUA_KHANG
 const PHONE_STATUSES   = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','UPVIDEO_DONE'];
 const MANUAL_STATUSES  = ['ACC_LOGIN'];
-const ALL_STATUSES     = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
+const ALL_STATUSES     = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
 const UPVIDEO_MAX_VIDEOS = 20;
 const KHANG_MIN_VIDEOS = 10;
@@ -578,7 +578,10 @@ const bulkAction = async (req, res, next) => {
           });
           await recordUsageHistory(req, usedAccounts, { account_type: 'chrome' });
         }
-        updateData = { note: note || `[Đã dùng] ${new Date().toLocaleString('vi-VN')}`, ...(status && ALL_STATUSES.includes(status) ? { status } : {}) };
+        updateData = {
+          note: note || `[Đã dùng] ${new Date().toLocaleString('vi-VN')}`,
+          status: status && ALL_STATUSES.includes(status) ? status : 'ACC_DA_DUNG',
+        };
         message    = `Đã đánh dấu ${ids.length} accounts là "Đã dùng"`;
         break;
       case 'clear_note':

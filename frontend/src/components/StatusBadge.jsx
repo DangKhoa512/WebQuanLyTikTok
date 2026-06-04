@@ -4,6 +4,7 @@ const STATUS_MAP = {
   ACC_DA_KHANG:     { bg: '#0ea5e9', label: 'ĐÃ KHÁNG' },
   ACC_CHUA_KHANG:   { bg: '#f97316', label: 'CHƯA KHÁNG' },
   ACC_DU_DK:        { bg: '#8b5cf6', label: 'ĐỦ ĐK' },
+  ACC_DA_DUNG:      { bg: '#64748b', label: 'ĐÃ DÙNG' },
   ACC_DIE:          { bg: '#6b7280', label: 'DIE' },
   REG_DA_LAM:       { bg: '#f59e0b', label: 'REG' },
   CHO_UPVIDEO:      { bg: '#06b6d4', label: 'CHỜ UP' },

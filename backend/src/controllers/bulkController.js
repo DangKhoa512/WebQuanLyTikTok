@@ -5,7 +5,7 @@ const { success, error } = require('../utils/response');
 const { scopedWhere } = require('../utils/owner');
 const { recordUsageHistory } = require('../services/usageHistoryService');
 
-const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
+const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'];
 const pipeValue = (value) =>
   value === undefined || value === null || value === '' ? 'null' : String(value);
 
@@ -72,7 +72,7 @@ const bulkAction = async (req, res, next) => {
         }
         updateData = {
           note: note || `[Đã dùng] ${new Date().toLocaleString('vi-VN')}`,
-          ...(status && VALID_STATUSES.includes(status) ? { status } : {}),
+          status: status && VALID_STATUSES.includes(status) ? status : 'ACC_DA_DUNG',
         };
         message = `Đã đánh dấu ${ids.length} accounts là "Đã dùng"`;
         break;
@@ -172,7 +172,7 @@ const copyUnused = async (req, res, next) => {
       mark_used  = false,
     } = req.body;
 
-    const VALID = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'];
+    const VALID = VALID_STATUSES;
     if (!VALID.includes(status)) {
       return error(res, 'status không hợp lệ', 400);
     }
@@ -201,7 +201,7 @@ const copyUnused = async (req, res, next) => {
         source_status: status,
       });
       await Account.update(
-        { note: `[Đã dùng] ${new Date().toLocaleString('vi-VN')}` },
+        { status: 'ACC_DA_DUNG', note: `[Đã dùng] ${new Date().toLocaleString('vi-VN')}` },
         { where: scopedWhere(req, { id: { [Op.in]: ids } }) }
       );
       logger.info('Usage history recorded', usage);

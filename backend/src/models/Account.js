@@ -58,7 +58,7 @@ const Account = sequelize.define(
       comment: 'Web user that owns this account',
     },
     status: {
-      type: DataTypes.ENUM('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DIE'),
+      type: DataTypes.ENUM('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'),
       defaultValue: 'LOGIN_THANH_CONG',
       allowNull: false,
     },
