@@ -68,6 +68,7 @@ const UsedAccount = sequelize.define(
       { fields: ['account_type'] },
       { fields: ['batch_id'] },
       { fields: ['owner_username', 'used_at'] },
+      { unique: true, fields: ['owner_username', 'account_type', 'username'] },
     ],
   }
 );

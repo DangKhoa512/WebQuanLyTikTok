@@ -81,6 +81,32 @@ const startServer = async () => {
     }
 
     try {
+      await sequelize.query(`
+        DELETE ua FROM used_accounts ua
+        JOIN (
+          SELECT owner_username, account_type, username, MAX(id) AS keep_id
+          FROM used_accounts
+          GROUP BY owner_username, account_type, username
+          HAVING COUNT(*) > 1
+        ) dup
+          ON dup.owner_username = ua.owner_username
+         AND dup.account_type = ua.account_type
+         AND dup.username = ua.username
+        WHERE ua.id <> dup.keep_id
+      `);
+      logger.info('used_accounts duplicate rows cleaned');
+    } catch (e) {
+      logger.warn('Migration used_accounts dedupe skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query('ALTER TABLE used_accounts ADD UNIQUE INDEX uq_used_owner_type_username (owner_username, account_type, username)');
+      logger.info('used_accounts owner+type+username unique index ready');
+    } catch (e) {
+      logger.warn('Migration used_accounts unique skipped:', e.message);
+    }
+
+    try {
       const adminUser = normalizedAdminUser();
       const adminPass = process.env.ADMIN_PASS;
       if (adminPass) {
