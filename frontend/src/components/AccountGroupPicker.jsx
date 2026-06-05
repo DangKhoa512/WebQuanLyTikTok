@@ -27,7 +27,7 @@ function GroupDialog({ mode, groups, selectedId, onClose, onDone, accountType, o
   const [name, setName] = useState(mode === 'edit' ? current?.name || '' : '');
   const [busy, setBusy] = useState(false);
 
-  const title = mode === 'add' ? 'Them nhom' : mode === 'edit' ? 'Sua nhom' : 'Xoa nhom';
+  const title = mode === 'add' ? 'Thêm nhóm' : mode === 'edit' ? 'Sửa nhóm' : 'Xóa nhóm';
   const canSave = mode === 'delete' ? !!targetId : !!name.trim();
 
   const handleTargetChange = (value) => {
@@ -40,7 +40,7 @@ function GroupDialog({ mode, groups, selectedId, onClose, onDone, accountType, o
 
   const submit = async () => {
     if (!canSave) {
-      toast.error(mode === 'delete' ? 'Chon nhom can xoa' : 'Nhap ten nhom');
+      toast.error(mode === 'delete' ? 'Chọn nhóm cần xóa' : 'Nhập tên nhóm');
       return;
     }
     setBusy(true);
@@ -49,19 +49,19 @@ function GroupDialog({ mode, groups, selectedId, onClose, onDone, accountType, o
         const res = await accountGroupApi.create(accountType, name.trim());
         const group = res.data?.group;
         if (group?.id) onSelect(String(group.id));
-        toast.success('Da tao nhom');
+        toast.success('Đã tạo nhóm');
       } else if (mode === 'edit') {
         await accountGroupApi.update(targetId, { name: name.trim() });
-        toast.success('Da doi ten nhom');
+        toast.success('Đã đổi tên nhóm');
       } else {
         await accountGroupApi.delete(targetId);
         if (String(selectedId) === String(targetId)) onSelect('');
-        toast.success('Da xoa nhom');
+        toast.success('Đã xóa nhóm');
       }
       await onDone?.();
       onClose();
     } catch (err) {
-      toast.error(err.message || 'Thao tac nhom that bai');
+      toast.error(err.message || 'Thao tác nhóm thất bại');
     } finally {
       setBusy(false);
     }
@@ -77,9 +77,9 @@ function GroupDialog({ mode, groups, selectedId, onClose, onDone, accountType, o
 
         {mode !== 'add' && (
           <div style={{ marginBottom: '.8rem' }}>
-            <label style={{ display: 'block', color: '#94a3b8', fontSize: '.78rem', marginBottom: '.35rem' }}>Chon nhom</label>
+            <label style={{ display: 'block', color: '#94a3b8', fontSize: '.78rem', marginBottom: '.35rem' }}>Chọn nhóm</label>
             <select value={targetId} onChange={(e) => handleTargetChange(e.target.value)} style={inputStyle}>
-              {groups.length === 0 && <option value="">Chua co nhom</option>}
+              {groups.length === 0 && <option value="">Chưa có nhóm</option>}
               {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
             </select>
           </div>
@@ -87,22 +87,22 @@ function GroupDialog({ mode, groups, selectedId, onClose, onDone, accountType, o
 
         {mode !== 'delete' && (
           <div style={{ marginBottom: '.8rem' }}>
-            <label style={{ display: 'block', color: '#94a3b8', fontSize: '.78rem', marginBottom: '.35rem' }}>Ten nhom</label>
+            <label style={{ display: 'block', color: '#94a3b8', fontSize: '.78rem', marginBottom: '.35rem' }}>Tên nhóm</label>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Acc VN, Acc US..." style={inputStyle} autoFocus />
           </div>
         )}
 
         {mode === 'delete' && (
           <div style={{ color: '#fca5a5', fontSize: '.85rem', lineHeight: 1.5, marginBottom: '1rem' }}>
-            Xoa nhom se khong xoa account. Account trong nhom nay se duoc chuyen ve khong co nhom.
+            Xóa nhóm sẽ không xóa account. Account trong nhóm này sẽ được chuyển về không có nhóm.
           </div>
         )}
 
         <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
           <button onClick={submit} disabled={busy || !canSave} style={{ ...dialogButton, flex: 1, background: mode === 'delete' ? '#dc2626' : '#2563eb', color: '#fff', opacity: busy || !canSave ? .6 : 1 }}>
-            {busy ? 'Dang xu ly...' : mode === 'delete' ? 'Xoa' : 'Luu'}
+            {busy ? 'Đang xử lý...' : mode === 'delete' ? 'Xóa' : 'Lưu'}
           </button>
-          <button onClick={onClose} disabled={busy} style={{ ...dialogButton, background: 'transparent', color: '#cbd5e1', border: '1px solid #334155' }}>Huy</button>
+          <button onClick={onClose} disabled={busy} style={{ ...dialogButton, background: 'transparent', color: '#cbd5e1', border: '1px solid #334155' }}>Hủy</button>
         </div>
       </div>
     </div>
@@ -114,15 +114,15 @@ export default function AccountGroupPicker({ accountType, groups = [], value, on
 
   return (
     <div>
-      <label style={{ color: '#94a3b8', fontSize: '.8rem', display: 'block', marginBottom: '.4rem' }}>Nhom account:</label>
+      <label style={{ color: '#94a3b8', fontSize: '.8rem', display: 'block', marginBottom: '.4rem' }}>Nhóm account:</label>
       <div style={{ display: 'flex', gap: '.45rem', alignItems: 'center' }}>
         <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
-          <option value="">Khong chon nhom</option>
+          <option value="">Không chọn nhóm</option>
           {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
         </select>
-        <button type="button" title="Them nhom" onClick={() => setDialog('add')} style={iconButtonStyle('#16a34a')}>＋</button>
-        <button type="button" title="Sua nhom" onClick={() => setDialog('edit')} style={iconButtonStyle('#2563eb')}>✎</button>
-        <button type="button" title="Xoa nhom" onClick={() => setDialog('delete')} style={iconButtonStyle('#dc2626')}>🗑</button>
+        <button type="button" title="Thêm nhóm" onClick={() => setDialog('add')} style={iconButtonStyle('#16a34a')}>＋</button>
+        <button type="button" title="Sửa nhóm" onClick={() => setDialog('edit')} style={iconButtonStyle('#2563eb')}>✎</button>
+        <button type="button" title="Xóa nhóm" onClick={() => setDialog('delete')} style={iconButtonStyle('#dc2626')}>🗑</button>
       </div>
       {dialog && (
         <GroupDialog

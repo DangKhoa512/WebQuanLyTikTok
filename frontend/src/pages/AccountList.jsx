@@ -478,7 +478,7 @@ export default function AccountList() {
       const res = await accountGroupApi.getAll('app');
       setGroups(res.data?.groups || []);
     } catch (err) {
-      toast.error(err.message || 'Khong tai duoc nhom account');
+      toast.error(err.message || 'Không tải được nhóm account');
     }
   }, []);
 
@@ -660,9 +660,9 @@ export default function AccountList() {
                 onChange={(e) => setFilter('video_max', e.target.value)} style={{ minWidth: '70px', maxWidth: '80px' }} />
             </div>
             <div className="filter-group">
-              <label>Nhom</label>
+              <label>Nhóm</label>
               <select value={filters.group_id} onChange={(e) => setFilter('group_id', e.target.value)}>
-                <option value="">Tat ca nhom</option>
+                <option value="">Tất cả nhóm</option>
                 {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
               </select>
             </div>
