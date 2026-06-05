@@ -11,6 +11,7 @@
  */
 const { Op } = require('sequelize');
 const Account  = require('../models/Account');
+const AccountGroup = require('../models/AccountGroup');
 const logger   = require('../config/logger');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin } = require('../utils/owner');
@@ -63,7 +64,7 @@ const parseLine = (line) => {
  */
 const importAccounts = async (req, res, next) => {
   try {
-    const { text, status = 'ACC_LOGIN' } = req.body;
+    const { text, status = 'ACC_LOGIN', group_id } = req.body;
     const owner_username = ownerFromAdmin(req);
 
     if (!text || typeof text !== 'string') {
@@ -71,6 +72,16 @@ const importAccounts = async (req, res, next) => {
     }
     if (!VALID_STATUSES.includes(status)) {
       return error(res, `status không hợp lệ. Dùng: ${VALID_STATUSES.join(', ')}`, 400);
+    }
+    const groupId = group_id ? parseInt(group_id, 10) : null;
+    if (group_id && (!Number.isInteger(groupId) || groupId <= 0)) {
+      return error(res, 'group_id khong hop le', 400);
+    }
+    if (groupId) {
+      const group = await AccountGroup.findOne({
+        where: { id: groupId, owner_username, account_type: 'app' },
+      });
+      if (!group) return error(res, 'Nhom import khong ton tai', 404);
     }
 
     const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -89,7 +100,7 @@ const importAccounts = async (req, res, next) => {
           continue;
         }
         if (!seenUsernames.has(parsed.username)) {
-          seenUsernames.set(parsed.username, { ...parsed, status, owner_username });
+          seenUsernames.set(parsed.username, { ...parsed, status, owner_username, group_id: groupId });
         }
       } catch (_) {
         parseErrors.push(`Lỗi parse: "${line.substring(0, 60)}"`);
@@ -112,7 +123,7 @@ const importAccounts = async (req, res, next) => {
     // ── Bulk insert ───────────────────────────────────────────────────────────
     if (toInsert.length > 0) {
       await Account.bulkCreate(toInsert, {
-        fields: ['username', 'password', 'email', 'email_pass', 'status', 'reg_at', 'owner_username'],
+        fields: ['username', 'password', 'email', 'email_pass', 'status', 'reg_at', 'owner_username', 'group_id'],
       });
     }
 
@@ -124,7 +135,7 @@ const importAccounts = async (req, res, next) => {
     };
 
     logger.info('Import accounts', {
-      ...result, status, owner_username, admin: req.admin?.username,
+      ...result, status, group_id: groupId, owner_username, admin: req.admin?.username,
     });
 
     return success(

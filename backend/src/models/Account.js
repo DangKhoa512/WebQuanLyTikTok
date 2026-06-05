@@ -57,6 +57,10 @@ const Account = sequelize.define(
       defaultValue: 'admin',
       comment: 'Web user that owns this account',
     },
+    group_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+    },
     status: {
       type: DataTypes.ENUM('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'),
       defaultValue: 'LOGIN_THANH_CONG',
@@ -123,6 +127,7 @@ const Account = sequelize.define(
       { fields: ['status'] },
       { fields: ['live_status'] },
       { fields: ['device_id'] },
+      { fields: ['group_id'] },
       { fields: ['reg_at'] },
       { fields: ['status', 'live_status'] },
       { fields: ['status', 'locked_by', 'locked_at'] },

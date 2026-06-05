@@ -1,0 +1,99 @@
+const AccountGroup = require('../models/AccountGroup');
+const Account = require('../models/Account');
+const ChromeAccount = require('../models/ChromeAccount');
+const { success, error } = require('../utils/response');
+const { ownerFromAdmin } = require('../utils/owner');
+
+const TYPES = ['app', 'chrome'];
+const cleanName = (value) => String(value || '').trim();
+
+const listGroups = async (req, res, next) => {
+  try {
+    const accountType = req.query.account_type;
+    if (accountType && !TYPES.includes(accountType)) {
+      return error(res, 'account_type khong hop le', 400);
+    }
+
+    const where = { owner_username: ownerFromAdmin(req) };
+    if (accountType) where.account_type = accountType;
+
+    const groups = await AccountGroup.findAll({
+      where,
+      order: [['account_type', 'ASC'], ['name', 'ASC']],
+    });
+
+    return success(res, { groups }, 'OK');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const createGroup = async (req, res, next) => {
+  try {
+    const account_type = req.body.account_type;
+    const name = cleanName(req.body.name);
+
+    if (!TYPES.includes(account_type)) return error(res, 'account_type khong hop le', 400);
+    if (!name) return error(res, 'Thieu ten nhom', 400);
+    if (name.length > 100) return error(res, 'Ten nhom toi da 100 ky tu', 400);
+
+    const [group, created] = await AccountGroup.findOrCreate({
+      where: { owner_username: ownerFromAdmin(req), account_type, name },
+      defaults: {
+        owner_username: ownerFromAdmin(req),
+        account_type,
+        name,
+        note: req.body.note || null,
+      },
+    });
+
+    return success(res, { group, created }, created ? 'Da tao nhom' : 'Nhom da ton tai', created ? 201 : 200);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateGroup = async (req, res, next) => {
+  try {
+    const group = await AccountGroup.findOne({
+      where: { id: req.params.id, owner_username: ownerFromAdmin(req) },
+    });
+    if (!group) return error(res, 'Khong tim thay nhom', 404);
+
+    const updates = {};
+    if (req.body.name !== undefined) {
+      const name = cleanName(req.body.name);
+      if (!name) return error(res, 'Thieu ten nhom', 400);
+      if (name.length > 100) return error(res, 'Ten nhom toi da 100 ky tu', 400);
+      updates.name = name;
+    }
+    if (req.body.note !== undefined) updates.note = req.body.note || null;
+
+    await group.update(updates);
+    return success(res, { group }, 'Da cap nhat nhom');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const deleteGroup = async (req, res, next) => {
+  try {
+    const group = await AccountGroup.findOne({
+      where: { id: req.params.id, owner_username: ownerFromAdmin(req) },
+    });
+    if (!group) return error(res, 'Khong tim thay nhom', 404);
+
+    const Model = group.account_type === 'chrome' ? ChromeAccount : Account;
+    await Model.update(
+      { group_id: null },
+      { where: { group_id: group.id, owner_username: ownerFromAdmin(req) } }
+    );
+    await group.destroy();
+
+    return success(res, { deleted: 1 }, 'Da xoa nhom');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { listGroups, createGroup, updateGroup, deleteGroup };

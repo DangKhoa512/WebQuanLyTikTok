@@ -18,6 +18,7 @@
 
 const { Op }    = require('sequelize');
 const ChromeAccount = require('../models/ChromeAccount');
+const AccountGroup = require('../models/AccountGroup');
 const logger    = require('../config/logger');
 const { success, error } = require('../utils/response');
 const { checkOne, batchCheckLive, parseProxy } = require('../utils/checkLiveUtils');
@@ -260,11 +261,12 @@ const getAccount = async (req, res, next) => {
 // ── Dashboard: List ──────────────────────────────────────────────────────────
 const getAll = async (req, res, next) => {
   try {
-    const { status, live_status, search, device_id, date_from, date_to, video_max, video_min, sort_by, sort_dir, page = 1, limit = 20 } = req.query;
+    const { status, live_status, search, device_id, group_id, date_from, date_to, video_max, video_min, sort_by, sort_dir, page = 1, limit = 20 } = req.query;
     const where = scopedWhere(req);
     if (status)      where.status      = status;
     if (live_status) where.live_status = live_status;
     if (device_id)   where.device_id   = device_id;
+    if (group_id)    where.group_id    = parseInt(group_id, 10);
     if (search)      where.username    = { [Op.like]: `%${search}%` };
     if (date_from || date_to) {
       where.reg_at = {};
@@ -307,7 +309,7 @@ const updateAccount = async (req, res, next) => {
     const account = await ChromeAccount.findOne({ where: scopedWhere(req, { id: req.params.id }) });
     if (!account) return error(res, 'Không tìm thấy account', 404);
 
-    const allowed = ['username','password','email','email_pass','twofa','proxy','device_id','note','status','live_status','cookie','token'];
+    const allowed = ['username','password','email','email_pass','twofa','proxy','device_id','group_id','note','status','live_status','cookie','token'];
     const updates = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -349,12 +351,22 @@ const parseLine = (line) => {
 
 const importChromeAccounts = async (req, res, next) => {
   try {
-    const { text, status = 'ACC_LOGIN' } = req.body;
+    const { text, status = 'ACC_LOGIN', group_id } = req.body;
     const owner_username = ownerFromAdmin(req);
 
     if (!text || typeof text !== 'string') return error(res, 'Thiếu trường text', 400);
     if (!ALL_STATUSES.includes(status)) {
       return error(res, `status không hợp lệ. Dùng: ${ALL_STATUSES.join(', ')}`, 400);
+    }
+    const groupId = group_id ? parseInt(group_id, 10) : null;
+    if (group_id && (!Number.isInteger(groupId) || groupId <= 0)) {
+      return error(res, 'group_id khong hop le', 400);
+    }
+    if (groupId) {
+      const group = await AccountGroup.findOne({
+        where: { id: groupId, owner_username, account_type: 'chrome' },
+      });
+      if (!group) return error(res, 'Nhom import khong ton tai', 404);
     }
 
     const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -368,7 +380,7 @@ const importChromeAccounts = async (req, res, next) => {
       try {
         const parsed = parseLine(line);
         if (!parsed) { parseErrors.push(`Thiếu username: "${line.substring(0, 60)}"`); continue; }
-        if (!seenUsernames.has(parsed.username)) seenUsernames.set(parsed.username, { ...parsed, status, owner_username });
+        if (!seenUsernames.has(parsed.username)) seenUsernames.set(parsed.username, { ...parsed, status, owner_username, group_id: groupId });
       } catch (_) {
         parseErrors.push(`Lỗi parse: "${line.substring(0, 60)}"`);
       }
@@ -388,12 +400,12 @@ const importChromeAccounts = async (req, res, next) => {
 
     if (toInsert.length > 0) {
       await ChromeAccount.bulkCreate(toInsert, {
-        fields: ['username','password','email','email_pass','status','reg_at','owner_username'],
+        fields: ['username','password','email','email_pass','status','reg_at','owner_username','group_id'],
       });
     }
 
     const result = { imported: toInsert.length, duplicates: unique.length - toInsert.length, parse_errors: parseErrors.length, error_samples: parseErrors.slice(0, 10) };
-    logger.info('chrome import', { ...result, status, owner_username, admin: req.admin?.username });
+    logger.info('chrome import', { ...result, status, group_id: groupId, owner_username, admin: req.admin?.username });
 
     return success(res, result,
       `Đã import ${result.imported} accounts` +

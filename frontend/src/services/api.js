@@ -49,8 +49,8 @@ export const accountApi = {
   getById: (id)           => api.get(`/accounts/${id}`),
   update:  (id, data)     => api.patch(`/accounts/${id}`, data),
   // Import
-  import: (text, status = 'REG_DA_LAM') =>
-    api.post('/accounts/import', { text, status }),
+  import: (text, status = 'REG_DA_LAM', group_id = null) =>
+    api.post('/accounts/import', { text, status, group_id }),
   // Live check & promote
   checkLive: (ids = [], proxies = [], concurrency = 5, delay_ms = 1000) =>
     api.post('/accounts/check-live', { ids, proxies, concurrency, delay_ms }, { timeout: 600_000 }),
@@ -72,8 +72,8 @@ export const chromeAccountApi = {
   getAll:  (params)       => api.get('/chrome-accounts', { params }),
   getById: (id)           => api.get(`/chrome-accounts/${id}`),
   update:  (id, data)     => api.patch(`/chrome-accounts/${id}`, data),
-  import:  (text, status = 'ACC_LOGIN') =>
-    api.post('/chrome-accounts/import', { text, status }),
+  import:  (text, status = 'ACC_LOGIN', group_id = null) =>
+    api.post('/chrome-accounts/import', { text, status, group_id }),
   checkLive: (ids, proxies, concurrency, delay_ms) =>
     api.post('/chrome-accounts/check-live', { ids, proxies, concurrency, delay_ms }, { timeout: 600_000 }),
   promoteEligible: (min_age_days = 4, min_videos = 10) =>
@@ -102,6 +102,13 @@ export const userApi = {
 export const usedAccountApi = {
   getAll: (params) => api.get('/used-accounts', { params }),
   bulkDelete: (ids) => api.post('/used-accounts/bulk-delete', { ids }),
+};
+
+export const accountGroupApi = {
+  getAll: (account_type) => api.get('/account-groups', { params: { account_type } }),
+  create: (account_type, name, note = '') => api.post('/account-groups', { account_type, name, note }),
+  update: (id, data) => api.patch(`/account-groups/${id}`, data),
+  delete: (id) => api.delete(`/account-groups/${id}`),
 };
 
 // ── Export endpoints ──────────────────────────────────────────────────────────

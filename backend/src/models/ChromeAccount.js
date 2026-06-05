@@ -20,6 +20,10 @@ const ChromeAccount = sequelize.define(
       allowNull: false,
       defaultValue: 'admin',
     },
+    group_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+    },
     status: {
       type: DataTypes.ENUM(
         'ACC_LOGIN',
@@ -54,6 +58,7 @@ const ChromeAccount = sequelize.define(
       { fields: ['status'] },
       { fields: ['live_status'] },
       { fields: ['device_id'] },
+      { fields: ['group_id'] },
       { fields: ['reg_at'] },
       { fields: ['status', 'live_status'] },
     ],

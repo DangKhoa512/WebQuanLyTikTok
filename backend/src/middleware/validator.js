@@ -82,6 +82,7 @@ const schemas = {
     live_status:Joi.string().valid('unknown', 'live', 'die').optional(),
     proxy:      Joi.string().max(255).optional().allow('', null),
     device_id:  Joi.string().max(255).optional().allow('', null),
+    group_id:   Joi.number().integer().positive().optional().allow(null),
   }).min(1),
 };
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { accountApi } from '../services/api';
+import { accountApi, accountGroupApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
@@ -369,9 +369,11 @@ function KhangQuickBar({ status, onFilter, onClearFilter, videoMax }) {
 }
 
 // ── Import Modal ──────────────────────────────────────────────────────────────
-function ImportModal({ onClose, onImported }) {
+function ImportModal({ onClose, onImported, groups = [], onGroupCreated }) {
   const [text,      setText]      = useState('');
   const [status,    setStatus]    = useState('LOGIN_THANH_CONG');
+  const [groupId,   setGroupId]   = useState('');
+  const [newGroup,  setNewGroup]  = useState('');
   const [importing, setImporting] = useState(false);
   const [result,    setResult]    = useState(null);
 
@@ -379,7 +381,14 @@ function ImportModal({ onClose, onImported }) {
     if (!text.trim()) { toast.error('Nhập dữ liệu trước'); return; }
     setImporting(true); setResult(null);
     try {
-      const res = await accountApi.import(text, status);
+      let finalGroupId = groupId || null;
+      if (newGroup.trim()) {
+        const created = await accountGroupApi.create('app', newGroup.trim());
+        finalGroupId = created.data?.group?.id || finalGroupId;
+        onGroupCreated?.(created.data?.group);
+        setNewGroup('');
+      }
+      const res = await accountApi.import(text, status, finalGroupId);
       setResult(res.data);
       toast.success(res.message);
       onImported();
@@ -401,6 +410,14 @@ function ImportModal({ onClose, onImported }) {
             <option value="ACC_DA_KHANG">🛡️ Đã Kháng</option>
             <option value="ACC_CHUA_KHANG">⚠️ Chưa Kháng</option>
           </select>
+        </div>
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ color: '#94a3b8', fontSize: '.8rem', display: 'block', marginBottom: '.4rem' }}>Nhom account:</label>
+          <select value={groupId} onChange={(e) => setGroupId(e.target.value)} style={{ padding: '.5rem .75rem', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0', width: '100%', marginBottom: '.5rem' }}>
+            <option value="">Khong chon nhom</option>
+            {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+          </select>
+          <input type="text" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} placeholder="Tao nhom moi: Acc VN, Acc US..." style={{ padding: '.5rem .75rem', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0', width: '100%', boxSizing: 'border-box' }} />
         </div>
         <textarea
           value={text} onChange={(e) => setText(e.target.value)}
@@ -439,11 +456,13 @@ export default function AccountList() {
   const [clChecking, setClChecking] = useState(false);
   const [clResults,  setClResults]  = useState(null);
   const [clProgress, setClProgress] = useState(null);
+  const [groups,     setGroups]     = useState([]);
 
   const [filters, setFilters] = useState({
     status:      sp.get('status')      || '',
     live_status: sp.get('live_status') || '',
     device_id:   sp.get('device_id')   || '',
+    group_id:    sp.get('group_id')    || '',
     search:      sp.get('search')      || '',
     date_from:   sp.get('date_from')   || '',
     date_to:     sp.get('date_to')     || '',
@@ -465,6 +484,19 @@ export default function AccountList() {
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }, []);
+
+  const fetchGroups = useCallback(async () => {
+    try {
+      const res = await accountGroupApi.getAll('app');
+      setGroups(res.data?.groups || []);
+    } catch (err) {
+      toast.error(err.message || 'Khong tai duoc nhom account');
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
 
   useEffect(() => {
     fetchAccounts(filters);
@@ -640,6 +672,13 @@ export default function AccountList() {
                 onChange={(e) => setFilter('video_max', e.target.value)} style={{ minWidth: '70px', maxWidth: '80px' }} />
             </div>
             <div className="filter-group">
+              <label>Nhom</label>
+              <select value={filters.group_id} onChange={(e) => setFilter('group_id', e.target.value)}>
+                <option value="">Tat ca nhom</option>
+                {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+              </select>
+            </div>
+            <div className="filter-group">
               <label>Device ID</label>
               <input type="text" placeholder="device_id…" value={filters.device_id} onChange={(e) => setFilter('device_id', e.target.value)} />
             </div>
@@ -657,7 +696,7 @@ export default function AccountList() {
                 {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} dòng</option>)}
               </select>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', search: '', date_from: '', date_to: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', group_id: '', search: '', date_from: '', date_to: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
               ✕ Xoá bộ lọc
             </button>
           </div>
@@ -814,7 +853,12 @@ export default function AccountList() {
       </div>
 
       {showImport && (
-        <ImportModal onClose={() => setShowImport(false)} onImported={() => fetchAccounts(filters)} />
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          onImported={() => fetchAccounts(filters)}
+          groups={groups}
+          onGroupCreated={() => fetchGroups()}
+        />
       )}
     </div>
   );

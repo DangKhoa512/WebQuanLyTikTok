@@ -211,7 +211,7 @@ const updateLive = async (username, live_status, owner_username) => {
  */
 const getAccounts = async (query, ownerFilter = null) => {
   const {
-    status, live_status, device_id, search,
+    status, live_status, device_id, group_id, search,
     date_from, date_to, video_min, video_max,
     sort_by, sort_dir,
     page  = 1,
@@ -224,6 +224,7 @@ const getAccounts = async (query, ownerFilter = null) => {
   if (status)      where.status      = status;
   if (live_status) where.live_status = live_status;
   if (device_id)   where.device_id   = device_id;
+  if (group_id)    where.group_id    = parseInt(group_id, 10);
   if (search)      where.username    = { [Op.like]: `%${search}%` };
 
   if (date_from || date_to) {
@@ -281,7 +282,7 @@ const updateAccount = async (id, data, ownerFilter = null) => {
   const account = await Account.findOne({ where });
   if (!account) throw httpError('Account không tồn tại', 404);
 
-  const allowed = ['note', 'status', 'live_status', 'proxy', 'device_id'];
+  const allowed = ['note', 'status', 'live_status', 'proxy', 'device_id', 'group_id'];
   const updateData = {};
   allowed.forEach((field) => {
     if (data[field] !== undefined) updateData[field] = data[field];

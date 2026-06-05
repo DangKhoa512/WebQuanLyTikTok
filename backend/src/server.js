@@ -81,6 +81,52 @@ const startServer = async () => {
     }
 
     try {
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS account_groups (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL DEFAULT '${adminOwner()}',
+          account_type ENUM('app','chrome') NOT NULL,
+          name VARCHAR(100) NOT NULL,
+          note VARCHAR(255) NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_groups_owner_type_name (owner_username, account_type, name),
+          KEY idx_groups_owner (owner_username),
+          KEY idx_groups_type (account_type)
+        )
+      `);
+      logger.info('account_groups table ready');
+    } catch (e) {
+      logger.warn('Migration account_groups table skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query('ALTER TABLE accounts ADD COLUMN group_id INT UNSIGNED NULL');
+      logger.info('accounts group_id column added');
+    } catch (e) {
+      logger.warn('Migration accounts group_id skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE accounts ADD INDEX idx_accounts_group_id (group_id)');
+      logger.info('accounts group_id index ready');
+    } catch (e) {
+      logger.warn('Migration accounts group_id index skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE chrome_accounts ADD COLUMN group_id INT UNSIGNED NULL');
+      logger.info('chrome_accounts group_id column added');
+    } catch (e) {
+      logger.warn('Migration chrome group_id skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE chrome_accounts ADD INDEX idx_chrome_group_id (group_id)');
+      logger.info('chrome_accounts group_id index ready');
+    } catch (e) {
+      logger.warn('Migration chrome group_id index skipped:', e.message);
+    }
+
+    try {
       await sequelize.query('ALTER TABLE used_accounts DROP INDEX uq_used_owner_type_account');
     } catch (e) {
       logger.warn('Migration used_accounts old account unique skipped:', e.message);
