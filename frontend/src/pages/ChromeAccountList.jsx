@@ -55,6 +55,16 @@ function ChromeBulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }
     finally { setBusy(false); }
   };
 
+  const handleCopyLegacy = async () => {
+    setBusy(true);
+    try {
+      const res = await chromeAccountApi.bulkGet(ids, 'legacy_pipe');
+      await copyText(res.data?.text || '');
+      toast.success(`Đã copy định dạng tool cũ ${res.data?.count || ids.length} accounts`);
+    } catch (e) { toast.error(e.message); }
+    finally { setBusy(false); }
+  };
+
   const handleCopyAndMark = async () => {
     setBusy(true);
     try {
@@ -135,6 +145,7 @@ function ChromeBulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }
       <BB icon="🔍" label={clChecking ? 'Đang check...' : 'Check Live'} onClick={() => onCheckLive(ids)} color="#0ea5e9" />
       <BB icon="🎯" label={promoting ? 'Đang chuyển...' : 'Chuyển đủ ĐK'} onClick={handlePromote} color="#22c55e" />
       <BB icon="📋" label="Copy"              onClick={handleCopy}        color="#3b82f6" />
+      <BB icon="📋" label="Copy tool cũ"       onClick={handleCopyLegacy} color="#0ea5e9" />
       <BB icon="📋✅" label="Copy & Đánh dấu" onClick={handleCopyAndMark} color="#8b5cf6" />
       <BB icon="🏷️" label="Đánh dấu Đã dùng" onClick={handleMarkUsed}    color="#f59e0b" />
       <BB icon="🗑️" label="Xóa"              onClick={handleDelete}       color="#dc2626" />

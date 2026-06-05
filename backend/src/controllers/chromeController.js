@@ -40,6 +40,29 @@ const nullify = (v) =>
   (!v || v.trim() === '' || v.trim().toLowerCase() === 'null') ? null : v.trim();
 const pipeValue = (value) =>
   value === undefined || value === null || value === '' ? 'null' : String(value);
+const legacyPipeValue = (value) =>
+  value === undefined || value === null || value === '' ? 'Null' : String(value);
+const looksLikeEmail = (value) => /^[^\s@|]+@[^\s@|]+\.[^\s@|]+$/.test(String(value || '').trim());
+const looksLikeCookie = (value) => /(^|[;\s])sid_guard=|tt_chain_token=|sessionid=|uid_tt=/.test(String(value || ''));
+const chromeLegacyFields = (account) => {
+  let password = account.password;
+  let email = account.email;
+  let emailPass = account.email_pass;
+  let cookie = account.cookie;
+
+  if (!email && looksLikeEmail(password)) {
+    email = password;
+    password = null;
+  }
+  if (looksLikeEmail(password) && email && looksLikeCookie(emailPass) && !cookie) {
+    email = password;
+    password = null;
+    cookie = emailPass;
+    emailPass = account.email;
+  }
+
+  return [account.username || '', legacyPipeValue(password), legacyPipeValue(email), legacyPipeValue(emailPass), legacyPipeValue(cookie)];
+};
 
 const availableLockWhere = () => ({
   [Op.or]: [
@@ -339,12 +362,15 @@ const parseLine = (line) => {
   const parts    = dataPart.split('|');
   const username = nullify(parts[0]);
   if (!username) return null;
+  const legacyChromeImport = looksLikeEmail(parts[1]) && looksLikeCookie(parts[3]);
 
   return {
     username,
-    password:   nullify(parts[1]),
-    email:      nullify(parts[2]),
-    email_pass: nullify(parts[3]),
+    password:   legacyChromeImport ? null : nullify(parts[1]),
+    email:      legacyChromeImport ? nullify(parts[1]) : nullify(parts[2]),
+    email_pass: legacyChromeImport ? nullify(parts[2]) : nullify(parts[3]),
+    cookie:     legacyChromeImport ? nullify(parts[3]) : null,
+    token:      legacyChromeImport ? nullify(parts[4]) : null,
     reg_at:     reg_at || new Date(),
   };
 };
@@ -400,7 +426,7 @@ const importChromeAccounts = async (req, res, next) => {
 
     if (toInsert.length > 0) {
       await ChromeAccount.bulkCreate(toInsert, {
-        fields: ['username','password','email','email_pass','status','reg_at','owner_username','group_id'],
+        fields: ['username','password','email','email_pass','cookie','token','status','reg_at','owner_username','group_id'],
       });
     }
 
@@ -622,9 +648,14 @@ const bulkGet = async (req, res, next) => {
 
     const accounts = await ChromeAccount.findAll({
       where:      scopedWhere(req, { id: { [Op.in]: ids } }),
-      attributes: ['id','username','password','email','email_pass','status','live_status','video_count','proxy','device_id'],
+      attributes: ['id','username','password','email','email_pass','cookie','status','live_status','video_count','proxy','device_id'],
       order:      [['id','ASC']],
     });
+
+    if (format === 'legacy_pipe') {
+      const lines = accounts.filter((a) => a.username).map((a) => chromeLegacyFields(a).join('|'));
+      return success(res, { text: lines.join('\n'), count: lines.length }, 'OK');
+    }
 
     if (format === 'pipe') {
       const lines = accounts.filter((a) => a.username).map((a) =>
