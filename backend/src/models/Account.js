@@ -127,7 +127,6 @@ const Account = sequelize.define(
       { fields: ['status'] },
       { fields: ['live_status'] },
       { fields: ['device_id'] },
-      { fields: ['group_id'] },
       { fields: ['reg_at'] },
       { fields: ['status', 'live_status'] },
       { fields: ['status', 'locked_by', 'locked_at'] },
