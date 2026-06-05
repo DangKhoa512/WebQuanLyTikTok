@@ -7,6 +7,7 @@ import { toast } from '../components/Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
 import { checkLiveInBatches } from '../services/checkLiveRunner';
 import { copyText } from '../services/clipboard';
+import AccountGroupPicker from '../components/AccountGroupPicker';
 
 const fmt = (d) =>
   d ? new Date(d).toLocaleString('vi-VN', { hour12: false }) : '—';
@@ -269,7 +270,6 @@ function ImportModal({ onClose, onImported, groups = [], onGroupCreated }) {
   const [text,       setText]       = useState('');
   const [status,     setStatus]     = useState('ACC_LOGIN');
   const [groupId,    setGroupId]    = useState('');
-  const [newGroup,   setNewGroup]   = useState('');
   const [importing,  setImporting]  = useState(false);
   const [result,     setResult]     = useState(null);
 
@@ -277,14 +277,7 @@ function ImportModal({ onClose, onImported, groups = [], onGroupCreated }) {
     if (!text.trim()) { toast.error('Nhập dữ liệu trước'); return; }
     setImporting(true); setResult(null);
     try {
-      let finalGroupId = groupId || null;
-      if (newGroup.trim()) {
-        const created = await accountGroupApi.create('chrome', newGroup.trim());
-        finalGroupId = created.data?.group?.id || finalGroupId;
-        onGroupCreated?.(created.data?.group);
-        setNewGroup('');
-      }
-      const res = await chromeAccountApi.import(text, status, finalGroupId);
+      const res = await chromeAccountApi.import(text, status, groupId || null);
       setResult(res.data);
       toast.success(res.message);
       onImported();
@@ -308,12 +301,7 @@ function ImportModal({ onClose, onImported, groups = [], onGroupCreated }) {
           </select>
         </div>
         <div style={{ marginBottom: '1rem' }}>
-          <label style={{ color: '#94a3b8', fontSize: '.8rem', display: 'block', marginBottom: '.4rem' }}>Nhom account:</label>
-          <select value={groupId} onChange={(e) => setGroupId(e.target.value)} style={{ padding: '.5rem .75rem', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0', width: '100%', marginBottom: '.5rem' }}>
-            <option value="">Khong chon nhom</option>
-            {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-          </select>
-          <input type="text" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} placeholder="Tao nhom moi: Acc VN, Acc US..." style={{ padding: '.5rem .75rem', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: '#e2e8f0', width: '100%', boxSizing: 'border-box' }} />
+          <AccountGroupPicker accountType="chrome" groups={groups} value={groupId} onChange={setGroupId} onGroupsChanged={onGroupCreated} />
         </div>
         <textarea
           value={text} onChange={(e) => setText(e.target.value)}
