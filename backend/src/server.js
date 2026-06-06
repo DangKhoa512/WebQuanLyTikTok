@@ -223,6 +223,43 @@ const startServer = async () => {
       logger.warn('Migration used source status skipped:', e.message);
     }
 
+    try {
+      await sequelize.query('DROP TEMPORARY TABLE IF EXISTS tmp_chrome_legacy_format');
+      await sequelize.query(`
+        CREATE TEMPORARY TABLE tmp_chrome_legacy_format AS
+        SELECT id, password AS old_email, email AS old_email_pass, email_pass AS old_cookie
+        FROM chrome_accounts
+        WHERE password REGEXP '^[^[:space:]@|]+@[^[:space:]@|]+[.][^[:space:]@|]+$'
+          AND (
+            email_pass IS NULL
+            OR email_pass = ''
+            OR email_pass LIKE 'sid_guard=%'
+            OR email_pass LIKE '%;sid_guard=%'
+            OR email_pass LIKE 'sessionid=%'
+            OR email_pass LIKE 'uid_tt=%'
+            OR email_pass LIKE 'tt_chain_token=%'
+          )
+      `);
+      const [, metadata] = await sequelize.query(`
+        UPDATE chrome_accounts AS current
+        INNER JOIN tmp_chrome_legacy_format AS legacy ON legacy.id = current.id
+        SET
+          current.password = NULL,
+          current.email = legacy.old_email,
+          current.email_pass = legacy.old_email_pass,
+          current.cookie = COALESCE(NULLIF(current.cookie, ''), NULLIF(legacy.old_cookie, ''))
+      `);
+      await sequelize.query('DROP TEMPORARY TABLE IF EXISTS tmp_chrome_legacy_format');
+      logger.info(`chrome legacy account format normalized: ${metadata?.affectedRows || 0}`);
+    } catch (e) {
+      try {
+        await sequelize.query('DROP TEMPORARY TABLE IF EXISTS tmp_chrome_legacy_format');
+      } catch (_) {
+        // Ignore cleanup errors and preserve the original migration failure.
+      }
+      logger.warn('Migration chrome legacy format skipped:', e.message);
+    }
+
     // 3. Start background jobs
     startCronJobs();
 

@@ -362,7 +362,8 @@ const parseLine = (line) => {
   const parts    = dataPart.split('|');
   const username = nullify(parts[0]);
   if (!username) return null;
-  const legacyChromeImport = looksLikeEmail(parts[1]) && looksLikeCookie(parts[3]);
+  const legacyChromeImport = looksLikeEmail(parts[1])
+    && (parts.length === 3 || looksLikeCookie(parts[3]));
 
   return {
     username,
