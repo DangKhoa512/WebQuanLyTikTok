@@ -6,6 +6,23 @@ const { scopedWhere } = require('../utils/owner');
 const VALID_STATUSES = ['REG_DA_LAM', 'UPVIDEO', 'UPVIDEO_FAIL', 'DAT_CHI_TIEU', 'DIE', 'ALL'];
 const pipeValue = (value) =>
   value === undefined || value === null || value === '' ? 'null' : String(value);
+const pad2 = (value) => String(value).padStart(2, '0');
+const formatRegAt = (value) => {
+  if (!value) return 'null';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return pipeValue(value);
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())} ${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+};
+const formatAppPipe = (account) => [
+  account.username || '',
+  pipeValue(account.password),
+  pipeValue(account.email),
+  pipeValue(account.email_pass),
+  pipeValue(account.refresh_token),
+  pipeValue(account.client_id),
+  formatRegAt(account.reg_at),
+  pipeValue(account.local),
+].join('|');
 
 /**
  * GET /api/export/accounts
@@ -13,7 +30,7 @@ const pipeValue = (value) =>
  * Query params:
  *   status  = REG_DA_LAM | UPVIDEO | UPVIDEO_FAIL | DAT_CHI_TIEU | DIE | ALL
  *   format  = txt | csv | json   (default: txt)
- *   fields  = pipe | full        (txt mode: pipe = user|pass|mail|passmail, full = tất cả)
+ *   fields  = pipe | full        (txt mode: pipe = user|pass|mail|passmail|refresh_token|client_id|time reg|local)
  *
  * Yêu cầu JWT (header Authorization: Bearer <token>)
  */
@@ -39,6 +56,7 @@ const exportAccounts = async (req, res) => {
       order: [['reg_at', 'ASC']],
       attributes: [
         'id','username','password','email','email_pass',
+        'refresh_token','client_id','local',
         'twofa','cookie','token','proxy','device_id',
         'status','live_status','video_count',
         'reg_at','last_upload_at','fail_reason','note',
@@ -108,17 +126,10 @@ const exportAccounts = async (req, res) => {
     let lines;
 
     if (fields === 'pipe') {
-      // Format phone: username|password|email|email_pass
+      // Format phone: username|password|email|email_pass|refresh_token|client_id|time reg|local
       lines = accounts
         .filter((a) => a.username)
-        .map((a) =>
-          [
-            a.username   || '',
-            pipeValue(a.password),
-            pipeValue(a.email),
-            pipeValue(a.email_pass),
-          ].join('|')
-        );
+        .map(formatAppPipe);
     } else {
       // Full format: id|username|password|email|email_pass|status|live_status|video_count
       lines = accounts.map((a) =>

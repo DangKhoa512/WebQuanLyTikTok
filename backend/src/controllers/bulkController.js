@@ -8,6 +8,23 @@ const { recordUsageHistory } = require('../services/usageHistoryService');
 const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'];
 const pipeValue = (value) =>
   value === undefined || value === null || value === '' ? 'null' : String(value);
+const pad2 = (value) => String(value).padStart(2, '0');
+const formatRegAt = (value) => {
+  if (!value) return 'null';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return pipeValue(value);
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())} ${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+};
+const formatAppPipe = (account) => [
+  account.username || '',
+  pipeValue(account.password),
+  pipeValue(account.email),
+  pipeValue(account.email_pass),
+  pipeValue(account.refresh_token),
+  pipeValue(account.client_id),
+  formatRegAt(account.reg_at),
+  pipeValue(account.local),
+].join('|');
 
 /**
  * POST /api/accounts/bulk-action
@@ -135,20 +152,16 @@ const bulkGet = async (req, res, next) => {
     const accounts = await Account.findAll({
       where: scopedWhere(req, { id: { [Op.in]: ids } }),
       attributes: ['id','username','password','email','email_pass',
+                   'refresh_token','client_id','reg_at','local',
                    'status','live_status','video_count','proxy','device_id'],
       order: [['id','ASC']],
     });
 
-    // format=pipe → trả plain text: user|pass|mail|passmail
+    // format=pipe -> user|pass|mail|passmail|refresh_token|client_id|time reg|local
     if (format === 'pipe') {
       const lines = accounts
         .filter((a) => a.username)
-        .map((a) => [
-          a.username   || '',
-          pipeValue(a.password),
-          pipeValue(a.email),
-          pipeValue(a.email_pass),
-        ].join('|'));
+        .map(formatAppPipe);
 
       return success(res, { text: lines.join('\n'), count: lines.length }, 'OK');
     }
@@ -179,19 +192,14 @@ const copyUnused = async (req, res, next) => {
 
     const accounts = await Account.findAll({
       where:      scopedWhere(req, { status, note: null }),
-      attributes: ['id','username','password','email','email_pass','status','owner_username'],
+      attributes: ['id','username','password','email','email_pass','refresh_token','client_id','reg_at','local','status','owner_username'],
       order:      [['id','ASC']],
       limit:      Math.min(parseInt(limit) || 500, 1000),
     });
 
     const lines = accounts
       .filter((a) => a.username)
-      .map((a) => [
-        a.username   || '',
-        pipeValue(a.password),
-        pipeValue(a.email),
-        pipeValue(a.email_pass),
-      ].join('|'));
+      .map(formatAppPipe);
 
     // Optionally mark as used
     if (mark_used && accounts.length > 0) {
