@@ -409,7 +409,10 @@ function ImportModal({ onClose, onImported, groups = [], onGroupCreated }) {
         </div>
         <textarea
           value={text} onChange={(e) => setText(e.target.value)}
-          placeholder={'user|pass|email|emailpass\nhay có datetime:\n16/05/2026 10:30:00\tuser|pass|email|emailpass'}
+          placeholder={
+            'USER|PASS|MAIL|PASS MAIL|refresh_token|client_id|time reg|local\n' +
+            'Ví dụ time reg: 16/05/2026 10:30:00'
+          }
           rows={10}
           style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: '8px', padding: '.6rem .85rem', fontFamily: 'monospace', fontSize: '.8rem', lineHeight: 1.6, resize: 'vertical', outline: 'none' }}
         />

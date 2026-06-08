@@ -12,6 +12,22 @@ const UPVIDEO_MAX_VIDEOS = 20;
 const KHANG_MIN_VIDEOS = 10;
 const ELIGIBLE_MIN_VIDEOS = 20;
 const ELIGIBLE_MIN_AGE_DAYS = 4;
+const PHONE_ACCOUNT_FIELDS = [
+  'id',
+  'username',
+  'password',
+  'email',
+  'email_pass',
+  'twofa',
+  'cookie',
+  'token',
+  'refresh_token',
+  'client_id',
+  'local',
+  'proxy',
+  'status',
+  'video_count',
+];
 
 const isEligibleAge = (regAt) => {
   if (!regAt) return false;
@@ -93,7 +109,7 @@ const getAccount = async (req, res, next) => {
         lock:   transaction.LOCK.UPDATE,
         skipLocked: true,
         transaction,
-        attributes: ['id','username','password','email','email_pass','twofa','cookie','token','proxy','status','video_count'],
+        attributes: PHONE_ACCOUNT_FIELDS,
       });
       if (!account) { await transaction.rollback(); return success(res, null, 'Không có account khả dụng'); }
       await account.update({ locked_by: device_id, locked_at: new Date() }, { transaction });
@@ -146,7 +162,7 @@ const getCanUpvideo = async (req, res, next) => {
         lock:  transaction.LOCK.UPDATE,
         skipLocked: true,
         transaction,
-        attributes: ['id','username','password','email','email_pass','twofa','cookie','token','proxy','status','video_count'],
+        attributes: PHONE_ACCOUNT_FIELDS,
       });
       if (!account) { await transaction.rollback(); return success(res, null, 'Không có account cần upvideo'); }
       await account.update({ locked_by: device_id, locked_at: new Date() }, { transaction });
@@ -185,7 +201,7 @@ const getCanKhang = async (req, res, next) => {
         lock:  transaction.LOCK.UPDATE,
         skipLocked: true,
         transaction,
-        attributes: ['id','username','password','email','email_pass','twofa','cookie','token','proxy','video_count'],
+        attributes: PHONE_ACCOUNT_FIELDS,
       });
       if (!account) { await transaction.rollback(); return success(res, null, 'Không có account Chưa Kháng đủ điều kiện'); }
       await account.update({ locked_by: device_id, locked_at: new Date() }, { transaction });

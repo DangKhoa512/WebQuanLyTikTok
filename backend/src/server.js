@@ -114,6 +114,24 @@ const startServer = async () => {
       logger.warn('Migration accounts group_id index skipped:', e.message);
     }
     try {
+      await sequelize.query('ALTER TABLE accounts ADD COLUMN refresh_token LONGTEXT NULL');
+      logger.info('accounts refresh_token column added');
+    } catch (e) {
+      logger.warn('Migration accounts refresh_token skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE accounts ADD COLUMN client_id VARCHAR(255) NULL');
+      logger.info('accounts client_id column added');
+    } catch (e) {
+      logger.warn('Migration accounts client_id skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE accounts ADD COLUMN `local` VARCHAR(255) NULL');
+      logger.info('accounts local column added');
+    } catch (e) {
+      logger.warn('Migration accounts local skipped:', e.message);
+    }
+    try {
       await sequelize.query('ALTER TABLE chrome_accounts ADD COLUMN group_id INT UNSIGNED NULL');
       logger.info('chrome_accounts group_id column added');
     } catch (e) {

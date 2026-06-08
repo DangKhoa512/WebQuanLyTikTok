@@ -21,6 +21,43 @@ const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_
 const nullify = (v) =>
   (!v || v.trim() === '' || v.trim().toLowerCase() === 'null') ? null : v.trim();
 
+const parseRegAt = (value) => {
+  const normalized = nullify(value);
+  if (!normalized) return null;
+
+  if (/^\d{10}$/.test(normalized)) {
+    const date = new Date(Number(normalized) * 1000);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (/^\d{13}$/.test(normalized)) {
+    const date = new Date(Number(normalized));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const dayFirst = normalized.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+  );
+  if (dayFirst) {
+    const [, dd, MM, yyyy, hh = '0', min = '0', ss = '0'] = dayFirst;
+    const date = new Date(
+      Number(yyyy),
+      Number(MM) - 1,
+      Number(dd),
+      Number(hh),
+      Number(min),
+      Number(ss)
+    );
+    const isValid =
+      date.getFullYear() === Number(yyyy) &&
+      date.getMonth() === Number(MM) - 1 &&
+      date.getDate() === Number(dd);
+    return isValid ? date : null;
+  }
+
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 /**
  * Parse một dòng text → { username, password, email, email_pass, reg_at } | null
  */
@@ -37,10 +74,7 @@ const parseLine = (line) => {
     );
     if (m) {
       const [, dd, MM, yyyy, hh, min, ss] = m;
-      reg_at   = new Date(
-        `${yyyy}-${MM.padStart(2,'0')}-${dd.padStart(2,'0')}` +
-        `T${hh.padStart(2,'0')}:${min}:${ss}`
-      );
+      reg_at = parseRegAt(`${dd}/${MM}/${yyyy} ${hh}:${min}:${ss}`);
       dataPart = line.substring(tabIdx + 1).trim();
     }
   }
@@ -54,7 +88,11 @@ const parseLine = (line) => {
     password:   nullify(parts[1]),
     email:      nullify(parts[2]),
     email_pass: nullify(parts[3]),
-    reg_at:     reg_at || new Date(),
+    refresh_token: nullify(parts[4]),
+    client_id:     nullify(parts[5]),
+    reg_at:        parseRegAt(parts[6]) || reg_at || new Date(),
+    local:         nullify(parts[7]),
+    raw_data:      dataPart,
   };
 };
 
@@ -123,7 +161,20 @@ const importAccounts = async (req, res, next) => {
     // ── Bulk insert ───────────────────────────────────────────────────────────
     if (toInsert.length > 0) {
       await Account.bulkCreate(toInsert, {
-        fields: ['username', 'password', 'email', 'email_pass', 'status', 'reg_at', 'owner_username', 'group_id'],
+        fields: [
+          'raw_data',
+          'username',
+          'password',
+          'email',
+          'email_pass',
+          'refresh_token',
+          'client_id',
+          'reg_at',
+          'local',
+          'status',
+          'owner_username',
+          'group_id',
+        ],
       });
     }
 

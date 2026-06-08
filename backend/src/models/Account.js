@@ -42,6 +42,18 @@ const Account = sequelize.define(
       type: DataTypes.TEXT('long'),
       allowNull: true,
     },
+    refresh_token: {
+      type: DataTypes.TEXT('long'),
+      allowNull: true,
+    },
+    client_id: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    local: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
     proxy: {
       type: DataTypes.STRING(255),
       allowNull: true,

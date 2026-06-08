@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { accountApi } from '../services/api';
 import { toast } from './Toast';
 
-const EXAMPLE = `06/05/2026 15:06:00\tbi.thanh.lm769|Null|buithanhlam59o9njnae985@antttool.us|Phan9999
-07/05/2026 08:30:00\tanother.user|Pass@123|user@gmail.com|mailpass456
-tiktok_user003|Pass@789|user003@gmail.com|mailpass789`;
+const EXAMPLE = `bi.thanh.lm769|Null|buithanhlam59o9njnae985@antttool.us|Phan9999|refresh-token-1|client-id-1|06/05/2026 15:06:00|VN
+another.user|Pass@123|user@gmail.com|mailpass456|refresh-token-2|client-id-2|1746606600|US`;
 
 export default function ImportModal({ onClose, onSuccess }) {
   const [text,    setText]    = useState('');
@@ -83,13 +82,13 @@ export default function ImportModal({ onClose, onSuccess }) {
             <strong>Định dạng:</strong>
             <div style={{ fontFamily: 'monospace', marginTop: '.3rem', lineHeight: 1.7 }}>
               <div>
-                <span style={{ color: '#8b5cf6' }}>DD/MM/YYYY HH:MM:SS</span>
-                <span style={{ color: '#94a3b8' }}>{'\t'}</span>
-                <span style={{ color: '#059669' }}>username</span>
-                <span style={{ color: '#94a3b8' }}>|pass|email|email_pass</span>
+                <span style={{ color: '#059669' }}>USER</span>
+                <span style={{ color: '#94a3b8' }}>
+                  |PASS|MAIL|PASS MAIL|refresh_token|client_id|time reg|local
+                </span>
               </div>
               <div style={{ color: '#94a3b8' }}>
-                hoặc chỉ: <span style={{ color: '#059669' }}>username</span>|pass|email|email_pass
+                time reg hỗ trợ DD/MM/YYYY HH:MM:SS, ISO hoặc Unix timestamp
               </div>
             </div>
             <button
