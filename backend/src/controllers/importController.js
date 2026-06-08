@@ -21,6 +21,22 @@ const VALID_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_
 const nullify = (v) =>
   (!v || v.trim() === '' || v.trim().toLowerCase() === 'null') ? null : v.trim();
 
+const buildLocalDate = ({ dd, MM, yyyy, hh = '0', min = '0', ss = '0' }) => {
+  const date = new Date(
+    Number(yyyy),
+    Number(MM) - 1,
+    Number(dd),
+    Number(hh),
+    Number(min),
+    Number(ss)
+  );
+  const isValid =
+    date.getFullYear() === Number(yyyy) &&
+    date.getMonth() === Number(MM) - 1 &&
+    date.getDate() === Number(dd);
+  return isValid ? date : null;
+};
+
 const parseRegAt = (value) => {
   const normalized = nullify(value);
   if (!normalized) return null;
@@ -39,19 +55,15 @@ const parseRegAt = (value) => {
   );
   if (dayFirst) {
     const [, dd, MM, yyyy, hh = '0', min = '0', ss = '0'] = dayFirst;
-    const date = new Date(
-      Number(yyyy),
-      Number(MM) - 1,
-      Number(dd),
-      Number(hh),
-      Number(min),
-      Number(ss)
-    );
-    const isValid =
-      date.getFullYear() === Number(yyyy) &&
-      date.getMonth() === Number(MM) - 1 &&
-      date.getDate() === Number(dd);
-    return isValid ? date : null;
+    return buildLocalDate({ dd, MM, yyyy, hh, min, ss });
+  }
+
+  const timeFirst = normalized.match(
+    /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s+(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+  );
+  if (timeFirst) {
+    const [, hh, min, ss = '0', dd, MM, yyyy] = timeFirst;
+    return buildLocalDate({ dd, MM, yyyy, hh, min, ss });
   }
 
   const parsed = new Date(normalized);
