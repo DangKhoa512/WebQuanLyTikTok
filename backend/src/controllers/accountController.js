@@ -75,10 +75,17 @@ const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) =
     updateData.status = 'ACC_DIE';
     action = 'die';
     message = 'Account die, đã chuyển sang ACC_DIE';
-  } else if (videoCount >= ELIGIBLE_MIN_VIDEOS && isEligibleAge(account.reg_at)) {
+  } else if (
+    account.status === 'ACC_DA_KHANG' &&
+    videoCount >= ELIGIBLE_MIN_VIDEOS &&
+    isEligibleAge(account.reg_at)
+  ) {
     updateData.status = 'ACC_DU_DK';
     action = 'eligible';
     message = 'Đã đủ video';
+  } else if (account.status === 'ACC_CHUA_KHANG' && videoCount >= ELIGIBLE_MIN_VIDEOS) {
+    action = 'ready_for_khang';
+    message = 'Đã đủ video, giữ ở Chưa Kháng để xử lý kháng';
   } else {
     action = 'unlock_for_retry';
     message = 'Chưa đủ video';
