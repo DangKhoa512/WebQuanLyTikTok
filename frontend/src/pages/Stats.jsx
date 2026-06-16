@@ -70,7 +70,7 @@ function SummaryCard({ title, value, color, icon, suffix = '' }) {
 }
 
 export default function Stats() {
-  const [range, setRange] = useState(30);
+  const [range, setRange] = useState('today');
   const [stats, setStats] = useState(null);
   const [daily, setDaily] = useState(null);
   const [devices, setDevices] = useState([]);
