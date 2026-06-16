@@ -4,5 +4,6 @@ const ChromeAccount = require('./ChromeAccount');
 const User          = require('./User');
 const UsedAccount   = require('./UsedAccount');
 const AccountGroup  = require('./AccountGroup');
+const JobAccount    = require('./JobAccount');
 
-module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup };
+module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount };

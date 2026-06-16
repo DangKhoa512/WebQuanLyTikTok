@@ -13,8 +13,24 @@ const STATUSES = [
   'ACC_DIE',
 ];
 
+const JOB_STATUSES = [
+  'ACCOUNT_CHAY',
+  'DANG_LAM',
+  'DUOI_50_JOB',
+  'FAIL_AVT',
+  'LOI_CAU_HINH',
+  'DA_CHAY_XONG',
+  'ACCOUNT_DIE',
+];
+const XU_PER_JOB = parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400;
+
 const emptyStatusCounts = () =>
   STATUSES.reduce((out, status) => ({ ...out, [status]: 0 }), {});
+
+const ownerWhere = (ownerFilter, prefix = 'WHERE') =>
+  ownerFilter ? `${prefix} owner_username = :owner` : '';
+
+const numeric = (row, key) => Number(row?.[key]) || 0;
 
 const getModelStats = async (Model, todayStart, todayEnd, ownerFilter = null) => {
   const tableName = Model.getTableName();
@@ -52,7 +68,7 @@ const getModelStats = async (Model, todayStart, todayEnd, ownerFilter = null) =>
     'unknown_live',
     ...STATUSES,
   ].forEach((key) => {
-    stats[key] = parseInt(row[key], 10) || 0;
+    stats[key] = numeric(row, key);
   });
 
   return stats;
@@ -75,33 +91,24 @@ const combineStats = (app, chrome) => {
   return combined;
 };
 
-/**
- * Returns overall system statistics.
- */
 const getStats = async (ownerFilter = null) => {
-  const now   = new Date();
-  // Today = midnight local time (timezone offset handled by MySQL connection timezone)
+  const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const todayEnd   = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
   const [app, chrome] = await Promise.all([
     getModelStats(Account, todayStart, todayEnd, ownerFilter),
     getModelStats(ChromeAccount, todayStart, todayEnd, ownerFilter),
   ]);
 
-  const combined = combineStats(app, chrome);
-
   return {
-    ...combined,
+    ...combineStats(app, chrome),
     tasks: { app, chrome },
   };
 };
 
-/**
- * Returns per-day registration and upload counts for the past N days.
- */
 const getDailyStats = async (days = 7, ownerFilter = null) => {
-  const daysInt = Math.min(90, Math.max(1, parseInt(days) || 7));
+  const daysInt = Math.min(90, Math.max(1, parseInt(days, 10) || 7));
   const ownerSql = ownerFilter ? 'AND owner_username = :owner' : '';
   const replacements = { days: daysInt };
   if (ownerFilter) replacements.owner = ownerFilter;
@@ -109,7 +116,7 @@ const getDailyStats = async (days = 7, ownerFilter = null) => {
   const dailyReg = await sequelize.query(
     `SELECT
        DATE(reg_at) AS \`date\`,
-       COUNT(*)     AS reg_count
+       COUNT(*) AS reg_count
      FROM accounts
      WHERE reg_at >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
        AND reg_at IS NOT NULL
@@ -122,7 +129,7 @@ const getDailyStats = async (days = 7, ownerFilter = null) => {
   const dailyUpload = await sequelize.query(
     `SELECT
        DATE(last_upload_at) AS \`date\`,
-       COUNT(*)             AS upload_count
+       COUNT(*) AS upload_count
      FROM accounts
      WHERE last_upload_at >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
        AND last_upload_at IS NOT NULL
@@ -135,7 +142,7 @@ const getDailyStats = async (days = 7, ownerFilter = null) => {
   const statusDist = await sequelize.query(
     `SELECT status, COUNT(*) AS cnt
      FROM accounts
-     ${ownerFilter ? 'WHERE owner_username = :owner' : ''}
+     ${ownerWhere(ownerFilter)}
      GROUP BY status`,
     { replacements, type: QueryTypes.SELECT }
   );
@@ -186,7 +193,7 @@ const buildDeviceQuery = (tableName, task, hasOwner) => `
 
 const addStats = (target, row) => {
   Object.keys(zeroDeviceStats()).forEach((key) => {
-    target[key] += parseInt(row[key], 10) || 0;
+    target[key] += numeric(row, key);
   });
 };
 
@@ -228,4 +235,153 @@ const getDeviceStats = async (ownerFilter = null) => {
   return [...map.values()].sort((a, b) => new Date(b.last_seen || 0) - new Date(a.last_seen || 0));
 };
 
-module.exports = { getStats, getDailyStats, getDeviceStats };
+const getJobStats = async (ownerFilter = null) => {
+  const replacements = {};
+  if (ownerFilter) replacements.owner = ownerFilter;
+
+  const [row = {}] = await sequelize.query(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(status = 'ACCOUNT_CHAY') AS ACCOUNT_CHAY,
+       SUM(status = 'DANG_LAM') AS DANG_LAM,
+       SUM(status = 'DUOI_50_JOB') AS DUOI_50_JOB,
+       SUM(status = 'FAIL_AVT') AS FAIL_AVT,
+       SUM(status = 'LOI_CAU_HINH') AS LOI_CAU_HINH,
+       SUM(status = 'DA_CHAY_XONG') AS DA_CHAY_XONG,
+       SUM(status = 'ACCOUNT_DIE') AS ACCOUNT_DIE,
+       SUM(login_at IS NOT NULL) AS login_success,
+       SUM(status = 'DUOI_50_JOB') AS failed,
+       SUM(status = 'LOI_CAU_HINH') AS config_error,
+       COALESCE(SUM(job_count), 0) AS total_jobs,
+       COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu,
+       COALESCE(SUM(CASE WHEN DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() THEN job_count ELSE 0 END), 0) AS today_jobs,
+       COALESCE(SUM(CASE WHEN DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() THEN job_count ELSE 0 END), 0) * :xuPerJob AS today_xu,
+       COALESCE(SUM(CASE WHEN YEAR(COALESCE(completed_at, login_at, updated_at, created_at)) = YEAR(CURDATE()) AND MONTH(COALESCE(completed_at, login_at, updated_at, created_at)) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
+       COALESCE(SUM(CASE WHEN YEAR(COALESCE(completed_at, login_at, updated_at, created_at)) = YEAR(CURDATE()) AND MONTH(COALESCE(completed_at, login_at, updated_at, created_at)) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) * :xuPerJob AS month_xu,
+       SUM(DATE(login_at) = CURDATE()) AS today_login_success,
+       SUM(DATE(completed_at) = CURDATE() AND status = 'DUOI_50_JOB') AS today_failed,
+       SUM(DATE(completed_at) = CURDATE() AND status = 'LOI_CAU_HINH') AS today_config_error,
+       SUM(live_status = 'live') AS live,
+       SUM(live_status = 'die') AS die_live,
+       SUM(live_status = 'unknown') AS unknown_live
+     FROM job_accounts
+     ${ownerWhere(ownerFilter)}`,
+    { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
+  );
+
+  const stats = {};
+  [
+    'total',
+    ...JOB_STATUSES,
+    'login_success',
+    'failed',
+    'config_error',
+    'total_jobs',
+    'total_xu',
+    'today_jobs',
+    'today_xu',
+    'month_jobs',
+    'month_xu',
+    'today_login_success',
+    'today_failed',
+    'today_config_error',
+    'live',
+    'die_live',
+    'unknown_live',
+  ].forEach((key) => {
+    stats[key] = numeric(row, key);
+  });
+
+  return stats;
+};
+
+const getJobDailyStats = async (days = 30, ownerFilter = null) => {
+  const daysInt = Math.min(365, Math.max(1, parseInt(days, 10) || 30));
+  const replacements = { days: daysInt };
+  if (ownerFilter) replacements.owner = ownerFilter;
+  const ownerAnd = ownerFilter ? 'AND owner_username = :owner' : '';
+
+  const daily = await sequelize.query(
+    `SELECT
+       DATE(COALESCE(completed_at, login_at, updated_at, created_at)) AS date,
+       COUNT(*) AS completed_accounts,
+       SUM(status = 'DA_CHAY_XONG') AS done_accounts,
+       SUM(status = 'DUOI_50_JOB') AS failed_accounts,
+       SUM(status = 'LOI_CAU_HINH') AS config_error_accounts,
+       SUM(status = 'DANG_LAM') AS working_accounts,
+       COALESCE(SUM(job_count), 0) AS total_jobs,
+       COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
+     FROM job_accounts
+     WHERE COALESCE(completed_at, login_at, updated_at, created_at) >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
+       ${ownerAnd}
+     GROUP BY DATE(COALESCE(completed_at, login_at, updated_at, created_at))
+     ORDER BY date ASC`,
+    { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
+  );
+
+  const monthly = await sequelize.query(
+    `SELECT
+       DATE_FORMAT(COALESCE(completed_at, login_at, updated_at, created_at), '%Y-%m') AS month,
+       COUNT(*) AS completed_accounts,
+       COALESCE(SUM(job_count), 0) AS total_jobs,
+       COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
+     FROM job_accounts
+     WHERE COALESCE(completed_at, login_at, updated_at, created_at) >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+       ${ownerAnd}
+     GROUP BY DATE_FORMAT(COALESCE(completed_at, login_at, updated_at, created_at), '%Y-%m')
+     ORDER BY month ASC`,
+    { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
+  );
+
+  const statusDist = await sequelize.query(
+    `SELECT status, COUNT(*) AS cnt
+     FROM job_accounts
+     ${ownerWhere(ownerFilter)}
+     GROUP BY status
+     ORDER BY cnt DESC`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+
+  return { daily_job: daily, monthly_job: monthly, status_dist: statusDist };
+};
+
+const getJobDeviceStats = async (ownerFilter = null) => {
+  const replacements = {};
+  if (ownerFilter) replacements.owner = ownerFilter;
+
+  return sequelize.query(
+    `SELECT
+       COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown') AS device_id,
+       COUNT(*) AS total_accounts,
+       SUM(login_at IS NOT NULL) AS login_success,
+       SUM(status = 'DUOI_50_JOB') AS failed_accounts,
+       SUM(status = 'LOI_CAU_HINH') AS config_error_accounts,
+       SUM(status = 'DA_CHAY_XONG') AS done_accounts,
+       SUM(DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE()) AS today_accounts,
+       SUM(DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() AND status = 'DANG_LAM') AS today_working_accounts,
+       SUM(DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() AND status = 'DUOI_50_JOB') AS today_failed_accounts,
+       SUM(DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() AND status = 'LOI_CAU_HINH') AS today_config_error_accounts,
+       SUM(DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() AND status = 'DA_CHAY_XONG') AS today_done_accounts,
+       COALESCE(SUM(job_count), 0) AS total_jobs,
+       COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu,
+       COALESCE(SUM(CASE WHEN DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() THEN job_count ELSE 0 END), 0) AS today_jobs,
+       COALESCE(SUM(CASE WHEN DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() THEN job_count ELSE 0 END), 0) * :xuPerJob AS today_xu,
+       COALESCE(SUM(CASE WHEN YEAR(COALESCE(completed_at, login_at, updated_at, created_at)) = YEAR(CURDATE()) AND MONTH(COALESCE(completed_at, login_at, updated_at, created_at)) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
+       COALESCE(SUM(CASE WHEN YEAR(COALESCE(completed_at, login_at, updated_at, created_at)) = YEAR(CURDATE()) AND MONTH(COALESCE(completed_at, login_at, updated_at, created_at)) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) * :xuPerJob AS month_xu,
+       MAX(COALESCE(completed_at, login_at, updated_at)) AS last_seen
+     FROM job_accounts
+     ${ownerWhere(ownerFilter)}
+     GROUP BY COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown')
+     ORDER BY total_xu DESC, login_success DESC`,
+    { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
+  );
+};
+
+module.exports = {
+  getStats,
+  getDailyStats,
+  getDeviceStats,
+  getJobStats,
+  getJobDailyStats,
+  getJobDeviceStats,
+};

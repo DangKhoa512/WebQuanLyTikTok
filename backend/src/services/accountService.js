@@ -8,7 +8,7 @@
  *  - All status transitions use bulk UPDATE (atomic at DB level)
  */
 
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 const sequelize = require('../config/database');
 const Account = require('../models/Account');
 const logger = require('../config/logger');
@@ -249,9 +249,24 @@ const getAccounts = async (query, ownerFilter = null) => {
     limit:  limitNum,
     offset,
   });
+  const countWhere = {};
+  if (ownerFilter) countWhere.owner_username = ownerFilter;
+  const grouped = await Account.findAll({
+    where: countWhere,
+    attributes: ['status', [fn('COUNT', col('id')), 'count']],
+    group: ['status'],
+    raw: true,
+  });
+  const counts = { total: 0 };
+  grouped.forEach((row) => {
+    const value = Number(row.count) || 0;
+    counts[row.status] = value;
+    counts.total += value;
+  });
 
   return {
     accounts: rows,
+    counts,
     pagination: {
       total:      count,
       page:       pageNum,

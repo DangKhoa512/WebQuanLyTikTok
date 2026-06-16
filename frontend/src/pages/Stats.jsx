@@ -1,127 +1,186 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import { statsApi } from '../services/api';
 
-const DAYS_OPTIONS = [7, 14, 30];
+const RANGE_OPTIONS = [
+  { label: 'Hôm nay', value: 'today', days: 1 },
+  { label: '7 ngày', value: 7, days: 7 },
+  { label: '30 ngày', value: 30, days: 30 },
+  { label: '90 ngày', value: 90, days: 90 },
+];
 
-const PIE_COLORS = {
-  REG_DA_LAM:   '#f59e0b',
-  CHO_UPVIDEO:  '#06b6d4',
-  UPVIDEO:      '#10b981',
-  UPVIDEO_FAIL: '#ef4444',
-  DAT_CHI_TIEU: '#8b5cf6',
-  DIE:          '#6b7280',
-};
+const fmtNum = (value) => Number(value || 0).toLocaleString('vi-VN');
+const fmtXu = (value) => `${fmtNum(value)} xu`;
+const fmtDate = (value) =>
+  value ? new Date(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : value;
+const fmtDateTime = (value) =>
+  value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '—';
 
-const fmtDate = (d) =>
-  d
-    ? new Date(d).toLocaleDateString('vi-VN', { month: '2-digit', day: '2-digit' })
-    : d;
+function SummaryCard({ title, value, color, icon, suffix = '' }) {
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: 10,
+      padding: '1rem 1.1rem',
+      boxShadow: '0 1px 3px rgba(15,23,42,.12)',
+      borderLeft: `4px solid ${color}`,
+      minHeight: 96,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.65rem' }}>
+        <div style={{
+          width: 38,
+          height: 38,
+          borderRadius: 8,
+          background: `${color}22`,
+          color,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '1.1rem',
+          flex: '0 0 38px',
+        }}>
+          {icon}
+        </div>
+        <div>
+          <div style={{ fontSize: '1.45rem', fontWeight: 850, color: '#0f172a', lineHeight: 1 }}>
+            {fmtNum(value)}{suffix}
+          </div>
+          <div style={{ fontSize: '.72rem', color: '#64748b', fontWeight: 700, marginTop: '.3rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+            {title}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Stats() {
-  const [days,       setDays]       = useState(7);
-  const [stats,      setStats]      = useState(null);
-  const [daily,      setDaily]      = useState(null);
-  const [deviceStats,setDeviceStats]= useState([]);
-  const [deviceSearch,setDeviceSearch]= useState('');
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState(null);
+  const [range, setRange] = useState(30);
+  const [stats, setStats] = useState(null);
+  const [daily, setDaily] = useState(null);
+  const [devices, setDevices] = useState([]);
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setError('');
+    const selectedRange = RANGE_OPTIONS.find((item) => item.value === range) || RANGE_OPTIONS[2];
     try {
       const [statsRes, dailyRes, deviceRes] = await Promise.all([
-        statsApi.getStats(),
-        statsApi.getDailyStats(days),
-        statsApi.getDeviceStats(),
+        statsApi.getJobStats(),
+        statsApi.getJobDailyStats(selectedRange.days),
+        statsApi.getJobDeviceStats(),
       ]);
-      setStats(statsRes.data);
-      setDaily(dailyRes.data);
-      setDeviceStats(deviceRes.data?.devices || []);
+      setStats(statsRes.data || {});
+      setDaily(dailyRes.data || {});
+      setDevices(deviceRes.data?.devices || []);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Không tải được thống kê JOB');
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [range]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  // Build merged daily chart data
-  const buildDailyData = () => {
-    if (!daily) return [];
-    const map = {};
+  const dailyData = useMemo(() => (
+    (daily?.daily_job || []).map((row) => ({
+      date: fmtDate(row.date),
+      rawDate: row.date,
+      xu: Number(row.total_xu || 0),
+      jobs: Number(row.total_jobs || 0),
+      done: Number(row.done_accounts || 0),
+      fail: Number(row.failed_accounts || 0),
+      config: Number(row.config_error_accounts || 0),
+      working: Number(row.working_accounts || 0),
+      total: Number(row.completed_accounts || 0),
+    }))
+  ), [daily]);
 
-    (daily.daily_reg || []).forEach(({ date, reg_count }) => {
-      map[date] = { date: fmtDate(date), reg: parseInt(reg_count) || 0, upload: 0 };
-    });
-    (daily.daily_upload || []).forEach(({ date, upload_count }) => {
-      const d = fmtDate(date);
-      if (map[date]) {
-        map[date].upload = parseInt(upload_count) || 0;
-      } else {
-        map[date] = { date: d, reg: 0, upload: parseInt(upload_count) || 0 };
-      }
-    });
+  const monthlyData = useMemo(() => (
+    (daily?.monthly_job || []).map((row) => ({
+      month: row.month,
+      xu: Number(row.total_xu || 0),
+      total: Number(row.completed_accounts || 0),
+    }))
+  ), [daily]);
 
-    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
-  };
-
-  const buildPieData = () => {
-    if (!stats) return [];
-    return [
-      { name: 'REG_DA_LAM',   value: stats.REG_DA_LAM   || 0 },
-      { name: 'UPVIDEO',      value: stats.UPVIDEO      || 0 },
-      { name: 'UPVIDEO_FAIL', value: stats.UPVIDEO_FAIL || 0 },
-      { name: 'DAT_CHI_TIEU', value: stats.DAT_CHI_TIEU || 0 },
-      { name: 'DIE',          value: stats.DIE           || 0 },
-    ].filter((d) => d.value > 0);
-  };
-
-  const dailyData = buildDailyData();
-  const pieData   = buildPieData();
-  const filteredDevices = deviceStats.filter((device) =>
-    device.device_id.toLowerCase().includes(deviceSearch.trim().toLowerCase())
+  const filteredDevices = devices.filter((device) =>
+    String(device.device_id || '').toLowerCase().includes(deviceSearch.trim().toLowerCase())
   );
-  const deviceTotals = deviceStats.reduce((acc, device) => ({
+  const isTodayRange = range === 'today';
+  const activeRange = RANGE_OPTIONS.find((item) => item.value === range) || RANGE_OPTIONS[2];
+
+  const deviceTotals = devices.reduce((acc, device) => ({
     machines: acc.machines + 1,
-    total: acc.total + (device.total || 0),
-    today_updated: acc.today_updated + (device.today_updated || 0),
-    live: acc.live + (device.live || 0),
-  }), { machines: 0, total: 0, today_updated: 0, live: 0 });
+    login_success: acc.login_success + Number(device.login_success || 0),
+    failed_accounts: acc.failed_accounts + Number(device.failed_accounts || 0),
+    config_error_accounts: acc.config_error_accounts + Number(device.config_error_accounts || 0),
+    total_xu: acc.total_xu + Number((isTodayRange ? device.today_xu : device.total_xu) || 0),
+    today_xu: acc.today_xu + Number(device.today_xu || 0),
+    month_xu: acc.month_xu + Number(device.month_xu || 0),
+    today_accounts: acc.today_accounts + Number(device.today_accounts || 0),
+    today_working_accounts: acc.today_working_accounts + Number(device.today_working_accounts || 0),
+    today_failed_accounts: acc.today_failed_accounts + Number(device.today_failed_accounts || 0),
+    today_config_error_accounts: acc.today_config_error_accounts + Number(device.today_config_error_accounts || 0),
+    today_done_accounts: acc.today_done_accounts + Number(device.today_done_accounts || 0),
+  }), {
+    machines: 0,
+    login_success: 0,
+    failed_accounts: 0,
+    config_error_accounts: 0,
+    total_xu: 0,
+    today_xu: 0,
+    month_xu: 0,
+    today_accounts: 0,
+    today_working_accounts: 0,
+    today_failed_accounts: 0,
+    today_config_error_accounts: 0,
+    today_done_accounts: 0,
+  });
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <h1>📈 Thống kê chi tiết</h1>
-          <div className="subtitle">Tổng quan hoạt động hệ thống</div>
+          <h1>📊 Thống kê JOB</h1>
+          <div className="subtitle">Theo dõi account chạy job, lỗi và tổng xu theo máy/ngày/tháng.</div>
         </div>
-        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
-          {DAYS_OPTIONS.map((d) => (
+        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {RANGE_OPTIONS.map((option) => (
             <button
-              key={d}
-              onClick={() => setDays(d)}
+              key={option.value}
+              onClick={() => setRange(option.value)}
               style={{
-                padding: '.4rem .85rem',
+                padding: '.42rem .85rem',
                 borderRadius: 8,
-                border: `1px solid ${days === d ? '#3b82f6' : '#e2e8f0'}`,
-                background: days === d ? '#3b82f6' : '#fff',
-                color: days === d ? '#fff' : '#475569',
+                border: `1px solid ${range === option.value ? '#06b6d4' : '#e2e8f0'}`,
+                background: range === option.value ? '#06b6d4' : '#fff',
+                color: range === option.value ? '#fff' : '#475569',
                 cursor: 'pointer',
                 fontSize: '.82rem',
-                fontWeight: 600,
-                transition: 'all .15s',
+                fontWeight: 700,
               }}
             >
-              {d} ngày
+              {option.label}
             </button>
           ))}
-          <button className="btn btn-secondary btn-sm" onClick={fetchData}>🔄</button>
+          <button className="btn btn-secondary btn-sm" onClick={fetchData}>🔄 Làm mới</button>
         </div>
       </div>
 
@@ -129,64 +188,33 @@ export default function Stats() {
 
       {loading ? (
         <div className="loading-wrap">
-          <div className="spinner" /> Đang tải thống kê…
+          <div className="spinner" /> Đang tải thống kê JOB...
         </div>
       ) : (
         <>
-          {/* Summary cards */}
-          {stats && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                gap: '1rem',
-                marginBottom: '1.25rem',
-              }}
-            >
-              {[
-                { key: 'total',        label: 'Tổng',       color: '#3b82f6' },
-                { key: 'REG_DA_LAM',   label: 'REG_DA_LAM', color: '#f59e0b' },
-                { key: 'UPVIDEO',      label: 'UPVIDEO',    color: '#10b981' },
-                { key: 'UPVIDEO_FAIL', label: 'FAIL',       color: '#ef4444' },
-                { key: 'DAT_CHI_TIEU', label: 'ĐẠT CT',     color: '#8b5cf6' },
-                { key: 'DIE',          label: 'DIE',         color: '#6b7280' },
-                { key: 'today_reg',    label: 'Reg hôm nay',color: '#3b82f6' },
-                { key: 'today_upload', label: 'Up hôm nay', color: '#10b981' },
-                { key: 'today_fail',   label: 'Fail hôm nay',color: '#ef4444'},
-              ].map(({ key, label, color }) => (
-                <div
-                  key={key}
-                  style={{
-                    background: '#fff',
-                    borderRadius: 10,
-                    padding: '1rem',
-                    boxShadow: '0 1px 3px rgba(0,0,0,.1)',
-                    borderLeft: `4px solid ${color}`,
-                  }}
-                >
-                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a' }}>
-                    {(stats[key] || 0).toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: '.72rem', color: '#64748b', fontWeight: 600, marginTop: '.2rem' }}>
-                    {label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
+            <SummaryCard title="Tổng account JOB" value={stats?.total} color="#06b6d4" icon="⚡" />
+            <SummaryCard title="Acc đang làm" value={stats?.DANG_LAM} color="#10b981" icon="⚡" />
+            <SummaryCard title="Account fail" value={stats?.failed} color="#ef4444" icon="❌" />
+            <SummaryCard title="Cấu hình lỗi" value={stats?.config_error} color="#f97316" icon="⚠️" />
+            <SummaryCard title="Xu hôm nay" value={stats?.today_xu} color="#0ea5e9" icon="💎" />
+            <SummaryCard title="Xu tháng này" value={stats?.month_xu} color="#8b5cf6" icon="🏆" />
+            <SummaryCard title="Tổng xu" value={stats?.total_xu} color="#14b8a6" icon="💰" />
+          </div>
 
-          {/* Device progress */}
           <div className="card" style={{ marginBottom: '1.25rem' }}>
             <div className="card-header">
               <div>
-                <h3>🖥️ Tiến độ theo máy</h3>
+                <h3>🖥️ {isTodayRange ? 'Thống kê theo máy hôm nay' : 'Thống kê theo máy'}</h3>
                 <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.2rem' }}>
-                  {deviceTotals.machines.toLocaleString()} máy · {deviceTotals.total.toLocaleString()} account · {deviceTotals.today_updated.toLocaleString()} cập nhật hôm nay · {deviceTotals.live.toLocaleString()} live
+                  {isTodayRange
+                    ? `${fmtNum(deviceTotals.machines)} máy · ${fmtNum(deviceTotals.today_working_accounts)} acc đang chạy · ${fmtNum(deviceTotals.today_failed_accounts)} acc fail · ${fmtXu(deviceTotals.today_xu)}`
+                    : `${fmtNum(deviceTotals.machines)} máy · ${fmtNum(deviceTotals.login_success)} acc login thành công · ${fmtNum(deviceTotals.failed_accounts)} acc fail · ${fmtXu(deviceTotals.total_xu)}`}
                 </div>
               </div>
               <input
                 value={deviceSearch}
-                onChange={(e) => setDeviceSearch(e.target.value)}
+                onChange={(event) => setDeviceSearch(event.target.value)}
                 placeholder="Tìm tên máy..."
                 style={{
                   width: 240,
@@ -198,212 +226,105 @@ export default function Stats() {
                 }}
               />
             </div>
-            <div className="table-container" style={{ maxHeight: 520, overflowY: 'auto' }}>
+            <div className="table-container" style={{ maxHeight: 540, overflowY: 'auto' }}>
               <table>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                   <tr>
-                    <th>Máy</th>
-                    <th>Tổng</th>
-                    <th>App</th>
-                    <th>Chrome</th>
-                    <th>Hôm nay</th>
-                    <th>Live</th>
-                    <th>Chờ/Login</th>
-                    <th>Đủ ĐK</th>
-                    <th>Die</th>
+                    <th>Tên máy</th>
+                    <th>{isTodayRange ? 'Acc hôm nay' : 'Acc login thành công'}</th>
+                    <th>Acc fail</th>
+                    <th>Cấu hình lỗi</th>
+                    <th>{isTodayRange ? 'Đang chạy' : 'Đã chạy xong'}</th>
+                    <th>{isTodayRange ? 'Đã chạy xong' : 'Xu hôm nay'}</th>
+                    <th>{isTodayRange ? 'Job hôm nay' : 'Xu tháng'}</th>
+                    <th>{isTodayRange ? 'Xu hôm nay' : 'Tổng xu'}</th>
                     <th>Hoạt động cuối</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredDevices.length === 0 ? (
-                    <tr><td colSpan="10" className="empty-cell">Chưa có dữ liệu theo máy</td></tr>
-                  ) : filteredDevices.map((device) => {
-                    const appTotal = device.tasks?.app?.total || 0;
-                    const chromeTotal = device.tasks?.chrome?.total || 0;
-                    const active = (device.ACC_LOGIN || 0) + (device.LOGIN_THANH_CONG || 0);
-                    return (
-                      <tr key={device.device_id}>
-                        <td>
-                          <strong style={{ fontSize: '.85rem' }}>{device.device_id}</strong>
-                          <div style={{ color: '#64748b', fontSize: '.72rem', marginTop: 2 }}>
-                            App {appTotal.toLocaleString()} · Chrome {chromeTotal.toLocaleString()}
-                          </div>
-                        </td>
-                        <td><strong>{(device.total || 0).toLocaleString()}</strong></td>
-                        <td style={{ color: '#2563eb', fontWeight: 700 }}>{appTotal.toLocaleString()}</td>
-                        <td style={{ color: '#7c3aed', fontWeight: 700 }}>{chromeTotal.toLocaleString()}</td>
-                        <td style={{ color: '#0f766e', fontWeight: 700 }}>{(device.today_updated || 0).toLocaleString()}</td>
-                        <td style={{ color: '#16a34a', fontWeight: 700 }}>{(device.live || 0).toLocaleString()}</td>
-                        <td>{active.toLocaleString()}</td>
-                        <td style={{ color: '#8b5cf6', fontWeight: 700 }}>{(device.ACC_DU_DK || 0).toLocaleString()}</td>
-                        <td style={{ color: '#dc2626', fontWeight: 700 }}>{(device.ACC_DIE || 0).toLocaleString()}</td>
-                        <td style={{ color: '#64748b', fontSize: '.75rem', whiteSpace: 'nowrap' }}>
-                          {device.last_seen ? new Date(device.last_seen).toLocaleString('vi-VN', { hour12: false }) : '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                    <tr><td colSpan="9" className="empty-cell">Chưa có dữ liệu JOB theo máy</td></tr>
+                  ) : filteredDevices.map((device) => (
+                    <tr key={device.device_id}>
+                      <td>
+                        <strong style={{ fontSize: '.86rem' }}>{device.device_id}</strong>
+                        <div style={{ color: '#94a3b8', fontSize: '.7rem', marginTop: 2 }}>
+                          {isTodayRange ? `Acc hôm nay: ${fmtNum(device.today_accounts)}` : `Tổng acc: ${fmtNum(device.total_accounts)}`}
+                        </div>
+                      </td>
+                      <td style={{ color: '#059669', fontWeight: 800 }}>{fmtNum(isTodayRange ? device.today_accounts : device.login_success)}</td>
+                      <td style={{ color: '#dc2626', fontWeight: 800 }}>{fmtNum(isTodayRange ? device.today_failed_accounts : device.failed_accounts)}</td>
+                      <td style={{ color: '#ea580c', fontWeight: 800 }}>{fmtNum(isTodayRange ? device.today_config_error_accounts : device.config_error_accounts)}</td>
+                      <td style={{ color: '#8b5cf6', fontWeight: 800 }}>{fmtNum(isTodayRange ? device.today_working_accounts : device.done_accounts)}</td>
+                      <td style={{ color: '#2563eb', fontWeight: 800 }}>{fmtNum(isTodayRange ? device.today_done_accounts : device.today_xu)}</td>
+                      <td style={{ color: '#7c3aed', fontWeight: 800 }}>{fmtNum(isTodayRange ? device.today_jobs : device.month_xu)}</td>
+                      <td style={{ color: '#0f766e', fontWeight: 900 }}>{fmtXu(isTodayRange ? device.today_xu : device.total_xu)}</td>
+                      <td style={{ color: '#64748b', fontSize: '.75rem', whiteSpace: 'nowrap' }}>{fmtDateTime(device.last_seen)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Charts grid */}
           <div className="charts-grid">
-            {/* Bar chart: Reg & Upload per day */}
             <div className="chart-card">
-              <div className="chart-title">📅 Reg & Upload theo ngày ({days} ngày)</div>
+              <div className="chart-title">💎 Tổng xu theo ngày ({activeRange.label})</div>
               {dailyData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={dailyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={dailyData} margin={{ top: 8, right: 12, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip />
+                    <Tooltip formatter={(value, name) => [fmtNum(value), name === 'xu' ? 'Tổng xu' : name]} />
                     <Legend />
-                    <Bar dataKey="reg"    name="Đăng ký"  fill="#3b82f6" radius={[4,4,0,0]} />
-                    <Bar dataKey="upload" name="Upload"   fill="#10b981" radius={[4,4,0,0]} />
+                    <Bar dataKey="xu" name="Tổng xu" fill="#06b6d4" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="empty-state" style={{ padding: '2rem' }}>
-                  <div className="empty-icon">📊</div>
-                  <p>Chưa có dữ liệu</p>
-                </div>
+                <div className="empty-state" style={{ padding: '2rem' }}><p>Chưa có dữ liệu xu theo ngày</p></div>
               )}
             </div>
 
-            {/* Pie chart: Status distribution */}
             <div className="chart-card">
-              <div className="chart-title">🍰 Phân bố trạng thái</div>
-              {pieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={3}
-                      dataKey="value"
-                      label={({ name, percent }) =>
-                        `${name.replace('_', ' ')}: ${(percent * 100).toFixed(0)}%`
-                      }
-                      labelLine={false}
-                    >
-                      {pieData.map((entry) => (
-                        <Cell key={entry.name} fill={PIE_COLORS[entry.name] || '#94a3b8'} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(val, name) => [val.toLocaleString(), name]}
-                    />
-                  </PieChart>
+              <div className="chart-title">📆 Tổng xu theo tháng</div>
+              {monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <LineChart data={monthlyData} margin={{ top: 8, right: 12, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip formatter={(value, name) => [fmtNum(value), name === 'xu' ? 'Tổng xu' : name]} />
+                    <Legend />
+                    <Line type="monotone" dataKey="xu" name="Tổng xu" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                  </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="empty-state" style={{ padding: '2rem' }}>
-                  <div className="empty-icon">🍕</div>
-                  <p>Chưa có dữ liệu</p>
-                </div>
+                <div className="empty-state" style={{ padding: '2rem' }}><p>Chưa có dữ liệu xu theo tháng</p></div>
               )}
             </div>
           </div>
 
-          {/* Line chart: trend */}
-          {dailyData.length > 0 && (
-            <div className="chart-card">
-              <div className="chart-title">📉 Xu hướng đăng ký ({days} ngày gần nhất)</div>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={dailyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          <div className="chart-card">
+            <div className="chart-title">📊 Kết quả account theo ngày</div>
+            {dailyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={dailyData} margin={{ top: 8, right: 12, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                   <Tooltip />
                   <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="reg"
-                    name="Đăng ký"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="upload"
-                    name="Upload"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
+                  <Bar dataKey="working" name="Đang làm" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="done" name="Đã chạy xong" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="fail" name="Fail/Die" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="config" name="Cấu hình lỗi" fill="#f97316" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
-            </div>
-          )}
-
-          {/* Status distribution table */}
-          {daily?.status_dist && (
-            <div className="card">
-              <div className="card-header">
-                <h3>📋 Chi tiết phân bố</h3>
-              </div>
-              <div className="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Status</th>
-                      <th>Số lượng</th>
-                      <th>Tỷ lệ</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {daily.status_dist.map((row) => {
-                      const total = stats?.total || 1;
-                      const pct = ((row.cnt / total) * 100).toFixed(1);
-                      return (
-                        <tr key={row.status}>
-                          <td>
-                            <span
-                              className="badge"
-                              style={{ background: PIE_COLORS[row.status] || '#94a3b8' }}
-                            >
-                              {row.status}
-                            </span>
-                          </td>
-                          <td><strong>{parseInt(row.cnt).toLocaleString()}</strong></td>
-                          <td>{pct}%</td>
-                          <td style={{ width: '40%' }}>
-                            <div
-                              style={{
-                                height: 8,
-                                background: '#f1f5f9',
-                                borderRadius: 4,
-                                overflow: 'hidden',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  height: '100%',
-                                  width: `${pct}%`,
-                                  background: PIE_COLORS[row.status] || '#94a3b8',
-                                  borderRadius: 4,
-                                  transition: 'width .5s',
-                                }}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+            ) : (
+              <div className="empty-state" style={{ padding: '2rem' }}><p>Chưa có dữ liệu kết quả theo ngày</p></div>
+            )}
+          </div>
         </>
       )}
     </div>

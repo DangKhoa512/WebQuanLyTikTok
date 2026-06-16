@@ -12,6 +12,7 @@ import ProxySettings      from './pages/ProxySettings';
 import ChromeAccountList from './pages/ChromeAccountList';
 import Users             from './pages/Users';
 import UsedAccounts      from './pages/UsedAccounts';
+import JobAccounts       from './pages/JobAccounts';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="export"         element={<Export />} />
             <Route path="proxy-settings"   element={<ProxySettings />} />
             <Route path="chrome-accounts"  element={<ChromeAccountList />} />
+            <Route path="jobs"             element={<JobAccounts />} />
             <Route path="used-accounts"    element={<UsedAccounts />} />
             <Route path="users"            element={<Users />} />
           </Route>

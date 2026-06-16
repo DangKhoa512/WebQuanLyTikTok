@@ -91,6 +91,9 @@ export const statsApi = {
   getStats:      ()     => api.get('/stats', { timeout: 60_000 }),
   getDailyStats: (days) => api.get('/stats/daily', { params: { days }, timeout: 60_000 }),
   getDeviceStats: ()    => api.get('/stats/devices', { timeout: 60_000 }),
+  getJobStats:      ()     => api.get('/stats/job', { timeout: 60_000 }),
+  getJobDailyStats: (days) => api.get('/stats/job/daily', { params: { days }, timeout: 60_000 }),
+  getJobDeviceStats: ()    => api.get('/stats/job/devices', { timeout: 60_000 }),
 };
 
 export const userApi = {
@@ -102,6 +105,18 @@ export const userApi = {
 export const usedAccountApi = {
   getAll: (params) => api.get('/used-accounts', { params }),
   bulkDelete: (ids) => api.post('/used-accounts/bulk-delete', { ids }),
+};
+
+export const jobApi = {
+  getAll: (params) => api.get('/jobs', { params }),
+  import: (text, group_id = null) => api.post('/jobs/import', { text, group_id }),
+  checkLive: (ids, proxies, concurrency, delay_ms) =>
+    api.post('/jobs/check-live', { ids, proxies, concurrency, delay_ms }, { timeout: 600_000 }),
+  bulkAction: (ids, action, opts = {}) =>
+    api.post('/jobs/bulk-action', { ids, action, ...opts }),
+  bulkGet: (ids, format = 'pipe') =>
+    api.post('/jobs/bulk-get', { ids, format }),
+  bulkDelete: (ids) => api.post('/jobs/bulk-delete', { ids }),
 };
 
 export const accountGroupApi = {

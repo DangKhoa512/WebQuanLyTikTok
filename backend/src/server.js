@@ -85,7 +85,7 @@ const startServer = async () => {
         CREATE TABLE IF NOT EXISTS account_groups (
           id INT UNSIGNED NOT NULL AUTO_INCREMENT,
           owner_username VARCHAR(100) NOT NULL DEFAULT '${adminOwner()}',
-          account_type ENUM('app','chrome') NOT NULL,
+          account_type ENUM('app','chrome','job') NOT NULL,
           name VARCHAR(100) NOT NULL,
           note VARCHAR(255) NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -99,6 +99,16 @@ const startServer = async () => {
       logger.info('account_groups table ready');
     } catch (e) {
       logger.warn('Migration account_groups table skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query(`
+        ALTER TABLE account_groups
+        MODIFY COLUMN account_type ENUM('app','chrome','job') NOT NULL
+      `);
+      logger.info('account_groups job type ready');
+    } catch (e) {
+      logger.warn('Migration account_groups job type skipped:', e.message);
     }
 
     try {
@@ -142,6 +152,28 @@ const startServer = async () => {
       logger.info('chrome_accounts group_id index ready');
     } catch (e) {
       logger.warn('Migration chrome group_id index skipped:', e.message);
+    }
+
+    const jobColumnMigrations = [
+      ["ALTER TABLE job_accounts MODIFY COLUMN status ENUM('ACCOUNT_CHAY','DANG_LAM','DUOI_50_JOB','FAIL_AVT','LOI_CAU_HINH','DA_CHAY_XONG','ACCOUNT_DIE') NOT NULL DEFAULT 'ACCOUNT_CHAY'", 'job_accounts status enum ready'],
+      ['ALTER TABLE job_accounts ADD COLUMN group_id INT UNSIGNED NULL', 'job_accounts group_id column added'],
+      ["ALTER TABLE job_accounts ADD COLUMN live_status ENUM('unknown','live','die') NOT NULL DEFAULT 'unknown'", 'job_accounts live_status column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN video_count INT UNSIGNED NULL', 'job_accounts video_count column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN followers INT UNSIGNED NULL', 'job_accounts followers column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN following INT UNSIGNED NULL', 'job_accounts following column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN last_live_check_at DATETIME NULL', 'job_accounts last_live_check_at column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN login_fail_count INT UNSIGNED NOT NULL DEFAULT 0', 'job_accounts login_fail_count column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN last_login_fail_at DATETIME NULL', 'job_accounts last_login_fail_at column added'],
+      ['ALTER TABLE job_accounts ADD INDEX idx_job_group_id (group_id)', 'job_accounts group_id index ready'],
+      ['ALTER TABLE job_accounts ADD INDEX idx_job_live_status (live_status)', 'job_accounts live_status index ready'],
+    ];
+    for (const [sql, message] of jobColumnMigrations) {
+      try {
+        await sequelize.query(sql);
+        logger.info(message);
+      } catch (e) {
+        logger.warn(`Migration ${message} skipped:`, e.message);
+      }
     }
 
     try {

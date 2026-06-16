@@ -1,0 +1,533 @@
+const { Op, fn, col } = require('sequelize');
+const JobAccount = require('../models/JobAccount');
+const AccountGroup = require('../models/AccountGroup');
+const logger = require('../config/logger');
+const { success, error } = require('../utils/response');
+const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
+const { checkOne, parseProxy } = require('../utils/checkLiveUtils');
+
+const STATUSES = [
+  'ACCOUNT_CHAY',
+  'DANG_LAM',
+  'DUOI_50_JOB',
+  'FAIL_AVT',
+  'LOI_CAU_HINH',
+  'DA_CHAY_XONG',
+  'ACCOUNT_DIE',
+];
+const FINAL_STATUSES = ['DUOI_50_JOB', 'FAIL_AVT', 'LOI_CAU_HINH', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
+const LOCK_TIMEOUT_MIN = parseInt(process.env.JOB_LOCK_TIMEOUT_MIN, 10) || 40;
+const XU_PER_JOB = parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400;
+const SORT_FIELDS = {
+  video_count: 'video_count',
+  followers: 'followers',
+  following: 'following',
+  job_count: 'job_count',
+  created_at: 'created_at',
+  login_at: 'login_at',
+  completed_at: 'completed_at',
+  id: 'id',
+};
+
+const nullify = (value) => {
+  const normalized = String(value ?? '').trim();
+  return !normalized || normalized.toLowerCase() === 'null' ? null : normalized;
+};
+const pipeValue = (value) =>
+  value === undefined || value === null || value === '' ? 'null' : String(value);
+
+const parseNonNegativeInt = (value) => {
+  const parsed = parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const buildSortOrder = (sortBy, sortDir) => {
+  const field = SORT_FIELDS[sortBy] || 'id';
+  const dir = String(sortDir || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const order = [[field, dir]];
+  if (field !== 'id') order.push(['id', 'DESC']);
+  return order;
+};
+
+const accountWhere = (req, owner_username) => {
+  const id = parseInt(req.body.id, 10);
+  if (Number.isInteger(id) && id > 0) return { id, owner_username };
+  const username = nullify(req.body.username);
+  return username ? { username, owner_username } : null;
+};
+
+const assertDeviceOwnership = (account, deviceId) => {
+  if (account.locked_by && account.locked_by !== deviceId) {
+    const err = new Error(`Account dang duoc khoa boi may ${account.locked_by}`);
+    err.statusCode = 409;
+    throw err;
+  }
+};
+
+const importAccounts = async (req, res, next) => {
+  try {
+    const { text, group_id } = req.body;
+    const owner_username = ownerFromAdmin(req);
+    if (!text || typeof text !== 'string') return error(res, 'Thieu du lieu import', 400);
+
+    const groupId = group_id ? parseInt(group_id, 10) : null;
+    if (group_id && (!Number.isInteger(groupId) || groupId <= 0)) {
+      return error(res, 'group_id khong hop le', 400);
+    }
+    if (groupId) {
+      const group = await AccountGroup.findOne({
+        where: { id: groupId, owner_username, account_type: 'job' },
+      });
+      if (!group) return error(res, 'Nhom JOB khong ton tai', 404);
+    }
+
+    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) return error(res, 'Khong co account de import', 400);
+    if (lines.length > 5000) return error(res, 'Toi da 5000 account moi lan', 400);
+
+    const unique = new Map();
+    const invalid = [];
+    for (const line of lines) {
+      const parts = line.split('|');
+      const username = nullify(parts[0]);
+      if (!username) {
+        invalid.push(line.slice(0, 80));
+        continue;
+      }
+      if (!unique.has(username)) {
+        unique.set(username, {
+          raw_data: line,
+          username,
+          password: nullify(parts[1]),
+          email: nullify(parts[2]),
+          email_pass: nullify(parts[3]),
+          owner_username,
+          group_id: groupId,
+          status: 'ACCOUNT_CHAY',
+        });
+      }
+    }
+
+    const rows = [...unique.values()];
+    const existing = rows.length
+      ? await JobAccount.findAll({
+          where: { owner_username, username: { [Op.in]: rows.map((row) => row.username) } },
+          attributes: ['username'],
+        })
+      : [];
+    const existingNames = new Set(existing.map((row) => row.username));
+    const toInsert = rows.filter((row) => !existingNames.has(row.username));
+    if (toInsert.length) await JobAccount.bulkCreate(toInsert);
+
+    const data = {
+      imported: toInsert.length,
+      duplicates: rows.length - toInsert.length,
+      invalid: invalid.length,
+      invalid_samples: invalid.slice(0, 10),
+    };
+    logger.info('job accounts imported', { ...data, group_id: groupId, owner_username });
+    return success(res, data, `Da import ${toInsert.length} account JOB`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getForPhone = async (req, res, next) => {
+  const transaction = await JobAccount.sequelize.transaction();
+  try {
+    const device_id = nullify(req.body.device_id);
+    const owner_username = ownerFromRequest(req);
+    if (!device_id) {
+      await transaction.rollback();
+      return error(res, 'Thieu device_id', 400);
+    }
+
+    const lockExpiredAt = new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000);
+    const account = await JobAccount.findOne({
+      where: {
+        owner_username,
+        status: 'ACCOUNT_CHAY',
+        [Op.or]: [{ locked_by: null }, { locked_at: { [Op.lt]: lockExpiredAt } }],
+      },
+      order: [['id', 'ASC']],
+      lock: transaction.LOCK.UPDATE,
+      skipLocked: true,
+      transaction,
+    });
+
+    if (!account) {
+      await transaction.rollback();
+      return success(res, null, 'Khong con account JOB kha dung');
+    }
+
+    await account.update({ locked_by: device_id, locked_at: new Date(), device_id }, { transaction });
+    await transaction.commit();
+    return success(res, { account }, 'Lay account JOB thanh cong');
+  } catch (err) {
+    if (!transaction.finished) await transaction.rollback();
+    next(err);
+  }
+};
+
+const loginSuccess = async (req, res, next) => {
+  try {
+    const device_id = nullify(req.body.device_id);
+    const owner_username = ownerFromRequest(req);
+    if (!device_id) return error(res, 'Thieu device_id', 400);
+    const where = accountWhere(req, owner_username);
+    if (!where) return error(res, 'Can truyen id hoac username', 400);
+
+    const account = await JobAccount.findOne({ where });
+    if (!account) return error(res, 'Account JOB khong ton tai', 404);
+    assertDeviceOwnership(account, device_id);
+    if (account.status !== 'ACCOUNT_CHAY') {
+      return error(res, `Account khong o trang thai ACCOUNT_CHAY (${account.status})`, 409);
+    }
+
+    await account.update({
+      status: 'DANG_LAM',
+      device_id,
+      locked_by: device_id,
+      locked_at: new Date(),
+      login_at: new Date(),
+      fail_reason: null,
+    });
+    return success(res, { account }, 'Login thanh cong, account chuyen sang DANG_LAM');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const loginFail = async (req, res, next) => {
+  try {
+    const device_id = nullify(req.body.device_id);
+    const owner_username = ownerFromRequest(req);
+    if (!device_id) return error(res, 'Thieu device_id', 400);
+    const where = accountWhere(req, owner_username);
+    if (!where) return error(res, 'Can truyen id hoac username', 400);
+
+    const account = await JobAccount.findOne({ where });
+    if (!account) return error(res, 'Account JOB khong ton tai', 404);
+    assertDeviceOwnership(account, device_id);
+
+    await account.update({
+      status: 'ACCOUNT_CHAY',
+      device_id,
+      locked_by: null,
+      locked_at: null,
+      fail_reason: nullify(req.body.reason),
+    });
+    return success(res, { account }, 'Da mo lock de phone khac lay lai');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const reportResult = async (req, res, next) => {
+  try {
+    const device_id = nullify(req.body.device_id);
+    const status = String(req.body.status || '').trim().toUpperCase();
+    const owner_username = ownerFromRequest(req);
+    if (!device_id) return error(res, 'Thieu device_id', 400);
+    if (!FINAL_STATUSES.includes(status)) {
+      return error(res, `Trang thai khong hop le. Dung: ${FINAL_STATUSES.join(', ')}`, 400);
+    }
+    const where = accountWhere(req, owner_username);
+    if (!where) return error(res, 'Can truyen id hoac username', 400);
+
+    const account = await JobAccount.findOne({ where });
+    if (!account) return error(res, 'Account JOB khong ton tai', 404);
+    assertDeviceOwnership(account, device_id);
+    if (account.status !== 'DANG_LAM') {
+      return error(res, `Account khong o trang thai DANG_LAM (${account.status})`, 409);
+    }
+
+    const jobLive = parseNonNegativeInt(req.body.joblive ?? req.body.jobs ?? req.body.job_count);
+    await account.update({
+      status,
+      device_id,
+      job_count: jobLive !== null ? jobLive : account.job_count,
+      fail_reason: nullify(req.body.reason),
+      note: nullify(req.body.note),
+      completed_at: new Date(),
+      locked_by: null,
+      locked_at: null,
+    });
+
+    return success(res, {
+      account,
+      jobs: jobLive,
+      xu_per_job: XU_PER_JOB,
+      total_xu: jobLive !== null ? jobLive * XU_PER_JOB : null,
+    }, `Da chuyen account sang ${status}`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const addJobCount = async (req, res, next) => {
+  try {
+    const device_id = nullify(req.body.device_id);
+    const owner_username = ownerFromRequest(req);
+    if (!device_id) return error(res, 'Thieu device_id', 400);
+    const where = accountWhere(req, owner_username);
+    if (!where) return error(res, 'Can truyen id hoac username', 400);
+
+    const account = await JobAccount.findOne({ where });
+    if (!account) return error(res, 'Account JOB khong ton tai', 404);
+    assertDeviceOwnership(account, device_id);
+    if (account.status !== 'DANG_LAM') {
+      return error(res, `Account khong o trang thai DANG_LAM (${account.status})`, 409);
+    }
+
+    const rawCount = req.body.joblive ?? req.body.jobs ?? req.body.count;
+    const addJobs = parseNonNegativeInt(rawCount);
+    if (addJobs === null) {
+      return error(res, 'joblive phai la so job >= 0', 400);
+    }
+
+    const currentJobs = Number(account.job_count) || 0;
+    const totalJobs = currentJobs + addJobs;
+    await account.update({
+      device_id,
+      job_count: totalJobs,
+      locked_by: device_id,
+      locked_at: new Date(),
+    });
+
+    return success(res, {
+      account,
+      added_jobs: addJobs,
+      added_xu: addJobs * XU_PER_JOB,
+      xu_per_job: XU_PER_JOB,
+      total_jobs: totalJobs,
+      total_xu: totalJobs * XU_PER_JOB,
+    }, `Da cong them ${addJobs} job`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getAll = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
+    const status = String(req.query.status || '').trim().toUpperCase();
+    const live_status = String(req.query.live_status || '').trim();
+    const device_id = String(req.query.device_id || '').trim();
+    const group_id = req.query.group_id ? parseInt(req.query.group_id, 10) : null;
+    const search = String(req.query.search || '').trim();
+    const date_from = String(req.query.date_from || '').trim();
+    const date_to = String(req.query.date_to || '').trim();
+    const where = { owner_username };
+
+    if (status && STATUSES.includes(status)) where.status = status;
+    if (['unknown', 'live', 'die'].includes(live_status)) where.live_status = live_status;
+    if (device_id) where.device_id = device_id;
+    if (Number.isInteger(group_id) && group_id > 0) where.group_id = group_id;
+    if (search) where.username = { [Op.like]: `%${search}%` };
+    if (date_from || date_to) {
+      where.created_at = {};
+      if (date_from) where.created_at[Op.gte] = new Date(date_from);
+      if (date_to) where.created_at[Op.lte] = new Date(`${date_to}T23:59:59`);
+    }
+    if (req.query.video_min !== undefined || req.query.video_max !== undefined) {
+      where.video_count = {};
+      if (req.query.video_min !== '') where.video_count[Op.gte] = parseInt(req.query.video_min, 10);
+      if (req.query.video_max !== '') where.video_count[Op.lte] = parseInt(req.query.video_max, 10);
+    }
+
+    const { rows, count } = await JobAccount.findAndCountAll({
+      where,
+      order: buildSortOrder(req.query.sort_by, req.query.sort_dir),
+      limit,
+      offset: (page - 1) * limit,
+    });
+    const grouped = await JobAccount.findAll({
+      where: { owner_username },
+      attributes: ['status', [fn('COUNT', col('id')), 'count']],
+      group: ['status'],
+      raw: true,
+    });
+    const counts = Object.fromEntries(STATUSES.map((key) => [key, 0]));
+    grouped.forEach((row) => {
+      counts[row.status] = Number(row.count);
+    });
+
+    return success(res, {
+      accounts: rows,
+      counts,
+      pagination: { page, limit, total: count, pages: Math.ceil(count / limit), totalPages: Math.ceil(count / limit) },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const checkLive = async (req, res, next) => {
+  req.socket?.setTimeout?.(600_000);
+  try {
+    let { ids, proxies = [], concurrency = 12, delay_ms = 200 } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return error(res, 'Can truyen mang ids', 400);
+    if (ids.length > 1000) return error(res, 'Toi da 1000 accounts/lan', 400);
+
+    const proxyPool = (Array.isArray(proxies) ? proxies : String(proxies).split('\n')).map(parseProxy).filter(Boolean);
+    concurrency = Math.max(1, Math.min(50, parseInt(concurrency, 10) || 12));
+    delay_ms = Math.max(0, Math.min(10000, parseInt(delay_ms, 10) || 200));
+
+    const accounts = await JobAccount.findAll({
+      where: { id: { [Op.in]: ids }, owner_username: ownerFromAdmin(req), username: { [Op.ne]: null } },
+      attributes: ['id', 'username'],
+      order: [['id', 'ASC']],
+    });
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const results = [];
+    let proxyIdx = 0;
+    const nextProxy = () => (proxyPool.length > 0 ? proxyPool[proxyIdx++ % proxyPool.length] : null);
+
+    for (let i = 0; i < accounts.length; i += concurrency) {
+      const batch = accounts.slice(i, i + concurrency);
+      const out = await Promise.all(batch.map(async (account) => {
+        const proxyUrl = nextProxy();
+        let stats = null;
+        try {
+          stats = await checkOne(account.username, proxyUrl);
+        } catch (_) {
+          stats = null;
+        }
+        const liveStatus = stats ? (stats.live ? 'live' : 'die') : 'unknown';
+        const updateData = { live_status: liveStatus, last_live_check_at: new Date() };
+        if (stats) {
+          updateData.followers = stats.followers ?? null;
+          updateData.following = stats.following ?? null;
+          updateData.video_count = stats.videos ?? null;
+        }
+        if (liveStatus === 'die') {
+          updateData.status = 'ACCOUNT_DIE';
+          updateData.locked_by = null;
+          updateData.locked_at = null;
+          updateData.completed_at = new Date();
+        }
+        await account.update(updateData);
+        return {
+          id: account.id,
+          username: account.username,
+          result: liveStatus,
+          followers: stats?.followers ?? null,
+          following: stats?.following ?? null,
+          videos: stats?.videos ?? null,
+          likes: stats?.likes ?? null,
+          private: stats?.private ?? false,
+          verified: stats?.verified ?? false,
+          proxy: proxyUrl ? proxyUrl.replace(/\/\/([^:@]+):([^@]+)@/, '//$1:***@') : 'direct',
+        };
+      }));
+      results.push(...out);
+      if (i + concurrency < accounts.length && delay_ms > 0) await sleep(delay_ms);
+    }
+
+    const live = results.filter((row) => row.result === 'live').length;
+    const die = results.filter((row) => row.result === 'die').length;
+    const unknown = results.filter((row) => row.result === 'unknown').length;
+    return success(res, { results, live, die, unknown }, `Checked ${results.length}: ${live} live - ${die} die - ${unknown} unknown`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const bulkGet = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map((id) => parseInt(id, 10)).filter(Number.isInteger) : [];
+    if (!ids.length) return error(res, 'Can truyen danh sach ids', 400);
+    const accounts = await JobAccount.findAll({
+      where: { id: { [Op.in]: ids }, owner_username: ownerFromAdmin(req) },
+      order: [['id', 'ASC']],
+    });
+    const text = accounts
+      .filter((account) => account.username)
+      .map((account) => [account.username || '', pipeValue(account.password), pipeValue(account.email), pipeValue(account.email_pass)].join('|'))
+      .join('\n');
+    return success(res, { text, count: accounts.length }, 'OK');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const bulkAction = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map((id) => parseInt(id, 10)).filter(Number.isInteger) : [];
+    const action = String(req.body.action || '').trim();
+    if (!ids.length) return error(res, 'Can truyen danh sach ids', 400);
+    if (ids.length > 500) return error(res, 'Toi da 500 account moi lan', 400);
+    if (!action) return error(res, 'Thieu action', 400);
+
+    let updateData = {};
+    let message = '';
+    switch (action) {
+      case 'set_status': {
+        const status = String(req.body.status || '').trim().toUpperCase();
+        if (!STATUSES.includes(status)) return error(res, `Trang thai khong hop le. Dung: ${STATUSES.join(', ')}`, 400);
+        updateData = { status };
+        if (FINAL_STATUSES.includes(status)) {
+          updateData.completed_at = new Date();
+          updateData.locked_by = null;
+          updateData.locked_at = null;
+        }
+        message = `Da doi ${ids.length} account JOB sang ${status}`;
+        break;
+      }
+      case 'set_note':
+        updateData = { note: nullify(req.body.note) };
+        message = `Da cap nhat note cho ${ids.length} account JOB`;
+        break;
+      case 'clear_note':
+        updateData = { note: null };
+        message = `Da xoa note cua ${ids.length} account JOB`;
+        break;
+      case 'clear_lock':
+        updateData = { locked_by: null, locked_at: null };
+        message = `Da mo lock ${ids.length} account JOB`;
+        break;
+      default:
+        return error(res, `action khong hop le: ${action}`, 400);
+    }
+
+    const [affected] = await JobAccount.update(updateData, {
+      where: { id: { [Op.in]: ids }, owner_username: ownerFromAdmin(req) },
+    });
+    return success(res, { affected }, message);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const bulkDelete = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids)
+      ? req.body.ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id))
+      : [];
+    if (!ids.length) return error(res, 'Can truyen danh sach ids', 400);
+    const deleted = await JobAccount.destroy({
+      where: { id: { [Op.in]: ids }, owner_username: ownerFromAdmin(req) },
+    });
+    return success(res, { deleted }, `Da xoa ${deleted} account JOB`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  importAccounts,
+  getForPhone,
+  loginSuccess,
+  loginFail,
+  addJobCount,
+  reportResult,
+  getAll,
+  checkLive,
+  bulkGet,
+  bulkAction,
+  bulkDelete,
+};

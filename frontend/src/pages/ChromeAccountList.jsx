@@ -405,6 +405,7 @@ export default function ChromeAccountList() {
   const [sp, setSp] = useSearchParams();
 
   const [accounts,   setAccounts]   = useState([]);
+  const [counts,     setCounts]     = useState({});
   const [pagination, setPagination] = useState(null);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
@@ -437,6 +438,7 @@ export default function ChromeAccountList() {
       const params = Object.fromEntries(Object.entries(f).filter(([, v]) => v !== '' && v !== null && v !== undefined));
       const res = await chromeAccountApi.getAll(params);
       setAccounts(res.data?.accounts || []);
+      setCounts(res.data?.counts || {});
       setPagination(res.data?.pagination || null);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
@@ -556,6 +558,11 @@ export default function ChromeAccountList() {
 
   const currentStatus = filters.status;
   const currentTab    = STATUS_TABS.find((t) => t.value === currentStatus) || STATUS_TABS[0];
+  const tabCount = (tab) => {
+    if (!tab.value) return counts.total || 0;
+    if (tab.value === '__USED__') return counts.ACC_DA_DUNG || 0;
+    return counts[tab.value] || 0;
+  };
 
   return (
     <div className="page">
@@ -591,7 +598,7 @@ export default function ChromeAccountList() {
             fontWeight:   400,
             fontSize:     '.82rem', whiteSpace: 'nowrap', transition: 'all .15s',
             textDecoration: 'none',
-          }}>{tab.label}</Link>
+          }}>{tab.label} ({tabCount(tab)})</Link>
         ) : (
           <button key={tab.value} onClick={() => setFilter('status', tab.value)} style={{
             background:   currentStatus === tab.value ? tab.color : 'rgba(255,255,255,.06)',
@@ -600,7 +607,7 @@ export default function ChromeAccountList() {
             borderRadius: '8px', padding: '.4rem .85rem', cursor: 'pointer',
             fontWeight:   currentStatus === tab.value ? 700 : 400,
             fontSize:     '.82rem', whiteSpace: 'nowrap', transition: 'all .15s',
-          }}>{tab.label}</button>
+          }}>{tab.label} ({tabCount(tab)})</button>
         ))}
       </div>
 

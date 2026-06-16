@@ -15,7 +15,7 @@ const AccountGroup = sequelize.define(
       defaultValue: 'admin',
     },
     account_type: {
-      type: DataTypes.ENUM('app', 'chrome'),
+      type: DataTypes.ENUM('app', 'chrome', 'job'),
       allowNull: false,
     },
     name: {

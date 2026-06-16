@@ -16,7 +16,7 @@
  *   POST   /chrome-accounts/bulk-delete
  */
 
-const { Op }    = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 const ChromeAccount = require('../models/ChromeAccount');
 const AccountGroup = require('../models/AccountGroup');
 const logger    = require('../config/logger');
@@ -316,9 +316,22 @@ const getAll = async (req, res, next) => {
     const { count, rows } = await ChromeAccount.findAndCountAll({
       where, order: buildSortOrder(sort_by, sort_dir), limit: pageLimit, offset,
     });
+    const grouped = await ChromeAccount.findAll({
+      where: scopedWhere(req),
+      attributes: ['status', [fn('COUNT', col('id')), 'count']],
+      group: ['status'],
+      raw: true,
+    });
+    const counts = { total: 0 };
+    grouped.forEach((row) => {
+      const value = Number(row.count) || 0;
+      counts[row.status] = value;
+      counts.total += value;
+    });
 
     return success(res, {
       accounts:   rows,
+      counts,
       pagination: { total: count, page: pageNum, limit: pageLimit, pages: Math.ceil(count / pageLimit) },
     }, 'OK');
   } catch (err) { next(err); }
