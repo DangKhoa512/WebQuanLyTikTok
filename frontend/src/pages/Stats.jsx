@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
+  Cell,
   CartesianGrid,
   Legend,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -26,6 +29,7 @@ const fmtDate = (value) =>
   value ? new Date(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : value;
 const fmtDateTime = (value) =>
   value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '—';
+const piePercent = (value, total) => `${total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'}%`;
 
 function SummaryCard({ title, value, color, icon, suffix = '' }) {
   return (
@@ -119,6 +123,20 @@ export default function Stats() {
       total: Number(row.completed_accounts || 0),
     }))
   ), [daily]);
+
+  const statusPieData = useMemo(() => {
+    const totals = dailyData.reduce((acc, row) => ({
+      active: acc.active + row.done + row.working,
+      under50: acc.under50 + row.fail,
+      config: acc.config + row.config,
+    }), { active: 0, under50: 0, config: 0 });
+    return [
+      { key: 'active', name: 'Chạy xong + đang chạy', value: totals.active, color: '#10b981' },
+      { key: 'under50', name: 'Dưới 50 job', value: totals.under50, color: '#ef4444' },
+      { key: 'config', name: 'Cấu hình fail', value: totals.config, color: '#f97316' },
+    ].filter((item) => item.value > 0);
+  }, [dailyData]);
+  const statusPieTotal = statusPieData.reduce((sum, item) => sum + item.value, 0);
 
   const filteredDevices = devices.filter((device) =>
     String(device.device_id || '').toLowerCase().includes(deviceSearch.trim().toLowerCase())
@@ -323,6 +341,47 @@ export default function Stats() {
               </ResponsiveContainer>
             ) : (
               <div className="empty-state" style={{ padding: '2rem' }}><p>Chưa có dữ liệu kết quả theo ngày</p></div>
+            )}
+          </div>
+
+          <div className="chart-card">
+            <div className="chart-title">🎯 Tỷ lệ kết quả theo ngày ({activeRange.label})</div>
+            {statusPieData.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(220px, .8fr)', gap: '1rem', alignItems: 'center' }}>
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={statusPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={62}
+                      outerRadius={105}
+                      paddingAngle={3}
+                      label={({ value }) => piePercent(value, statusPieTotal)}
+                    >
+                      {statusPieData.map((entry) => (
+                        <Cell key={entry.key} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value, name) => [`${fmtNum(value)} acc (${piePercent(value, statusPieTotal)})`, name]} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ display: 'grid', gap: '.65rem' }}>
+                  {statusPieData.map((item) => (
+                    <div key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '.75rem', border: '1px solid #e2e8f0', borderRadius: 8, padding: '.65rem .8rem', background: '#fff' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '.55rem' }}>
+                        <span style={{ width: 12, height: 12, borderRadius: 3, background: item.color }} />
+                        <span style={{ fontWeight: 800, color: '#334155', fontSize: '.82rem' }}>{item.name}</span>
+                      </div>
+                      <strong style={{ color: item.color, whiteSpace: 'nowrap' }}>{fmtNum(item.value)} · {piePercent(item.value, statusPieTotal)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="empty-state" style={{ padding: '2rem' }}><p>Chưa có dữ liệu tỷ lệ kết quả</p></div>
             )}
           </div>
         </>
