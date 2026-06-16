@@ -31,6 +31,15 @@ const ownerWhere = (ownerFilter, prefix = 'WHERE') =>
   ownerFilter ? `${prefix} owner_username = :owner` : '';
 
 const numeric = (row, key) => Number(row?.[key]) || 0;
+const jobTouchedWhere = `
+  AND (
+    device_id IS NOT NULL
+    OR locked_by IS NOT NULL
+    OR login_at IS NOT NULL
+    OR completed_at IS NOT NULL
+    OR COALESCE(job_count, 0) > 0
+  )
+`;
 
 const getModelStats = async (Model, todayStart, todayEnd, ownerFilter = null) => {
   const tableName = Model.getTableName();
@@ -313,6 +322,7 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
      FROM job_accounts
      WHERE COALESCE(completed_at, login_at, updated_at, created_at) >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
+       ${jobTouchedWhere}
        ${ownerAnd}
      GROUP BY DATE(COALESCE(completed_at, login_at, updated_at, created_at))
      ORDER BY date ASC`,
@@ -327,6 +337,7 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
      FROM job_accounts
      WHERE COALESCE(completed_at, login_at, updated_at, created_at) >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+       ${jobTouchedWhere}
        ${ownerAnd}
      GROUP BY DATE_FORMAT(COALESCE(completed_at, login_at, updated_at, created_at), '%Y-%m')
      ORDER BY month ASC`,
@@ -371,6 +382,7 @@ const getJobDeviceStats = async (ownerFilter = null) => {
        MAX(COALESCE(completed_at, login_at, updated_at)) AS last_seen
      FROM job_accounts
      ${ownerWhere(ownerFilter)}
+       ${ownerFilter ? jobTouchedWhere : jobTouchedWhere.replace('AND', 'WHERE')}
      GROUP BY COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown')
      ORDER BY total_xu DESC, login_success DESC`,
     { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
