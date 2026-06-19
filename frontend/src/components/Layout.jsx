@@ -115,6 +115,14 @@ export default function Layout() {
       </aside>
 
       {/* ── Main content ── */}
+      <button
+        className="mobile-logout-btn"
+        onClick={handleLogout}
+        title="Đăng xuất"
+      >
+        ⏻ Đăng xuất
+      </button>
+
       <main className="main-content">
         <Outlet />
       </main>
