@@ -30,6 +30,7 @@ const fmtDate = (value) =>
 const fmtDateTime = (value) =>
   value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '—';
 const piePercent = (value, total) => `${total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'}%`;
+const naturalCollator = new Intl.Collator('vi-VN', { numeric: true, sensitivity: 'base' });
 
 function SummaryCard({ title, value, color, icon, suffix = '' }) {
   return (
@@ -75,6 +76,7 @@ export default function Stats() {
   const [daily, setDaily] = useState(null);
   const [devices, setDevices] = useState([]);
   const [deviceSearch, setDeviceSearch] = useState('');
+  const [deviceSort, setDeviceSort] = useState({ field: 'device_id', dir: 'asc' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -138,11 +140,70 @@ export default function Stats() {
   }, [dailyData]);
   const statusPieTotal = statusPieData.reduce((sum, item) => sum + item.value, 0);
 
-  const filteredDevices = devices.filter((device) =>
-    String(device.device_id || '').toLowerCase().includes(deviceSearch.trim().toLowerCase())
-  );
   const isTodayRange = range === 'today';
   const activeRange = RANGE_OPTIONS.find((item) => item.value === range) || RANGE_OPTIONS[2];
+
+  const deviceValue = useCallback((device, field) => {
+    const todayMap = {
+      device_id: device.device_id || '',
+      account_count: device.today_accounts,
+      failed: device.today_failed_accounts,
+      config: device.today_config_error_accounts,
+      working_or_done: device.today_working_accounts,
+      done_or_today_xu: device.today_done_accounts,
+      jobs_or_month_xu: device.today_jobs,
+      xu: device.today_xu,
+      last_seen: device.last_seen,
+    };
+    const allMap = {
+      device_id: device.device_id || '',
+      account_count: device.login_success,
+      failed: device.failed_accounts,
+      config: device.config_error_accounts,
+      working_or_done: device.done_accounts,
+      done_or_today_xu: device.today_xu,
+      jobs_or_month_xu: device.month_xu,
+      xu: device.total_xu,
+      last_seen: device.last_seen,
+    };
+    return (isTodayRange ? todayMap : allMap)[field];
+  }, [isTodayRange]);
+
+  const filteredDevices = useMemo(() => {
+    const search = deviceSearch.trim().toLowerCase();
+    return [...devices]
+      .filter((device) => String(device.device_id || '').toLowerCase().includes(search))
+      .sort((a, b) => {
+        const aValue = deviceValue(a, deviceSort.field);
+        const bValue = deviceValue(b, deviceSort.field);
+        let result;
+        if (deviceSort.field === 'device_id') {
+          result = naturalCollator.compare(String(aValue || ''), String(bValue || ''));
+        } else if (deviceSort.field === 'last_seen') {
+          result = new Date(aValue || 0) - new Date(bValue || 0);
+        } else {
+          result = Number(aValue || 0) - Number(bValue || 0);
+        }
+        return deviceSort.dir === 'asc' ? result : -result;
+      });
+  }, [devices, deviceSearch, deviceSort, deviceValue]);
+
+  const setDeviceSortField = (field) => {
+    setDeviceSort((prev) => ({
+      field,
+      dir: prev.field === field && prev.dir === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
+  const SortTh = ({ field, children }) => (
+    <th
+      onClick={() => setDeviceSortField(field)}
+      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+      title="Bấm để sắp xếp"
+    >
+      {children} {deviceSort.field === field ? (deviceSort.dir === 'asc' ? '↑' : '↓') : '↕'}
+    </th>
+  );
 
   const deviceTotals = devices.reduce((acc, device) => ({
     machines: acc.machines + 1,
@@ -248,15 +309,15 @@ export default function Stats() {
               <table>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                   <tr>
-                    <th>Tên máy</th>
-                    <th>{isTodayRange ? 'Acc hôm nay' : 'Acc login thành công'}</th>
-                    <th>Acc fail</th>
-                    <th>Cấu hình lỗi</th>
-                    <th>{isTodayRange ? 'Đang chạy' : 'Đã chạy xong'}</th>
-                    <th>{isTodayRange ? 'Đã chạy xong' : 'Xu hôm nay'}</th>
-                    <th>{isTodayRange ? 'Job hôm nay' : 'Xu tháng'}</th>
-                    <th>{isTodayRange ? 'Xu hôm nay' : 'Tổng xu'}</th>
-                    <th>Hoạt động cuối</th>
+                    <SortTh field="device_id">Tên máy</SortTh>
+                    <SortTh field="account_count">{isTodayRange ? 'Acc hôm nay' : 'Acc login thành công'}</SortTh>
+                    <SortTh field="failed">Acc fail</SortTh>
+                    <SortTh field="config">Cấu hình lỗi</SortTh>
+                    <SortTh field="working_or_done">{isTodayRange ? 'Đang chạy' : 'Đã chạy xong'}</SortTh>
+                    <SortTh field="done_or_today_xu">{isTodayRange ? 'Đã chạy xong' : 'Xu hôm nay'}</SortTh>
+                    <SortTh field="jobs_or_month_xu">{isTodayRange ? 'Job hôm nay' : 'Xu tháng'}</SortTh>
+                    <SortTh field="xu">{isTodayRange ? 'Xu hôm nay' : 'Tổng xu'}</SortTh>
+                    <SortTh field="last_seen">Hoạt động cuối</SortTh>
                   </tr>
                 </thead>
                 <tbody>
