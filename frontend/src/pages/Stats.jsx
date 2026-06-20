@@ -272,7 +272,7 @@ export default function Stats() {
       ) : (
         <>
           <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
-            <SummaryCard title="Tổng account JOB" value={stats?.total} color="#06b6d4" icon="⚡" />
+            <SummaryCard title="Acc còn lại" value={stats?.ACCOUNT_CHAY} color="#06b6d4" icon="🚀" />
             <SummaryCard title="Acc đang làm" value={stats?.DANG_LAM} color="#10b981" icon="⚡" />
             <SummaryCard title="Account fail" value={stats?.failed} color="#ef4444" icon="❌" />
             <SummaryCard title="Cấu hình lỗi" value={stats?.config_error} color="#f97316" icon="⚠️" />
