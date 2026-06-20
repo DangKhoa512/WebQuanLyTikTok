@@ -320,6 +320,7 @@ const getAll = async (req, res, next) => {
     const search = String(req.query.search || '').trim();
     const date_from = String(req.query.date_from || '').trim();
     const date_to = String(req.query.date_to || '').trim();
+    const soakDays = parseNonNegativeInt(req.query.soak_days);
     const where = { owner_username };
 
     if (status && STATUSES.includes(status)) where.status = status;
@@ -331,6 +332,9 @@ const getAll = async (req, res, next) => {
       where.created_at = {};
       if (date_from) where.created_at[Op.gte] = new Date(date_from);
       if (date_to) where.created_at[Op.lte] = new Date(`${date_to}T23:59:59`);
+    }
+    if (soakDays !== null && soakDays > 0) {
+      where.completed_at = { [Op.lte]: new Date(Date.now() - soakDays * 24 * 60 * 60 * 1000) };
     }
     if (req.query.video_min !== undefined || req.query.video_max !== undefined) {
       where.video_count = {};

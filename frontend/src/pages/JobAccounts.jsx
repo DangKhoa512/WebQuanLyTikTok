@@ -305,6 +305,7 @@ export default function JobAccounts() {
     search: sp.get('search') || '',
     date_from: sp.get('date_from') || '',
     date_to: sp.get('date_to') || '',
+    soak_days: sp.get('soak_days') || '',
     video_min: sp.get('video_min') || '',
     video_max: sp.get('video_max') || '',
     sort_by: sp.get('sort_by') || '',
@@ -529,12 +530,23 @@ export default function JobAccounts() {
               <input type="date" value={filters.date_to} onChange={(e) => setFilter('date_to', e.target.value)} />
             </div>
             <div className="filter-group">
+              <label>Ngâm tối thiểu</label>
+              <select value={filters.soak_days} onChange={(e) => setFilter('soak_days', e.target.value)}>
+                <option value="">Tất cả</option>
+                <option value="1">Trên 1 ngày</option>
+                <option value="2">Trên 2 ngày</option>
+                <option value="3">Trên 3 ngày</option>
+                <option value="4">Trên 4 ngày</option>
+                <option value="7">Trên 7 ngày</option>
+              </select>
+            </div>
+            <div className="filter-group">
               <label>Số dòng</label>
               <select value={filters.limit} onChange={(e) => setFilter('limit', parseInt(e.target.value, 10))}>
                 {[10, 20, 50, 100, 200].map((value) => <option key={value} value={value}>{value} dòng</option>)}
               </select>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', group_id: '', search: '', date_from: '', date_to: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', group_id: '', search: '', date_from: '', date_to: '', soak_days: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
               ✕ Xóa bộ lọc
             </button>
           </div>
@@ -591,6 +603,7 @@ export default function JobAccounts() {
                   <SortTh field="following">Following</SortTh>
                   <th>Lock</th>
                   <th>Ghi chú</th>
+                  <SortTh field="completed_at">Ngày báo</SortTh>
                   <SortTh field="created_at">Ngày tạo</SortTh>
                 </tr>
               </thead>
@@ -633,6 +646,7 @@ export default function JobAccounts() {
                       <td style={{ color: '#64748b', fontSize: '.75rem' }}>
                         {account.note ? `${account.note}`.substring(0, 25) + (`${account.note}`.length > 25 ? '...' : '') : '—'}
                       </td>
+                      <td style={{ color: '#475569', fontSize: '.75rem', whiteSpace: 'nowrap' }}>{fmt(account.completed_at)}</td>
                       <td style={{ color: '#475569', fontSize: '.75rem', whiteSpace: 'nowrap' }}>{fmt(account.created_at)}</td>
                     </tr>
                   );
