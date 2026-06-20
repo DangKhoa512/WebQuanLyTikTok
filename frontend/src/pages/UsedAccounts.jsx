@@ -7,6 +7,7 @@ import { toast } from '../components/Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
 import { checkLiveInBatches } from '../services/checkLiveRunner';
 import { copyText } from '../services/clipboard';
+import { useEligibilitySettings } from '../services/eligibilitySettings';
 
 const todayInput = () => {
   const now = new Date();
@@ -30,6 +31,7 @@ const STATUS_COLOR = {
 };
 
 function UsedToolbar({ isChrome }) {
+  const eligibility = useEligibilitySettings();
   const settings = loadCheckLiveSettings();
   const proxyCount = settings.proxies.split('\n').map((line) => line.trim()).filter(Boolean).length;
 
@@ -48,13 +50,14 @@ function UsedToolbar({ isChrome }) {
       </div>
       <div style={{ flex: 1 }} />
       <div style={{ fontSize: '.68rem', color: '#475569' }}>
-        Điều kiện: {isChrome ? '≥ 20 video + reg ≥ 4 ngày' : 'Đang UP + ≥ 20 video + reg ≥ 4 ngày'}
+        Điều kiện đủ ĐK: ≥ {eligibility.min_videos} video + reg ≥ {eligibility.min_age_days} ngày
       </div>
     </div>
   );
 }
 
 export default function UsedAccounts() {
+  const eligibility = useEligibilitySettings();
   const [sp, setSp] = useSearchParams();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(new Set());
@@ -497,9 +500,9 @@ export default function UsedAccounts() {
                       ? <span style={{ color: '#f87171', fontWeight: 700, fontSize: '.78rem' }}>• die</span>
                       : <span style={{ color: '#475569', fontSize: '.78rem' }}>• unknown</span>}
                   </td>
-                  <td style={{ color: item.video_count > 0 ? '#047857' : '#64748b', fontWeight: item.video_count >= 20 ? 800 : 700 }}>
+                  <td style={{ color: item.video_count > 0 ? '#047857' : '#64748b', fontWeight: item.video_count >= eligibility.min_videos ? 800 : 700 }}>
                     {item.video_count ?? 0}
-                    {item.video_count >= 20 && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
+                    {item.video_count >= eligibility.min_videos && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
                   </td>
                   <td style={{ color: '#2563eb', fontWeight: 700 }}>{fmtNum(item.followers)}</td>
                   <td style={{ color: '#7c3aed', fontWeight: 700 }}>{fmtNum(item.following)}</td>

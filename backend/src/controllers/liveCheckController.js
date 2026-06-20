@@ -15,14 +15,12 @@ const { Op } = require('sequelize');
 const Account = require('../models/Account');
 const logger  = require('../config/logger');
 const { success, error } = require('../utils/response');
-const { scopedWhere } = require('../utils/owner');
+const { scopedWhere, ownerFromAdmin } = require('../utils/owner');
+const { getEligibilitySettings } = require('../services/settingsService');
 const {
   batchCheckLive: sharedBatchCheckLive,
   parseProxy: sharedParseProxy,
 } = require('../utils/checkLiveUtils');
-
-const ELIGIBLE_MIN_AGE_DAYS = 4;
-const ELIGIBLE_MIN_VIDEOS = 20;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UA profiles: mỗi profile có UA + header đặc trưng khớp nhau
@@ -431,7 +429,9 @@ const checkLive = async (req, res, next) => {
 // ── Promote eligible ──────────────────────────────────────────────────────
 const promoteEligible = async (req, res, next) => {
   try {
-    const { min_age_days = ELIGIBLE_MIN_AGE_DAYS, min_videos = ELIGIBLE_MIN_VIDEOS } = req.body;
+    const saved = await getEligibilitySettings(ownerFromAdmin(req));
+    const min_age_days = parseInt(req.body.min_age_days ?? saved.min_age_days, 10);
+    const min_videos = parseInt(req.body.min_videos ?? saved.min_videos, 10);
     const cutoff = new Date(Date.now() - min_age_days * 24 * 60 * 60 * 1000);
 
     const [affected] = await Account.update(

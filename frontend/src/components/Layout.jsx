@@ -10,7 +10,7 @@ const NAV = [
   { to: '/jobs',            icon: '⚡', label: 'JOB' },
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
   { to: '/export',          icon: '📥', label: 'Xuất file'  },
-  { to: '/proxy-settings',  icon: '⚙️', label: 'Proxy'      },
+  { to: '/proxy-settings',  icon: '⚙️', label: 'Cài đặt'    },
   { to: '/users',           icon: '👤', label: 'Cấp user', adminOnly: true },
 ];
 

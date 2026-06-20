@@ -54,7 +54,7 @@ export const accountApi = {
   // Live check & promote
   checkLive: (ids = [], proxies = [], concurrency = 5, delay_ms = 1000) =>
     api.post('/accounts/check-live', { ids, proxies, concurrency, delay_ms }, { timeout: 600_000 }),
-  promoteEligible: (min_age_days = 4, min_videos = 10) =>
+  promoteEligible: (min_age_days, min_videos) =>
     api.post('/accounts/promote-eligible', { min_age_days, min_videos }),
   // Bulk operations
   bulkAction: (ids, action, opts = {}) =>
@@ -76,7 +76,7 @@ export const chromeAccountApi = {
     api.post('/chrome-accounts/import', { text, status, group_id }),
   checkLive: (ids, proxies, concurrency, delay_ms) =>
     api.post('/chrome-accounts/check-live', { ids, proxies, concurrency, delay_ms }, { timeout: 600_000 }),
-  promoteEligible: (min_age_days = 4, min_videos = 10) =>
+  promoteEligible: (min_age_days, min_videos) =>
     api.post('/chrome-accounts/promote-eligible', { min_age_days, min_videos }),
   bulkAction: (ids, action, opts = {}) =>
     api.post('/chrome-accounts/bulk-action', { ids, action, ...opts }),
@@ -94,6 +94,12 @@ export const statsApi = {
   getJobStats:      ()     => api.get('/stats/job', { timeout: 60_000 }),
   getJobDailyStats: (days) => api.get('/stats/job/daily', { params: { days }, timeout: 60_000 }),
   getJobDeviceStats: ()    => api.get('/stats/job/devices', { timeout: 60_000 }),
+};
+
+export const settingsApi = {
+  getEligibility: () => api.get('/settings/eligibility'),
+  updateEligibility: (min_age_days, min_videos) =>
+    api.put('/settings/eligibility', { min_age_days, min_videos }),
 };
 
 export const userApi = {

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { loadCheckLiveSettings, saveCheckLiveSettings } from '../services/checkLiveSettings';
+import { settingsApi } from '../services/api';
 import { toast } from '../components/Toast';
 
 export default function ProxySettings() {
@@ -8,17 +9,40 @@ export default function ProxySettings() {
   const [concurrency, setConcurrency] = useState(init.concurrency);
   const [delayMs,     setDelayMs]     = useState(init.delayMs);
   const [batchSize,   setBatchSize]   = useState(init.batchSize);
+  const [minVideos,   setMinVideos]   = useState(20);
+  const [minAgeDays,  setMinAgeDays]  = useState(4);
+  const [saving,      setSaving]      = useState(false);
 
   const proxyList = proxies.split('\n').map((l) => l.trim()).filter(Boolean);
 
+  useEffect(() => {
+    let mounted = true;
+    settingsApi.getEligibility()
+      .then((res) => {
+        if (!mounted) return;
+        const settings = res.data?.settings || {};
+        setMinVideos(settings.min_videos || 20);
+        setMinAgeDays(settings.min_age_days || 4);
+      })
+      .catch((err) => toast.error(err.message || 'Không tải được cài đặt đủ điều kiện'));
+    return () => { mounted = false; };
+  }, []);
+
   const handleSave = () => {
-    saveCheckLiveSettings({
-      proxies,
-      concurrency: parseInt(concurrency),
-      delayMs: parseInt(delayMs),
-      batchSize: parseInt(batchSize),
-    });
-    toast.success(`Đã lưu ${proxyList.length} proxy`);
+    setSaving(true);
+    Promise.resolve()
+      .then(() => {
+        saveCheckLiveSettings({
+          proxies,
+          concurrency: parseInt(concurrency, 10),
+          delayMs: parseInt(delayMs, 10),
+          batchSize: parseInt(batchSize, 10),
+        });
+        return settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10));
+      })
+      .then(() => toast.success('Đã lưu cài đặt'))
+      .catch((err) => toast.error(err.message || 'Lưu cài đặt thất bại'))
+      .finally(() => setSaving(false));
   };
 
   const handleReset = () => {
@@ -26,22 +50,71 @@ export default function ProxySettings() {
     setConcurrency(12);
     setDelayMs(200);
     setBatchSize(60);
+    setMinVideos(20);
+    setMinAgeDays(4);
     saveCheckLiveSettings({ proxies: '', concurrency: 12, delayMs: 200, batchSize: 60 });
-    toast.success('Đã reset cài đặt');
+    settingsApi.updateEligibility(4, 20)
+      .then(() => toast.success('Đã reset cài đặt'))
+      .catch((err) => toast.error(err.message || 'Reset cài đặt thất bại'));
   };
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <h1>⚙️ Cài đặt Proxy Check Live</h1>
+          <h1>⚙️ Cài đặt</h1>
           <p style={{ color: '#94a3b8', fontSize: '.9rem', margin: '.25rem 0 0' }}>
-            Cấu hình proxy pool và tham số check live dùng chung cho tất cả các bảng
+            Cấu hình proxy check live và điều kiện chuyển account đủ điều kiện.
           </p>
         </div>
       </div>
 
       <div style={{ maxWidth: '680px', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+        <div className="card">
+          <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
+            🎯 Setup đủ điều kiện
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+            <div>
+              <label style={{ color: '#94a3b8', fontSize: '.85rem', display: 'block', marginBottom: '.4rem' }}>
+                Video tối thiểu
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={minVideos}
+                onChange={(e) => setMinVideos(e.target.value)}
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: '#1e293b', color: '#e2e8f0',
+                  border: '1px solid #334155', borderRadius: '8px',
+                  padding: '.6rem .75rem', fontWeight: 700,
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ color: '#94a3b8', fontSize: '.85rem', display: 'block', marginBottom: '.4rem' }}>
+                Tuổi acc tối thiểu
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={minAgeDays}
+                onChange={(e) => setMinAgeDays(e.target.value)}
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: '#1e293b', color: '#e2e8f0',
+                  border: '1px solid #334155', borderRadius: '8px',
+                  padding: '.6rem .75rem', fontWeight: 700,
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: '.65rem', color: '#64748b', fontSize: '.76rem' }}>
+            Áp dụng cho App Acc và Chrome Acc khi chuyển sang Đủ điều kiện.
+          </div>
+        </div>
 
         {/* Proxy pool */}
         <div className="card">
@@ -130,12 +203,12 @@ export default function ProxySettings() {
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: '.75rem' }}>
-          <button onClick={handleSave} style={{
-            background: '#2563eb', border: 'none', color: '#fff',
+          <button onClick={handleSave} disabled={saving} style={{
+            background: saving ? '#334155' : '#2563eb', border: 'none', color: '#fff',
             borderRadius: '8px', padding: '.65rem 1.75rem',
-            cursor: 'pointer', fontWeight: 700, fontSize: '.9rem',
+            cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '.9rem',
           }}>
-            💾 Lưu cài đặt
+            {saving ? '⏳ Đang lưu...' : '💾 Lưu cài đặt'}
           </button>
           <button onClick={handleReset} style={{
             background: 'transparent', border: '1px solid #334155', color: '#94a3b8',

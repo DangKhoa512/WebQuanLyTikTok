@@ -12,6 +12,7 @@ const { Op, fn, col } = require('sequelize');
 const sequelize = require('../config/database');
 const Account = require('../models/Account');
 const logger = require('../config/logger');
+const { getEligibilitySettings } = require('./settingsService');
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const LOCK_TIMEOUT_MIN    = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;  // minutes before a lock expires
@@ -118,13 +119,14 @@ const regSubmit = async (body, owner_username) => {
  * Returns null when no eligible account is available.
  */
 const getUpvideo = async (device_id, owner_username) => {
+  const eligibility = await getEligibilitySettings(owner_username);
   return sequelize.transaction(async (t) => {
     const lockCutoff = new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000);
 
     const account = await Account.findOne({
       where: {
         status: 'LOGIN_THANH_CONG',
-        video_count: { [Op.lt]: 20 },
+        video_count: { [Op.lt]: eligibility.min_videos },
         owner_username,
         [Op.or]: [
           { locked_by: null },

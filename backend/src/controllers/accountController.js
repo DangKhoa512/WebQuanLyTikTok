@@ -5,13 +5,11 @@ const { success, error, withFullData } = require('../utils/response');
 const logger = require('../config/logger');
 const { ownerFromRequest, ownerFromAdmin } = require('../utils/owner');
 const { checkOne, parseProxy } = require('../utils/checkLiveUtils');
+const { getEligibilitySettings } = require('../services/settingsService');
 
 const PHONE_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','UPVIDEO_DONE'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
-const UPVIDEO_MAX_VIDEOS = 20;
 const KHANG_MIN_VIDEOS = 10;
-const ELIGIBLE_MIN_VIDEOS = 20;
-const ELIGIBLE_MIN_AGE_DAYS = 4;
 const PHONE_ACCOUNT_FIELDS = [
   'id',
   'username',
@@ -29,12 +27,13 @@ const PHONE_ACCOUNT_FIELDS = [
   'video_count',
 ];
 
-const isEligibleAge = (regAt) => {
+const isEligibleAge = (regAt, minAgeDays) => {
   if (!regAt) return false;
-  return new Date(regAt).getTime() <= Date.now() - ELIGIBLE_MIN_AGE_DAYS * 24 * 60 * 60 * 1000;
+  return new Date(regAt).getTime() <= Date.now() - minAgeDays * 24 * 60 * 60 * 1000;
 };
 
 const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) => {
+  const eligibility = await getEligibilitySettings(account.owner_username);
   let stats = null;
   const proxyUrl = parseProxy(account.proxy || '');
 
@@ -77,13 +76,13 @@ const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) =
     message = 'Account die, đã chuyển sang ACC_DIE';
   } else if (
     account.status === 'ACC_DA_KHANG' &&
-    videoCount >= ELIGIBLE_MIN_VIDEOS &&
-    isEligibleAge(account.reg_at)
+    videoCount >= eligibility.min_videos &&
+    isEligibleAge(account.reg_at, eligibility.min_age_days)
   ) {
     updateData.status = 'ACC_DU_DK';
     action = 'eligible';
     message = 'Đã đủ video';
-  } else if (account.status === 'ACC_CHUA_KHANG' && videoCount >= ELIGIBLE_MIN_VIDEOS) {
+  } else if (account.status === 'ACC_CHUA_KHANG' && videoCount >= eligibility.min_videos) {
     action = 'ready_for_khang';
     message = 'Đã đủ video, giữ ở Chưa Kháng để xử lý kháng';
   } else {
@@ -109,6 +108,7 @@ const getAccount = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
 
+    const eligibility = await getEligibilitySettings(owner_username);
     const transaction = await Account.sequelize.transaction();
     try {
       const account = await Account.findOne({
@@ -156,7 +156,7 @@ const phoneSubmit = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ── Lấy acc DA_KHANG/CHUA_KHANG < 20 video để upload thêm ───────────────────
+// ── Lấy acc DA_KHANG/CHUA_KHANG chưa đủ video theo cài đặt để upload thêm ───
 const getCanUpvideo = async (req, res, next) => {
   try {
     const { device_id } = req.body;
@@ -165,7 +165,7 @@ const getCanUpvideo = async (req, res, next) => {
     const transaction = await Account.sequelize.transaction();
     try {
       const account = await Account.findOne({
-        where: { status: { [Op.in]: ['ACC_DA_KHANG','ACC_CHUA_KHANG'] }, video_count: { [Op.lt]: UPVIDEO_MAX_VIDEOS }, owner_username, ...availableLockWhere() },
+        where: { status: { [Op.in]: ['ACC_DA_KHANG','ACC_CHUA_KHANG'] }, video_count: { [Op.lt]: eligibility.min_videos }, owner_username, ...availableLockWhere() },
         lock:  transaction.LOCK.UPDATE,
         skipLocked: true,
         transaction,

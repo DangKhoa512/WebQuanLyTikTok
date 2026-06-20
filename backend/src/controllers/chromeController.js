@@ -25,16 +25,14 @@ const { checkOne, batchCheckLive, parseProxy } = require('../utils/checkLiveUtil
 const { withFullData } = require('../utils/response');
 const { ownerFromRequest, ownerFromAdmin, scopedWhere } = require('../utils/owner');
 const { recordUsageHistory } = require('../services/usageHistoryService');
+const { getEligibilitySettings } = require('../services/settingsService');
 
 // Phone có thể set: LOGIN_THANH_CONG (login OK), ACC_LOGIN (login fail → về Chờ Login), DA_KHANG, CHUA_KHANG
 const PHONE_STATUSES   = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','UPVIDEO_DONE'];
 const MANUAL_STATUSES  = ['ACC_LOGIN'];
 const ALL_STATUSES     = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
-const UPVIDEO_MAX_VIDEOS = 20;
 const KHANG_MIN_VIDEOS = 10;
-const ELIGIBLE_MIN_VIDEOS = 20;
-const ELIGIBLE_MIN_AGE_DAYS = 4;
 
 const nullify = (v) =>
   (!v || v.trim() === '' || v.trim().toLowerCase() === 'null') ? null : v.trim();
@@ -71,12 +69,13 @@ const availableLockWhere = () => ({
   ],
 });
 
-const isEligibleAge = (regAt) => {
+const isEligibleAge = (regAt, minAgeDays) => {
   if (!regAt) return false;
-  return new Date(regAt).getTime() <= Date.now() - ELIGIBLE_MIN_AGE_DAYS * 24 * 60 * 60 * 1000;
+  return new Date(regAt).getTime() <= Date.now() - minAgeDays * 24 * 60 * 60 * 1000;
 };
 
 const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) => {
+  const eligibility = await getEligibilitySettings(account.owner_username);
   let stats = null;
   const proxyUrl = parseProxy(account.proxy || '');
 
@@ -118,13 +117,13 @@ const checkAndFinalizeUpvideo = async (account, device_id, fallbackVideoCount) =
     message = 'Account die, đã chuyển sang ACC_DIE';
   } else if (
     account.status === 'ACC_DA_KHANG' &&
-    videoCount >= ELIGIBLE_MIN_VIDEOS &&
-    isEligibleAge(account.reg_at)
+    videoCount >= eligibility.min_videos &&
+    isEligibleAge(account.reg_at, eligibility.min_age_days)
   ) {
     updateData.status = 'ACC_DU_DK';
     action = 'eligible';
     message = 'Đã đủ video';
-  } else if (account.status === 'ACC_CHUA_KHANG' && videoCount >= ELIGIBLE_MIN_VIDEOS) {
+  } else if (account.status === 'ACC_CHUA_KHANG' && videoCount >= eligibility.min_videos) {
     action = 'ready_for_khang';
     message = 'Đã đủ video, giữ ở Chưa Kháng để xử lý kháng';
   } else {
@@ -206,6 +205,7 @@ const getChoLogin = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
 
+    const eligibility = await getEligibilitySettings(owner_username);
     const sequelize   = ChromeAccount.sequelize;
     const transaction = await sequelize.transaction();
 
@@ -494,7 +494,7 @@ const checkLive = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ── Phone: Lấy acc cần UPVIDEO (DA_KHANG hoặc CHUA_KHANG mà < 20 video) ──────
+// ── Phone: Lấy acc cần UPVIDEO theo ngưỡng video trong cài đặt ───────────────
 const getCanUpvideo = async (req, res, next) => {
   try {
     const { device_id } = req.body;
@@ -507,7 +507,7 @@ const getCanUpvideo = async (req, res, next) => {
       const account = await ChromeAccount.findOne({
         where: {
           status:      { [Op.in]: ['ACC_DA_KHANG', 'ACC_CHUA_KHANG'] },
-          video_count: { [Op.lt]: UPVIDEO_MAX_VIDEOS },
+          video_count: { [Op.lt]: eligibility.min_videos },
           owner_username,
           ...availableLockWhere(),
         },
@@ -580,10 +580,12 @@ const getCanKhang = async (req, res, next) => {
 };
 
 // ── Dashboard: Promote Eligible ──────────────────────────────────────────────
-// Chỉ promote ACC_DA_KHANG có >= 20 video và reg >= 4 ngày → ACC_DU_DK
+// Chỉ promote ACC_DA_KHANG đủ video và đủ ngày theo cài đặt → ACC_DU_DK
 const promoteEligible = async (req, res, next) => {
   try {
-    const { min_age_days = ELIGIBLE_MIN_AGE_DAYS, min_videos = ELIGIBLE_MIN_VIDEOS } = req.body;
+    const saved = await getEligibilitySettings(ownerFromAdmin(req));
+    const min_age_days = parseInt(req.body.min_age_days ?? saved.min_age_days, 10);
+    const min_videos = parseInt(req.body.min_videos ?? saved.min_videos, 10);
     const cutoff = new Date(Date.now() - min_age_days * 24 * 60 * 60 * 1000);
 
     const [affected] = await ChromeAccount.update(

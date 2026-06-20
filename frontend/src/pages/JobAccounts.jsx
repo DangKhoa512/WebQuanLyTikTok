@@ -7,6 +7,7 @@ import { loadCheckLiveSettings } from '../services/checkLiveSettings';
 import { checkLiveInBatches } from '../services/checkLiveRunner';
 import { copyText } from '../services/clipboard';
 import AccountGroupPicker from '../components/AccountGroupPicker';
+import { useEligibilitySettings } from '../services/eligibilitySettings';
 
 const fmt = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '—';
 const fmtNum = (value) => value == null ? '—' : Number(value).toLocaleString('vi-VN');
@@ -284,6 +285,7 @@ function ImportJobModal({ onClose, onImported, groups, onGroupCreated }) {
 }
 
 export default function JobAccounts() {
+  const eligibility = useEligibilitySettings();
   const [sp, setSp] = useSearchParams();
   const [accounts, setAccounts] = useState([]);
   const [counts, setCounts] = useState({});
@@ -637,7 +639,10 @@ export default function JobAccounts() {
                         </span>
                       </td>
                       <td style={{ color: account.job_count != null && account.job_count < 50 ? '#b45309' : '#475569', fontWeight: 800 }}>{account.job_count ?? '-'}</td>
-                      <td style={{ color: account.video_count > 0 ? '#047857' : '#64748b', fontWeight: account.video_count >= 20 ? 800 : 700 }}>{account.video_count ?? 0}</td>
+                      <td style={{ color: account.video_count > 0 ? '#047857' : '#64748b', fontWeight: account.video_count >= eligibility.min_videos ? 800 : 700 }}>
+                        {account.video_count ?? 0}
+                        {account.video_count >= eligibility.min_videos && <span style={{ color: '#22c55e', marginLeft: '.3rem', fontSize: '.7rem' }}>✓</span>}
+                      </td>
                       <td style={{ color: '#2563eb', fontWeight: 700 }}>{fmtNum(account.followers)}</td>
                       <td style={{ color: '#7c3aed', fontWeight: 700 }}>{fmtNum(account.following)}</td>
                       <td style={{ color: '#64748b', fontSize: '.72rem', whiteSpace: 'nowrap' }}>

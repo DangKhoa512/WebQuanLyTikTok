@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from './Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
+import { useEligibilitySettings } from '../services/eligibilitySettings';
 
 export default function RegToolbar({ onRefresh }) {
   const [promoting, setPromoting] = useState(false);
+  const eligibility = useEligibilitySettings();
 
   const settings   = loadCheckLiveSettings();
   const proxyCount = settings.proxies.split('\n').map((l) => l.trim()).filter(Boolean).length;
@@ -13,7 +15,7 @@ export default function RegToolbar({ onRefresh }) {
   const handlePromote = async () => {
     setPromoting(true);
     try {
-      const res = await api.post('/accounts/promote-eligible', { min_age_days: 4, min_videos: 20 });
+      const res = await api.post('/accounts/promote-eligible', {});
       toast.success(res.message);
       onRefresh();
     } catch (e) {
@@ -71,7 +73,7 @@ export default function RegToolbar({ onRefresh }) {
         {promoting ? '⏳ Đang chuyển...' : '🎯 Chuyển Đủ ĐK → DU_DK'}
       </button>
       <div style={{ fontSize: '.68rem', color: '#475569' }}>
-        Điều kiện: Đang UP + ≥ 20 video + reg ≥ 4 ngày
+        Điều kiện đủ ĐK: ≥ {eligibility.min_videos} video + reg ≥ {eligibility.min_age_days} ngày
       </div>
     </div>
   );
