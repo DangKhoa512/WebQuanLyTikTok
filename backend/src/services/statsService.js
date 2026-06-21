@@ -23,6 +23,12 @@ const JOB_STATUSES = [
   'ACCOUNT_DIE',
 ];
 const XU_PER_JOB = parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400;
+const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
 const emptyStatusCounts = () =>
   STATUSES.reduce((out, status) => ({ ...out, [status]: 0 }), {});
@@ -31,6 +37,7 @@ const ownerWhere = (ownerFilter, prefix = 'WHERE') =>
   ownerFilter ? `${prefix} owner_username = :owner` : '';
 
 const numeric = (row, key) => Number(row?.[key]) || 0;
+const vietnamToday = () => VN_DATE_FORMATTER.format(new Date());
 const jobTouchedWhere = `
   AND (
     device_id IS NOT NULL
@@ -39,6 +46,14 @@ const jobTouchedWhere = `
     OR completed_at IS NOT NULL
     OR COALESCE(job_count, 0) > 0
   )
+`;
+const jobActivityAt = `
+  CASE
+    WHEN completed_at IS NOT NULL THEN completed_at
+    WHEN COALESCE(job_count, 0) > 0 THEN updated_at
+    WHEN login_at IS NOT NULL THEN login_at
+    ELSE updated_at
+  END
 `;
 
 const getModelStats = async (Model, todayStart, todayEnd, ownerFilter = null) => {
@@ -245,7 +260,7 @@ const getDeviceStats = async (ownerFilter = null) => {
 };
 
 const getJobStats = async (ownerFilter = null) => {
-  const replacements = {};
+  const replacements = { todayDate: vietnamToday() };
   if (ownerFilter) replacements.owner = ownerFilter;
 
   const [row = {}] = await sequelize.query(
@@ -263,13 +278,13 @@ const getJobStats = async (ownerFilter = null) => {
        SUM(status = 'LOI_CAU_HINH') AS config_error,
        COALESCE(SUM(job_count), 0) AS total_jobs,
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu,
-       COALESCE(SUM(CASE WHEN DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() THEN job_count ELSE 0 END), 0) AS today_jobs,
-       COALESCE(SUM(CASE WHEN DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() THEN job_count ELSE 0 END), 0) * :xuPerJob AS today_xu,
-       COALESCE(SUM(CASE WHEN YEAR(COALESCE(completed_at, login_at, updated_at, created_at)) = YEAR(CURDATE()) AND MONTH(COALESCE(completed_at, login_at, updated_at, created_at)) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
-       COALESCE(SUM(CASE WHEN YEAR(COALESCE(completed_at, login_at, updated_at, created_at)) = YEAR(CURDATE()) AND MONTH(COALESCE(completed_at, login_at, updated_at, created_at)) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) * :xuPerJob AS month_xu,
-       SUM(DATE(login_at) = CURDATE()) AS today_login_success,
-       SUM(DATE(completed_at) = CURDATE() AND status = 'DUOI_50_JOB') AS today_failed,
-       SUM(DATE(completed_at) = CURDATE() AND status = 'LOI_CAU_HINH') AS today_config_error,
+       COALESCE(SUM(CASE WHEN DATE(${jobActivityAt}) = :todayDate THEN job_count ELSE 0 END), 0) AS today_jobs,
+       COALESCE(SUM(CASE WHEN DATE(${jobActivityAt}) = :todayDate THEN job_count ELSE 0 END), 0) * :xuPerJob AS today_xu,
+       COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
+       COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) * :xuPerJob AS month_xu,
+       SUM(DATE(login_at) = :todayDate) AS today_login_success,
+       SUM(DATE(completed_at) = :todayDate AND status = 'DUOI_50_JOB') AS today_failed,
+       SUM(DATE(completed_at) = :todayDate AND status = 'LOI_CAU_HINH') AS today_config_error,
        SUM(live_status = 'live') AS live,
        SUM(live_status = 'die') AS die_live,
        SUM(live_status = 'unknown') AS unknown_live
@@ -312,7 +327,7 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
 
   const daily = await sequelize.query(
     `SELECT
-       DATE(COALESCE(completed_at, login_at, updated_at, created_at)) AS date,
+       DATE(${jobActivityAt}) AS date,
        COUNT(*) AS completed_accounts,
        SUM(status = 'DA_CHAY_XONG') AS done_accounts,
        SUM(status = 'DUOI_50_JOB') AS failed_accounts,
@@ -321,25 +336,25 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
        COALESCE(SUM(job_count), 0) AS total_jobs,
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
      FROM job_accounts
-     WHERE COALESCE(completed_at, login_at, updated_at, created_at) >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
+     WHERE ${jobActivityAt} >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
        ${jobTouchedWhere}
        ${ownerAnd}
-     GROUP BY DATE(COALESCE(completed_at, login_at, updated_at, created_at))
+     GROUP BY DATE(${jobActivityAt})
      ORDER BY date ASC`,
     { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
   );
 
   const monthly = await sequelize.query(
     `SELECT
-       DATE_FORMAT(COALESCE(completed_at, login_at, updated_at, created_at), '%Y-%m') AS month,
+       DATE_FORMAT(${jobActivityAt}, '%Y-%m') AS month,
        COUNT(*) AS completed_accounts,
        COALESCE(SUM(job_count), 0) AS total_jobs,
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
      FROM job_accounts
-     WHERE COALESCE(completed_at, login_at, updated_at, created_at) >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+     WHERE ${jobActivityAt} >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
        ${jobTouchedWhere}
        ${ownerAnd}
-     GROUP BY DATE_FORMAT(COALESCE(completed_at, login_at, updated_at, created_at), '%Y-%m')
+     GROUP BY DATE_FORMAT(${jobActivityAt}, '%Y-%m')
      ORDER BY month ASC`,
     { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
   );
@@ -357,7 +372,7 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
 };
 
 const getJobDeviceStats = async (ownerFilter = null) => {
-  const replacements = {};
+  const replacements = { todayDate: vietnamToday() };
   if (ownerFilter) replacements.owner = ownerFilter;
 
   return sequelize.query(
@@ -368,17 +383,17 @@ const getJobDeviceStats = async (ownerFilter = null) => {
        SUM(status = 'DUOI_50_JOB') AS failed_accounts,
        SUM(status = 'LOI_CAU_HINH') AS config_error_accounts,
        SUM(status = 'DA_CHAY_XONG') AS done_accounts,
-       SUM(DATE(login_at) = CURDATE()) AS today_accounts,
-       SUM(DATE(login_at) = CURDATE() AND status = 'DANG_LAM') AS today_working_accounts,
-       SUM(DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() AND status = 'DUOI_50_JOB') AS today_failed_accounts,
-       SUM(DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() AND status = 'LOI_CAU_HINH') AS today_config_error_accounts,
-       SUM(DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() AND status = 'DA_CHAY_XONG') AS today_done_accounts,
+       SUM(DATE(login_at) = :todayDate) AS today_accounts,
+       SUM(DATE(login_at) = :todayDate AND status = 'DANG_LAM') AS today_working_accounts,
+       SUM(DATE(${jobActivityAt}) = :todayDate AND status = 'DUOI_50_JOB') AS today_failed_accounts,
+       SUM(DATE(${jobActivityAt}) = :todayDate AND status = 'LOI_CAU_HINH') AS today_config_error_accounts,
+       SUM(DATE(${jobActivityAt}) = :todayDate AND status = 'DA_CHAY_XONG') AS today_done_accounts,
        COALESCE(SUM(job_count), 0) AS total_jobs,
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu,
-       COALESCE(SUM(CASE WHEN DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() THEN job_count ELSE 0 END), 0) AS today_jobs,
-       COALESCE(SUM(CASE WHEN DATE(COALESCE(completed_at, login_at, updated_at, created_at)) = CURDATE() THEN job_count ELSE 0 END), 0) * :xuPerJob AS today_xu,
-       COALESCE(SUM(CASE WHEN YEAR(COALESCE(completed_at, login_at, updated_at, created_at)) = YEAR(CURDATE()) AND MONTH(COALESCE(completed_at, login_at, updated_at, created_at)) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
-       COALESCE(SUM(CASE WHEN YEAR(COALESCE(completed_at, login_at, updated_at, created_at)) = YEAR(CURDATE()) AND MONTH(COALESCE(completed_at, login_at, updated_at, created_at)) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) * :xuPerJob AS month_xu,
+       COALESCE(SUM(CASE WHEN DATE(${jobActivityAt}) = :todayDate THEN job_count ELSE 0 END), 0) AS today_jobs,
+       COALESCE(SUM(CASE WHEN DATE(${jobActivityAt}) = :todayDate THEN job_count ELSE 0 END), 0) * :xuPerJob AS today_xu,
+       COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
+       COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) * :xuPerJob AS month_xu,
        MAX(COALESCE(completed_at, login_at, updated_at)) AS last_seen
      FROM job_accounts
      ${ownerWhere(ownerFilter)}
