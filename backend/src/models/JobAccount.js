@@ -60,6 +60,15 @@ const JobAccount = sequelize.define(
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true,
     },
+    today_job_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    today_job_count: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+    },
     live_status: {
       type: DataTypes.ENUM('unknown', 'live', 'die'),
       allowNull: false,

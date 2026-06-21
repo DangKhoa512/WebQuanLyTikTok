@@ -19,6 +19,12 @@ const FINAL_STATUSES = ['DUOI_50_JOB', 'FAIL_AVT', 'LOI_CAU_HINH', 'DA_CHAY_XONG
 const JOB_TYPES = ['chrome', 'hotmail'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.JOB_LOCK_TIMEOUT_MIN, 10) || 40;
 const XU_PER_JOB = parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400;
+const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 const SORT_FIELDS = {
   video_count: 'video_count',
   followers: 'followers',
@@ -44,6 +50,16 @@ const parseNonNegativeInt = (value) => {
 const parseJobType = (value, fallback = 'chrome') => {
   const normalized = String(value || fallback).trim().toLowerCase();
   return JOB_TYPES.includes(normalized) ? normalized : null;
+};
+const vietnamToday = () => VN_DATE_FORMATTER.format(new Date());
+const todayJobUpdate = (account, addedJobs) => {
+  const today = vietnamToday();
+  const storedDate = account.today_job_date ? String(account.today_job_date).slice(0, 10) : null;
+  const currentTodayJobs = storedDate === today ? Number(account.today_job_count) || 0 : 0;
+  return {
+    today_job_date: today,
+    today_job_count: currentTodayJobs + Math.max(0, addedJobs),
+  };
 };
 
 const buildSortOrder = (sortBy, sortDir) => {
@@ -305,10 +321,14 @@ const reportResult = async (req, res, next) => {
     }
 
     const jobLive = parseNonNegativeInt(req.body.joblive ?? req.body.jobs ?? req.body.job_count);
+    const currentJobs = Number(account.job_count) || 0;
+    const nextJobs = jobLive !== null ? jobLive : currentJobs;
+    const addedJobs = jobLive !== null ? Math.max(nextJobs - currentJobs, 0) : 0;
     await account.update({
       status,
       device_id,
-      job_count: jobLive !== null ? jobLive : account.job_count,
+      job_count: nextJobs,
+      ...(addedJobs > 0 ? todayJobUpdate(account, addedJobs) : {}),
       fail_reason: nullify(req.body.reason),
       note: nullify(req.body.note),
       completed_at: new Date(),
@@ -319,8 +339,10 @@ const reportResult = async (req, res, next) => {
     return success(res, {
       account,
       jobs: jobLive,
+      added_jobs: addedJobs,
       xu_per_job: XU_PER_JOB,
-      total_xu: jobLive !== null ? jobLive * XU_PER_JOB : null,
+      added_xu: addedJobs * XU_PER_JOB,
+      total_xu: nextJobs * XU_PER_JOB,
     }, `Da chuyen account sang ${status}`);
   } catch (err) {
     next(err);
@@ -353,6 +375,7 @@ const addJobCount = async (req, res, next) => {
     await account.update({
       device_id,
       job_count: totalJobs,
+      ...todayJobUpdate(account, addJobs),
       locked_by: device_id,
       locked_at: new Date(),
     });

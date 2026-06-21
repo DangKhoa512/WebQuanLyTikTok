@@ -186,6 +186,8 @@ const startServer = async () => {
       ['ALTER TABLE job_accounts ADD COLUMN last_live_check_at DATETIME NULL', 'job_accounts last_live_check_at column added'],
       ['ALTER TABLE job_accounts ADD COLUMN login_fail_count INT UNSIGNED NOT NULL DEFAULT 0', 'job_accounts login_fail_count column added'],
       ['ALTER TABLE job_accounts ADD COLUMN last_login_fail_at DATETIME NULL', 'job_accounts last_login_fail_at column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN today_job_date DATE NULL', 'job_accounts today_job_date column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN today_job_count INT UNSIGNED NOT NULL DEFAULT 0', 'job_accounts today_job_count column added'],
       ['ALTER TABLE job_accounts ADD INDEX idx_job_group_id (group_id)', 'job_accounts group_id index ready'],
       ['ALTER TABLE job_accounts ADD INDEX idx_job_type (job_type)', 'job_accounts job_type index ready'],
       ['ALTER TABLE job_accounts ADD INDEX idx_job_live_status (live_status)', 'job_accounts live_status index ready'],
