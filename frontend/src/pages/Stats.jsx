@@ -276,11 +276,12 @@ export default function Stats() {
           <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
             <SummaryCard title="Acc còn lại" value={stats?.ACCOUNT_CHAY} color="#06b6d4" icon="🚀" />
             <SummaryCard title="Acc đang làm" value={stats?.DANG_LAM} color="#10b981" icon="⚡" />
+            {isTodayRange && <SummaryCard title="Tổng acc hôm nay" value={deviceTotals.today_accounts} color="#2563eb" icon="✅" />}
             <SummaryCard title="Account fail" value={summaryFailed} color="#ef4444" icon="❌" />
             <SummaryCard title="Cấu hình lỗi" value={summaryConfigError} color="#f97316" icon="⚠️" />
             <SummaryCard title="Xu hôm nay" value={stats?.today_xu} color="#0ea5e9" icon="💎" />
             <SummaryCard title="Xu tháng này" value={stats?.month_xu} color="#8b5cf6" icon="🏆" />
-            <SummaryCard title="Tổng xu" value={stats?.total_xu} color="#14b8a6" icon="💰" />
+            {!isTodayRange && <SummaryCard title="Tổng xu" value={stats?.total_xu} color="#14b8a6" icon="💰" />}
           </div>
 
           <div className="card" style={{ marginBottom: '1.25rem' }}>
@@ -289,7 +290,7 @@ export default function Stats() {
                 <h3>🖥️ {isTodayRange ? 'Thống kê theo máy hôm nay' : 'Thống kê theo máy'}</h3>
                 <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.2rem' }}>
                   {isTodayRange
-                    ? `${fmtNum(deviceTotals.machines)} máy · ${fmtNum(deviceTotals.today_working_accounts)} acc đang chạy · ${fmtNum(deviceTotals.today_failed_accounts)} acc fail · ${fmtXu(deviceTotals.today_xu)}`
+                    ? `${fmtNum(deviceTotals.machines)} máy · ${fmtNum(deviceTotals.today_accounts)} acc đã chạy hôm nay · ${fmtNum(deviceTotals.today_working_accounts)} acc đang chạy · ${fmtNum(deviceTotals.today_failed_accounts)} acc fail · ${fmtXu(deviceTotals.today_xu)}`
                     : `${fmtNum(deviceTotals.machines)} máy · ${fmtNum(deviceTotals.login_success)} acc login thành công · ${fmtNum(deviceTotals.failed_accounts)} acc fail · ${fmtXu(deviceTotals.total_xu)}`}
                 </div>
               </div>
@@ -312,7 +313,7 @@ export default function Stats() {
                 <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                   <tr>
                     <SortTh field="device_id">Tên máy</SortTh>
-                    <SortTh field="account_count">{isTodayRange ? 'Acc hôm nay' : 'Acc login thành công'}</SortTh>
+                    <SortTh field="account_count">{isTodayRange ? 'Acc đã chạy hôm nay' : 'Acc login thành công'}</SortTh>
                     <SortTh field="failed">Acc fail</SortTh>
                     <SortTh field="config">Cấu hình lỗi</SortTh>
                     <SortTh field="working_or_done">{isTodayRange ? 'Đang chạy' : 'Đã chạy xong'}</SortTh>
@@ -330,7 +331,7 @@ export default function Stats() {
                       <td>
                         <strong style={{ fontSize: '.86rem' }}>{device.device_id}</strong>
                         <div style={{ color: '#94a3b8', fontSize: '.7rem', marginTop: 2 }}>
-                          {isTodayRange ? `Acc hôm nay: ${fmtNum(device.today_accounts)}` : `Tổng acc: ${fmtNum(device.total_accounts)}`}
+                          {isTodayRange ? `Đã chạy hôm nay: ${fmtNum(device.today_accounts)}` : `Tổng acc: ${fmtNum(device.total_accounts)}`}
                         </div>
                       </td>
                       <td style={{ color: '#059669', fontWeight: 800 }}>{fmtNum(isTodayRange ? device.today_accounts : device.login_success)}</td>
