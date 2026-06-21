@@ -49,6 +49,7 @@ const jobTouchedWhere = `
 `;
 const jobActivityAt = `
   CASE
+    WHEN status = 'DANG_LAM' AND COALESCE(job_count, 0) > 0 THEN updated_at
     WHEN completed_at IS NOT NULL THEN completed_at
     WHEN COALESCE(job_count, 0) > 0 THEN updated_at
     WHEN login_at IS NOT NULL THEN login_at
@@ -394,7 +395,7 @@ const getJobDeviceStats = async (ownerFilter = null) => {
        COALESCE(SUM(CASE WHEN DATE(${jobActivityAt}) = :todayDate THEN job_count ELSE 0 END), 0) * :xuPerJob AS today_xu,
        COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
        COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) * :xuPerJob AS month_xu,
-       MAX(COALESCE(completed_at, login_at, updated_at)) AS last_seen
+       MAX(${jobActivityAt}) AS last_seen
      FROM job_accounts
      ${ownerWhere(ownerFilter)}
        ${ownerFilter ? jobTouchedWhere : jobTouchedWhere.replace('AND', 'WHERE')}
