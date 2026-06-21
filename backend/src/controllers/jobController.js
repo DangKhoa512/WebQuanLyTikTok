@@ -169,7 +169,7 @@ const getForPhone = async (req, res, next) => {
   try {
     const device_id = nullify(req.body.device_id);
     const owner_username = ownerFromRequest(req);
-    const jobType = parseJobType(req.body.job_type ?? req.query.job_type, null);
+    const jobType = parseJobType(req.body.job_type ?? req.query.job_type, 'chrome');
     if ((req.body.job_type || req.query.job_type) && !jobType) {
       await transaction.rollback();
       return error(res, 'job_type khong hop le', 400);
@@ -183,6 +183,21 @@ const getForPhone = async (req, res, next) => {
     if (groupId === false) {
       await transaction.rollback();
       return error(res, 'Nhom JOB khong ton tai', 404);
+    }
+
+    const workingWhere = { owner_username, device_id, status: 'DANG_LAM' };
+    if (jobType) workingWhere.job_type = jobType;
+    if (groupId) workingWhere.group_id = groupId;
+    const workingAccount = await JobAccount.findOne({
+      where: workingWhere,
+      order: [['updated_at', 'DESC'], ['id', 'ASC']],
+      lock: transaction.LOCK.UPDATE,
+      transaction,
+    });
+    if (workingAccount) {
+      await workingAccount.update({ locked_by: device_id, locked_at: new Date() }, { transaction });
+      await transaction.commit();
+      return success(res, { account: workingAccount }, 'May dang co account JOB DANG_LAM, tra lai account cu');
     }
 
     const lockExpiredAt = new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000);
