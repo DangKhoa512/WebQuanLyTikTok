@@ -20,7 +20,7 @@ const dialogButton = {
   fontWeight: 700,
 };
 
-function GroupDialog({ mode, groups, selectedId, onClose, onDone, accountType, onSelect }) {
+function GroupDialog({ mode, groups, selectedId, onClose, onDone, accountType, jobType, onSelect }) {
   const firstGroupId = groups[0]?.id ? String(groups[0].id) : '';
   const [targetId, setTargetId] = useState(selectedId || firstGroupId);
   const current = useMemo(() => groups.find((group) => String(group.id) === String(targetId)), [groups, targetId]);
@@ -46,7 +46,7 @@ function GroupDialog({ mode, groups, selectedId, onClose, onDone, accountType, o
     setBusy(true);
     try {
       if (mode === 'add') {
-        const res = await accountGroupApi.create(accountType, name.trim());
+        const res = await accountGroupApi.create(accountType, name.trim(), '', jobType);
         const group = res.data?.group;
         if (group?.id) onSelect(String(group.id));
         toast.success('Đã tạo nhóm');
@@ -109,7 +109,7 @@ function GroupDialog({ mode, groups, selectedId, onClose, onDone, accountType, o
   );
 }
 
-export default function AccountGroupPicker({ accountType, groups = [], value, onChange, onGroupsChanged }) {
+export default function AccountGroupPicker({ accountType, jobType = null, groups = [], value, onChange, onGroupsChanged }) {
   const [dialog, setDialog] = useState(null);
 
   return (
@@ -130,6 +130,7 @@ export default function AccountGroupPicker({ accountType, groups = [], value, on
           groups={groups}
           selectedId={value}
           accountType={accountType}
+          jobType={jobType}
           onSelect={onChange}
           onDone={onGroupsChanged}
           onClose={() => setDialog(null)}

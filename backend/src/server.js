@@ -154,9 +154,31 @@ const startServer = async () => {
       logger.warn('Migration chrome group_id index skipped:', e.message);
     }
 
+    try {
+      await sequelize.query("ALTER TABLE account_groups ADD COLUMN job_type ENUM('chrome','hotmail') NULL");
+      logger.info('account_groups job_type column added');
+    } catch (e) {
+      logger.warn('Migration account_groups job_type skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query('ALTER TABLE account_groups ADD INDEX idx_group_job_type (job_type)');
+      logger.info('account_groups job_type index ready');
+    } catch (e) {
+      logger.warn('Migration account_groups job_type index skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query("UPDATE account_groups SET job_type='chrome' WHERE account_type='job' AND job_type IS NULL");
+      logger.info('account_groups existing job groups assigned to chrome');
+    } catch (e) {
+      logger.warn('Migration account_groups job_type backfill skipped:', e.message);
+    }
+
     const jobColumnMigrations = [
       ["ALTER TABLE job_accounts MODIFY COLUMN status ENUM('ACCOUNT_CHAY','DANG_LAM','DUOI_50_JOB','FAIL_AVT','LOI_CAU_HINH','DA_CHAY_XONG','ACCOUNT_DIE') NOT NULL DEFAULT 'ACCOUNT_CHAY'", 'job_accounts status enum ready'],
       ['ALTER TABLE job_accounts ADD COLUMN group_id INT UNSIGNED NULL', 'job_accounts group_id column added'],
+      ["ALTER TABLE job_accounts ADD COLUMN job_type ENUM('chrome','hotmail') NOT NULL DEFAULT 'chrome'", 'job_accounts job_type column added'],
       ["ALTER TABLE job_accounts ADD COLUMN live_status ENUM('unknown','live','die') NOT NULL DEFAULT 'unknown'", 'job_accounts live_status column added'],
       ['ALTER TABLE job_accounts ADD COLUMN video_count INT UNSIGNED NULL', 'job_accounts video_count column added'],
       ['ALTER TABLE job_accounts ADD COLUMN followers INT UNSIGNED NULL', 'job_accounts followers column added'],
@@ -165,6 +187,7 @@ const startServer = async () => {
       ['ALTER TABLE job_accounts ADD COLUMN login_fail_count INT UNSIGNED NOT NULL DEFAULT 0', 'job_accounts login_fail_count column added'],
       ['ALTER TABLE job_accounts ADD COLUMN last_login_fail_at DATETIME NULL', 'job_accounts last_login_fail_at column added'],
       ['ALTER TABLE job_accounts ADD INDEX idx_job_group_id (group_id)', 'job_accounts group_id index ready'],
+      ['ALTER TABLE job_accounts ADD INDEX idx_job_type (job_type)', 'job_accounts job_type index ready'],
       ['ALTER TABLE job_accounts ADD INDEX idx_job_live_status (live_status)', 'job_accounts live_status index ready'],
     ];
     for (const [sql, message] of jobColumnMigrations) {
@@ -174,6 +197,20 @@ const startServer = async () => {
       } catch (e) {
         logger.warn(`Migration ${message} skipped:`, e.message);
       }
+    }
+
+    try {
+      await sequelize.query('ALTER TABLE used_accounts ADD COLUMN group_id INT UNSIGNED NULL');
+      logger.info('used_accounts group_id column added');
+    } catch (e) {
+      logger.warn('Migration used_accounts group_id skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query('ALTER TABLE used_accounts ADD INDEX idx_used_group_id (group_id)');
+      logger.info('used_accounts group_id index ready');
+    } catch (e) {
+      logger.warn('Migration used_accounts group_id index skipped:', e.message);
     }
 
     try {

@@ -24,6 +24,7 @@ const recordUsageHistory = async (req, accounts, options = {}) => {
       owner_username: account.owner_username || used_by,
       used_by,
       source_status: options.source_status || account.status || null,
+      group_id: account.group_id || null,
       batch_id,
       used_at: now,
     };

@@ -115,7 +115,7 @@ export const usedAccountApi = {
 
 export const jobApi = {
   getAll: (params) => api.get('/jobs', { params }),
-  import: (text, group_id = null) => api.post('/jobs/import', { text, group_id }),
+  import: (text, group_id = null, job_type = 'chrome') => api.post('/jobs/import', { text, group_id, job_type }),
   checkLive: (ids, proxies, concurrency, delay_ms) =>
     api.post('/jobs/check-live', { ids, proxies, concurrency, delay_ms }, { timeout: 600_000 }),
   bulkAction: (ids, action, opts = {}) =>
@@ -126,8 +126,8 @@ export const jobApi = {
 };
 
 export const accountGroupApi = {
-  getAll: (account_type) => api.get('/account-groups', { params: { account_type } }),
-  create: (account_type, name, note = '') => api.post('/account-groups', { account_type, name, note }),
+  getAll: (account_type, job_type = null) => api.get('/account-groups', { params: { account_type, job_type } }),
+  create: (account_type, name, note = '', job_type = null) => api.post('/account-groups', { account_type, name, note, job_type }),
   update: (id, data) => api.patch(`/account-groups/${id}`, data),
   delete: (id) => api.delete(`/account-groups/${id}`),
 };

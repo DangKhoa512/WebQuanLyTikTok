@@ -6,6 +6,7 @@ const { success, error } = require('../utils/response');
 const { ownerFromAdmin } = require('../utils/owner');
 
 const TYPES = ['app', 'chrome', 'job'];
+const JOB_TYPES = ['chrome', 'hotmail'];
 const cleanName = (value) => String(value || '').trim();
 
 const listGroups = async (req, res, next) => {
@@ -17,6 +18,11 @@ const listGroups = async (req, res, next) => {
 
     const where = { owner_username: ownerFromAdmin(req) };
     if (accountType) where.account_type = accountType;
+    if (accountType === 'job' && req.query.job_type) {
+      const jobType = cleanName(req.query.job_type).toLowerCase();
+      if (!JOB_TYPES.includes(jobType)) return error(res, 'job_type khong hop le', 400);
+      where.job_type = jobType;
+    }
 
     const groups = await AccountGroup.findAll({
       where,
@@ -33,16 +39,19 @@ const createGroup = async (req, res, next) => {
   try {
     const account_type = req.body.account_type;
     const name = cleanName(req.body.name);
+    const job_type = account_type === 'job' ? cleanName(req.body.job_type || 'chrome').toLowerCase() : null;
 
     if (!TYPES.includes(account_type)) return error(res, 'account_type khong hop le', 400);
+    if (account_type === 'job' && !JOB_TYPES.includes(job_type)) return error(res, 'job_type khong hop le', 400);
     if (!name) return error(res, 'Thieu ten nhom', 400);
     if (name.length > 100) return error(res, 'Ten nhom toi da 100 ky tu', 400);
 
     const [group, created] = await AccountGroup.findOrCreate({
-      where: { owner_username: ownerFromAdmin(req), account_type, name },
+      where: { owner_username: ownerFromAdmin(req), account_type, job_type, name },
       defaults: {
         owner_username: ownerFromAdmin(req),
         account_type,
+        job_type,
         name,
         note: req.body.note || null,
       },

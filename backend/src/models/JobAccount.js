@@ -38,6 +38,11 @@ const JobAccount = sequelize.define(
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true,
     },
+    job_type: {
+      type: DataTypes.ENUM('chrome', 'hotmail'),
+      allowNull: false,
+      defaultValue: 'chrome',
+    },
     status: {
       type: DataTypes.ENUM(
         'ACCOUNT_CHAY',

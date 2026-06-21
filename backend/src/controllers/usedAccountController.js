@@ -19,7 +19,7 @@ const mapById = (rows) => {
 
 const currentAttributes = [
   'id','username','password','email','email_pass','proxy','device_id',
-  'status','live_status','video_count','followers','following','note','reg_at',
+  'status','live_status','video_count','followers','following','note','reg_at','group_id',
 ];
 
 const SORT_FIELDS = new Set(['video_count', 'followers', 'following', 'reg_at', 'used_at']);
@@ -54,6 +54,40 @@ const compareValues = (a, b, dir) => {
   return (left > right ? 1 : -1) * (dir === 'asc' ? 1 : -1);
 };
 
+const currentFilterWhere = (req, owner) => {
+  const group_id = req.query.group_id ? parseInt(req.query.group_id, 10) : null;
+  const live_status = String(req.query.live_status || '').trim();
+  const device_id = String(req.query.device_id || '').trim();
+  const where = { owner_username: owner };
+  let active = false;
+
+  if (Number.isInteger(group_id) && group_id > 0) {
+    where.group_id = group_id;
+    active = true;
+  }
+  if (['unknown', 'live', 'die'].includes(live_status)) {
+    where.live_status = live_status;
+    active = true;
+  }
+  if (device_id) {
+    where.device_id = device_id;
+    active = true;
+  }
+  if (req.query.video_min !== undefined || req.query.video_max !== undefined) {
+    where.video_count = {};
+    if (req.query.video_min !== '') where.video_count[Op.gte] = parseInt(req.query.video_min, 10);
+    if (req.query.video_max !== '') where.video_count[Op.lte] = parseInt(req.query.video_max, 10);
+    active = true;
+  }
+
+  return active ? where : null;
+};
+
+const idsForCurrentFilters = async (Model, where) => {
+  const rows = await Model.findAll({ where, attributes: ['id'], raw: true });
+  return rows.map((row) => row.id);
+};
+
 const listUsedAccounts = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -68,9 +102,38 @@ const listUsedAccounts = async (req, res, next) => {
     }
 
     const where = { owner_username: ownerFromAdmin(req) };
+    const owner = ownerFromAdmin(req);
+    const andFilters = [];
     if (accountType) where.account_type = accountType;
-    if (dateFilter) where[Op.and] = [dateFilter];
+    if (dateFilter) andFilters.push(dateFilter);
     if (req.query.username) where.username = { [Op.like]: `%${req.query.username}%` };
+    const currentWhere = currentFilterWhere(req, owner);
+    if (currentWhere) {
+      if (accountType === 'app') {
+        const ids = await idsForCurrentFilters(Account, currentWhere);
+        if (ids.length === 0) return success(res, { items: [], total: 0, page, limit, totalPages: 1 }, 'OK');
+        where.account_id = { [Op.in]: ids };
+      } else if (accountType === 'chrome') {
+        const ids = await idsForCurrentFilters(ChromeAccount, currentWhere);
+        if (ids.length === 0) return success(res, { items: [], total: 0, page, limit, totalPages: 1 }, 'OK');
+        where.account_id = { [Op.in]: ids };
+      } else {
+        const [appIds, chromeIds] = await Promise.all([
+          idsForCurrentFilters(Account, currentWhere),
+          idsForCurrentFilters(ChromeAccount, currentWhere),
+        ]);
+        if (appIds.length === 0 && chromeIds.length === 0) {
+          return success(res, { items: [], total: 0, page, limit, totalPages: 1 }, 'OK');
+        }
+        andFilters.push({
+          [Op.or]: [
+            ...(appIds.length ? [{ account_type: 'app', account_id: { [Op.in]: appIds } }] : []),
+            ...(chromeIds.length ? [{ account_type: 'chrome', account_id: { [Op.in]: chromeIds } }] : []),
+          ],
+        });
+      }
+    }
+    if (andFilters.length) where[Op.and] = andFilters;
     const sort = normalizeSort(req.query.sort_by, req.query.sort_dir);
 
     const historyQuery = {
@@ -89,8 +152,6 @@ const listUsedAccounts = async (req, res, next) => {
     const plainRows = rows.map((row) => row.toJSON());
     const appIds = plainRows.filter((row) => row.account_type === 'app').map((row) => row.account_id);
     const chromeIds = plainRows.filter((row) => row.account_type === 'chrome').map((row) => row.account_id);
-    const owner = ownerFromAdmin(req);
-
     const [appAccounts, chromeAccounts] = await Promise.all([
       appIds.length > 0
         ? Account.findAll({ where: { id: { [Op.in]: appIds }, owner_username: owner }, attributes: currentAttributes })

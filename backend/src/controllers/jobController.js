@@ -16,6 +16,7 @@ const STATUSES = [
   'ACCOUNT_DIE',
 ];
 const FINAL_STATUSES = ['DUOI_50_JOB', 'FAIL_AVT', 'LOI_CAU_HINH', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
+const JOB_TYPES = ['chrome', 'hotmail'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.JOB_LOCK_TIMEOUT_MIN, 10) || 40;
 const XU_PER_JOB = parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400;
 const SORT_FIELDS = {
@@ -40,6 +41,10 @@ const parseNonNegativeInt = (value) => {
   const parsed = parseInt(value, 10);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 };
+const parseJobType = (value, fallback = 'chrome') => {
+  const normalized = String(value || fallback).trim().toLowerCase();
+  return JOB_TYPES.includes(normalized) ? normalized : null;
+};
 
 const buildSortOrder = (sortBy, sortDir) => {
   const field = SORT_FIELDS[sortBy] || 'id';
@@ -56,6 +61,30 @@ const accountWhere = (req, owner_username) => {
   return username ? { username, owner_username } : null;
 };
 
+const resolveJobGroupId = async (req, owner_username, job_type = null) => {
+  const groupId = parseInt(req.body.group_id ?? req.query.group_id, 10);
+  const where = { owner_username, account_type: 'job' };
+  if (job_type) where.job_type = job_type;
+  if (Number.isInteger(groupId) && groupId > 0) {
+    const group = await AccountGroup.findOne({
+      where: { ...where, id: groupId },
+      attributes: ['id'],
+    });
+    return group ? group.id : false;
+  }
+
+  const groupName = nullify(req.body.group_name ?? req.query.group_name);
+  if (groupName) {
+    const group = await AccountGroup.findOne({
+      where: { ...where, name: groupName },
+      attributes: ['id'],
+    });
+    return group ? group.id : false;
+  }
+
+  return null;
+};
+
 const assertDeviceOwnership = (account, deviceId) => {
   if (account.locked_by && account.locked_by !== deviceId) {
     const err = new Error(`Account dang duoc khoa boi may ${account.locked_by}`);
@@ -67,8 +96,10 @@ const assertDeviceOwnership = (account, deviceId) => {
 const importAccounts = async (req, res, next) => {
   try {
     const { text, group_id } = req.body;
+    const jobType = parseJobType(req.body.job_type, 'chrome');
     const owner_username = ownerFromAdmin(req);
     if (!text || typeof text !== 'string') return error(res, 'Thieu du lieu import', 400);
+    if (!jobType) return error(res, 'job_type khong hop le', 400);
 
     const groupId = group_id ? parseInt(group_id, 10) : null;
     if (group_id && (!Number.isInteger(groupId) || groupId <= 0)) {
@@ -76,7 +107,7 @@ const importAccounts = async (req, res, next) => {
     }
     if (groupId) {
       const group = await AccountGroup.findOne({
-        where: { id: groupId, owner_username, account_type: 'job' },
+        where: { id: groupId, owner_username, account_type: 'job', job_type: jobType },
       });
       if (!group) return error(res, 'Nhom JOB khong ton tai', 404);
     }
@@ -103,6 +134,7 @@ const importAccounts = async (req, res, next) => {
           email_pass: nullify(parts[3]),
           owner_username,
           group_id: groupId,
+          job_type: jobType,
           status: 'ACCOUNT_CHAY',
         });
       }
@@ -125,7 +157,7 @@ const importAccounts = async (req, res, next) => {
       invalid: invalid.length,
       invalid_samples: invalid.slice(0, 10),
     };
-    logger.info('job accounts imported', { ...data, group_id: groupId, owner_username });
+    logger.info('job accounts imported', { ...data, group_id: groupId, job_type: jobType, owner_username });
     return success(res, data, `Da import ${toInsert.length} account JOB`);
   } catch (err) {
     next(err);
@@ -137,18 +169,33 @@ const getForPhone = async (req, res, next) => {
   try {
     const device_id = nullify(req.body.device_id);
     const owner_username = ownerFromRequest(req);
+    const jobType = parseJobType(req.body.job_type ?? req.query.job_type, null);
+    if ((req.body.job_type || req.query.job_type) && !jobType) {
+      await transaction.rollback();
+      return error(res, 'job_type khong hop le', 400);
+    }
     if (!device_id) {
       await transaction.rollback();
       return error(res, 'Thieu device_id', 400);
     }
 
+    const groupId = await resolveJobGroupId(req, owner_username, jobType);
+    if (groupId === false) {
+      await transaction.rollback();
+      return error(res, 'Nhom JOB khong ton tai', 404);
+    }
+
     const lockExpiredAt = new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000);
+    const where = {
+      owner_username,
+      status: 'ACCOUNT_CHAY',
+      [Op.or]: [{ locked_by: null }, { locked_at: { [Op.lt]: lockExpiredAt } }],
+    };
+    if (jobType) where.job_type = jobType;
+    if (groupId) where.group_id = groupId;
+
     const account = await JobAccount.findOne({
-      where: {
-        owner_username,
-        status: 'ACCOUNT_CHAY',
-        [Op.or]: [{ locked_by: null }, { locked_at: { [Op.lt]: lockExpiredAt } }],
-      },
+      where,
       order: [['id', 'ASC']],
       lock: transaction.LOCK.UPDATE,
       skipLocked: true,
@@ -315,6 +362,7 @@ const getAll = async (req, res, next) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
     const status = String(req.query.status || '').trim().toUpperCase();
     const live_status = String(req.query.live_status || '').trim();
+    const jobType = parseJobType(req.query.job_type, 'chrome');
     const device_id = String(req.query.device_id || '').trim();
     const group_id = req.query.group_id ? parseInt(req.query.group_id, 10) : null;
     const search = String(req.query.search || '').trim();
@@ -322,7 +370,9 @@ const getAll = async (req, res, next) => {
     const date_to = String(req.query.date_to || '').trim();
     const soakDays = parseNonNegativeInt(req.query.soak_days);
     const where = { owner_username };
+    if (!jobType) return error(res, 'job_type khong hop le', 400);
 
+    where.job_type = jobType;
     if (status && STATUSES.includes(status)) where.status = status;
     if (['unknown', 'live', 'die'].includes(live_status)) where.live_status = live_status;
     if (device_id) where.device_id = device_id;
@@ -349,7 +399,7 @@ const getAll = async (req, res, next) => {
       offset: (page - 1) * limit,
     });
     const grouped = await JobAccount.findAll({
-      where: { owner_username },
+      where: { owner_username, job_type: jobType },
       attributes: ['status', [fn('COUNT', col('id')), 'count']],
       group: ['status'],
       raw: true,
@@ -358,10 +408,21 @@ const getAll = async (req, res, next) => {
     grouped.forEach((row) => {
       counts[row.status] = Number(row.count);
     });
+    const typeGrouped = await JobAccount.findAll({
+      where: { owner_username },
+      attributes: ['job_type', [fn('COUNT', col('id')), 'count']],
+      group: ['job_type'],
+      raw: true,
+    });
+    const type_counts = Object.fromEntries(JOB_TYPES.map((type) => [type, 0]));
+    typeGrouped.forEach((row) => {
+      type_counts[row.job_type] = Number(row.count);
+    });
 
     return success(res, {
       accounts: rows,
       counts,
+      type_counts,
       pagination: { page, limit, total: count, pages: Math.ceil(count / limit), totalPages: Math.ceil(count / limit) },
     });
   } catch (err) {

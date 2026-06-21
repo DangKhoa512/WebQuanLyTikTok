@@ -34,6 +34,10 @@ const STATUS_COLOR = {
 };
 
 const LIVE_COLOR = { live: '#4ade80', die: '#f87171', unknown: '#94a3b8' };
+const JOB_TYPE_META = {
+  chrome: { label: 'Acc Chrome', color: '#10b981' },
+  hotmail: { label: 'Acc Hotmail', color: '#3b82f6' },
+};
 const STATUS_META = Object.fromEntries(STATUS_TABS.filter((tab) => tab.value).map((tab) => [tab.value, tab]));
 const LIVE_LABEL = {
   live: '• live',
@@ -219,7 +223,7 @@ function JobBulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }) {
   );
 }
 
-function ImportJobModal({ onClose, onImported, groups, onGroupCreated }) {
+function ImportJobModal({ onClose, onImported, groups, onGroupCreated, jobType, onJobTypeChange }) {
   const [text, setText] = useState('');
   const [groupId, setGroupId] = useState('');
   const [importing, setImporting] = useState(false);
@@ -234,7 +238,7 @@ function ImportJobModal({ onClose, onImported, groups, onGroupCreated }) {
     setImporting(true);
     setResult(null);
     try {
-      const res = await jobApi.import(text, groupId || null);
+      const res = await jobApi.import(text, groupId || null, jobType);
       setResult(res.data);
       toast.success(res.message);
       onImported();
@@ -252,8 +256,28 @@ function ImportJobModal({ onClose, onImported, groups, onGroupCreated }) {
           <h3 style={{ margin: 0, color: '#e2e8f0' }}>📥 Import JOB Accounts</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
         </div>
+        <div style={{ display: 'flex', gap: '.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          {Object.entries(JOB_TYPE_META).map(([type, meta]) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => { onJobTypeChange(type); setGroupId(''); }}
+              style={{
+                background: jobType === type ? meta.color : '#0f172a',
+                color: jobType === type ? '#fff' : '#cbd5e1',
+                border: `1px solid ${jobType === type ? meta.color : '#334155'}`,
+                borderRadius: '8px',
+                padding: '.55rem .9rem',
+                cursor: 'pointer',
+                fontWeight: 800,
+              }}
+            >
+              {meta.label}
+            </button>
+          ))}
+        </div>
         <div style={{ marginBottom: '1rem' }}>
-          <AccountGroupPicker accountType="job" groups={groups} value={groupId} onChange={setGroupId} onGroupsChanged={onGroupCreated} />
+          <AccountGroupPicker accountType="job" jobType={jobType} groups={groups} value={groupId} onChange={setGroupId} onGroupsChanged={onGroupCreated} />
         </div>
         <textarea
           value={text}
@@ -298,8 +322,10 @@ export default function JobAccounts() {
   const [clResults, setClResults] = useState(null);
   const [clProgress, setClProgress] = useState(null);
   const [groups, setGroups] = useState([]);
+  const [typeCounts, setTypeCounts] = useState({ chrome: 0, hotmail: 0 });
 
   const [filters, setFilters] = useState({
+    job_type: sp.get('job_type') || 'chrome',
     status: sp.get('status') || '',
     live_status: sp.get('live_status') || '',
     device_id: sp.get('device_id') || '',
@@ -324,6 +350,7 @@ export default function JobAccounts() {
       const res = await jobApi.getAll(params);
       setAccounts(res.data?.accounts || []);
       setCounts(res.data?.counts || {});
+      setTypeCounts(res.data?.type_counts || { chrome: 0, hotmail: 0 });
       setPagination(res.data?.pagination || null);
     } catch (err) {
       setError(err.message);
@@ -334,12 +361,12 @@ export default function JobAccounts() {
 
   const fetchGroups = useCallback(async () => {
     try {
-      const res = await accountGroupApi.getAll('job');
+      const res = await accountGroupApi.getAll('job', filters.job_type);
       setGroups(res.data?.groups || []);
     } catch (err) {
       toast.error(err.message || 'Không tải được nhóm JOB');
     }
-  }, []);
+  }, [filters.job_type]);
 
   useEffect(() => {
     fetchGroups();
@@ -356,6 +383,7 @@ export default function JobAccounts() {
   }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
+  const setJobType = (jobType) => setFilters((prev) => ({ ...prev, job_type: jobType, group_id: '', page: 1 }));
   const setPage = (page) => setFilters((prev) => ({ ...prev, page }));
   const setSort = (field) => setFilters((prev) => ({
     ...prev,
@@ -458,6 +486,11 @@ export default function JobAccounts() {
         .job-row:hover { background: rgba(6,182,212,.05) !important; cursor: default; }
         .job-row.row-selected { background: rgba(6,182,212,.08) !important; }
         .cb-cell { width: 40px; padding: 0 8px !important; text-align: center; }
+        .job-type-switch { display:flex; gap:.55rem; flex-wrap:wrap; margin-bottom:1rem; }
+        .job-type-btn { display:inline-flex; align-items:center; gap:.55rem; border:1px solid #cbd5e1; background:#fff; color:#0f172a; border-radius:8px; padding:.7rem 1rem; cursor:pointer; font-weight:800; box-shadow:0 2px 8px rgba(15,23,42,.08); }
+        .job-type-btn.active { color:#fff; }
+        .job-type-count { display:inline-flex; min-width:24px; height:24px; align-items:center; justify-content:center; border-radius:999px; background:rgba(15,23,42,.1); font-size:.82rem; padding:0 .4rem; }
+        .job-type-btn.active .job-type-count { background:rgba(255,255,255,.22); }
         .sort-th { display: inline-flex; align-items: center; gap: .35rem; border: 0; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: inherit; letter-spacing: inherit; cursor: pointer; text-transform: inherit; }
         .sort-th span:last-child { color: #94a3b8; font-size: .68rem; line-height: 1; }
         .sort-th.active span:last-child { color: #2563eb; }
@@ -472,6 +505,20 @@ export default function JobAccounts() {
             📥 Import
           </button>
         </div>
+      </div>
+
+      <div className="job-type-switch">
+        {Object.entries(JOB_TYPE_META).map(([type, meta]) => (
+          <button
+            key={type}
+            type="button"
+            className={`job-type-btn${filters.job_type === type ? ' active' : ''}`}
+            onClick={() => setJobType(type)}
+            style={filters.job_type === type ? { background: meta.color, borderColor: meta.color } : undefined}
+          >
+            {meta.label} <span className="job-type-count">{typeCounts[type] || 0}</span>
+          </button>
+        ))}
       </div>
 
       <div style={{ display: 'flex', gap: '.4rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -548,7 +595,7 @@ export default function JobAccounts() {
                 {[10, 20, 50, 100, 200].map((value) => <option key={value} value={value}>{value} dòng</option>)}
               </select>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', group_id: '', search: '', date_from: '', date_to: '', soak_days: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ job_type: filters.job_type, status: '', live_status: '', device_id: '', group_id: '', search: '', date_from: '', date_to: '', soak_days: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
               ✕ Xóa bộ lọc
             </button>
           </div>
@@ -671,6 +718,8 @@ export default function JobAccounts() {
           onImported={() => fetchAccounts(filters)}
           groups={groups}
           onGroupCreated={() => fetchGroups()}
+          jobType={filters.job_type}
+          onJobTypeChange={setJobType}
         />
       )}
     </div>

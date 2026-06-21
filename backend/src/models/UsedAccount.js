@@ -47,6 +47,10 @@ const UsedAccount = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: true,
     },
+    group_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+    },
     batch_id: {
       type: DataTypes.STRING(64),
       allowNull: false,

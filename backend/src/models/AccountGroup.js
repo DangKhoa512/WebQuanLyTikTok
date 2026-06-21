@@ -18,6 +18,10 @@ const AccountGroup = sequelize.define(
       type: DataTypes.ENUM('app', 'chrome', 'job'),
       allowNull: false,
     },
+    job_type: {
+      type: DataTypes.ENUM('chrome', 'hotmail'),
+      allowNull: true,
+    },
     name: {
       type: DataTypes.STRING(100),
       allowNull: false,

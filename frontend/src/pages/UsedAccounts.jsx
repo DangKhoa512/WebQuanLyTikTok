@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
-import { accountApi, chromeAccountApi, usedAccountApi } from '../services/api';
+import { accountApi, accountGroupApi, chromeAccountApi, usedAccountApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
@@ -64,11 +64,17 @@ export default function UsedAccounts() {
   const [busy, setBusy] = useState(false);
   const [statusPick, setStatusPick] = useState('');
   const [showStatusDlg, setShowStatusDlg] = useState(false);
+  const [groups, setGroups] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 50, totalPages: 1 });
   const [filters, setFilters] = useState({
     date: sp.get('date') || todayInput(),
     account_type: sp.get('account_type') || 'app',
     username: sp.get('username') || '',
+    live_status: sp.get('live_status') || '',
+    video_min: sp.get('video_min') || '',
+    video_max: sp.get('video_max') || '',
+    group_id: sp.get('group_id') || '',
+    device_id: sp.get('device_id') || '',
     sort_by: sp.get('sort_by') || '',
     sort_dir: sp.get('sort_dir') || '',
     page: parseInt(sp.get('page') || '1'),
@@ -76,6 +82,33 @@ export default function UsedAccounts() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    const loadGroups = async () => {
+      try {
+        if (filters.account_type === 'app' || filters.account_type === 'chrome') {
+          const res = await accountGroupApi.getAll(filters.account_type);
+          if (mounted) setGroups(res.data?.groups || []);
+          return;
+        }
+        const [appRes, chromeRes] = await Promise.all([
+          accountGroupApi.getAll('app'),
+          accountGroupApi.getAll('chrome'),
+        ]);
+        if (mounted) {
+          setGroups([
+            ...(appRes.data?.groups || []).map((group) => ({ ...group, labelPrefix: 'App' })),
+            ...(chromeRes.data?.groups || []).map((group) => ({ ...group, labelPrefix: 'Chrome' })),
+          ]);
+        }
+      } catch (err) {
+        if (mounted) toast.error(err.message || 'Không tải được nhóm');
+      }
+    };
+    loadGroups();
+    return () => { mounted = false; };
+  }, [filters.account_type]);
 
   const load = async () => {
     setLoading(true);
@@ -363,7 +396,7 @@ export default function UsedAccounts() {
             </div>
             <div className="filter-group">
               <label>Loại account</label>
-              <select value={filters.account_type} onChange={(e) => setFilter('account_type', e.target.value)}>
+              <select value={filters.account_type} onChange={(e) => setFilters((prev) => ({ ...prev, account_type: e.target.value, group_id: '', page: 1 }))}>
                 <option value="">Tất cả</option>
                 <option value="app">Accounts App</option>
                 <option value="chrome">Chrome Acc</option>
@@ -374,11 +407,46 @@ export default function UsedAccounts() {
               <input value={filters.username} onChange={(e) => setFilter('username', e.target.value)} placeholder="username..." />
             </div>
             <div className="filter-group">
+              <label>Live status</label>
+              <select value={filters.live_status} onChange={(e) => setFilter('live_status', e.target.value)}>
+                <option value="">Tất cả</option>
+                <option value="unknown">Unknown</option>
+                <option value="live">Live</option>
+                <option value="die">Die</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <label>Video từ</label>
+              <input type="number" min={0} placeholder="0" value={filters.video_min} onChange={(e) => setFilter('video_min', e.target.value)} />
+            </div>
+            <div className="filter-group">
+              <label>Video đến</label>
+              <input type="number" min={0} placeholder="-" value={filters.video_max} onChange={(e) => setFilter('video_max', e.target.value)} />
+            </div>
+            <div className="filter-group">
+              <label>Nhóm</label>
+              <select value={filters.group_id} onChange={(e) => setFilter('group_id', e.target.value)}>
+                <option value="">Tất cả nhóm</option>
+                {groups.map((group) => (
+                  <option key={`${group.labelPrefix || filters.account_type || 'group'}-${group.id}`} value={group.id}>
+                    {group.labelPrefix ? `${group.labelPrefix} - ${group.name}` : group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group">
+              <label>Device ID</label>
+              <input value={filters.device_id} onChange={(e) => setFilter('device_id', e.target.value)} placeholder="device_id..." />
+            </div>
+            <div className="filter-group">
               <label>Số dòng</label>
               <select value={filters.limit} onChange={(e) => setFilter('limit', Number(e.target.value))}>
                 {[20, 50, 100, 200].map((value) => <option key={value} value={value}>{value}</option>)}
               </select>
             </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ date: todayInput(), account_type: filters.account_type, username: '', live_status: '', video_min: '', video_max: '', group_id: '', device_id: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
+              ✕ Xóa bộ lọc
+            </button>
           </div>
         </div>
       </div>
