@@ -501,6 +501,7 @@ const getCanUpvideo = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
 
+    const eligibility = await getEligibilitySettings(owner_username);
     const sequelize   = ChromeAccount.sequelize;
     const transaction = await sequelize.transaction();
     try {
