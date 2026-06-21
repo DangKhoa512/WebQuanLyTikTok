@@ -232,6 +232,8 @@ export default function Stats() {
     today_config_error_accounts: 0,
     today_done_accounts: 0,
   });
+  const summaryFailed = isTodayRange ? deviceTotals.today_failed_accounts : stats?.failed;
+  const summaryConfigError = isTodayRange ? deviceTotals.today_config_error_accounts : stats?.config_error;
 
   return (
     <div className="page">
@@ -274,8 +276,8 @@ export default function Stats() {
           <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
             <SummaryCard title="Acc còn lại" value={stats?.ACCOUNT_CHAY} color="#06b6d4" icon="🚀" />
             <SummaryCard title="Acc đang làm" value={stats?.DANG_LAM} color="#10b981" icon="⚡" />
-            <SummaryCard title="Account fail" value={stats?.failed} color="#ef4444" icon="❌" />
-            <SummaryCard title="Cấu hình lỗi" value={stats?.config_error} color="#f97316" icon="⚠️" />
+            <SummaryCard title="Account fail" value={summaryFailed} color="#ef4444" icon="❌" />
+            <SummaryCard title="Cấu hình lỗi" value={summaryConfigError} color="#f97316" icon="⚠️" />
             <SummaryCard title="Xu hôm nay" value={stats?.today_xu} color="#0ea5e9" icon="💎" />
             <SummaryCard title="Xu tháng này" value={stats?.month_xu} color="#8b5cf6" icon="🏆" />
             <SummaryCard title="Tổng xu" value={stats?.total_xu} color="#14b8a6" icon="💰" />
