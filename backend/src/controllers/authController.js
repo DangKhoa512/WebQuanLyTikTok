@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { success, error } = require('../utils/response');
 const logger = require('../config/logger');
 const User   = require('../models/User');
+const { getJwtSecret } = require('../config/jwt');
 
 const JWT_EXPIRES = '24h';
 
@@ -30,7 +31,7 @@ const login = async (req, res, next) => {
 
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
-      process.env.JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: JWT_EXPIRES }
     );
 

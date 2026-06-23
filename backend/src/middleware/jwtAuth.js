@@ -1,6 +1,7 @@
 const jwt    = require('jsonwebtoken');
 const { error } = require('../utils/response');
 const logger = require('../config/logger');
+const { getJwtSecret } = require('../config/jwt');
 
 /**
  * JWT authentication for dashboard API endpoints.
@@ -16,7 +17,7 @@ const jwtAuth = (req, res, next) => {
   const token = auth.slice(7); // strip "Bearer "
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, getJwtSecret());
     req.admin = decoded;
     next();
   } catch (err) {

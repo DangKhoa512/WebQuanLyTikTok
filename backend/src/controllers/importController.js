@@ -150,7 +150,13 @@ const importAccounts = async (req, res, next) => {
           continue;
         }
         if (!seenUsernames.has(parsed.username)) {
-          seenUsernames.set(parsed.username, { ...parsed, status, owner_username, group_id: groupId });
+          seenUsernames.set(parsed.username, {
+            ...parsed,
+            status,
+            owner_username,
+            group_id: groupId,
+            khang_reported_at: status === 'ACC_DA_KHANG' ? new Date() : null,
+          });
         }
       } catch (_) {
         parseErrors.push(`Lỗi parse: "${line.substring(0, 60)}"`);
@@ -186,6 +192,7 @@ const importAccounts = async (req, res, next) => {
           'status',
           'owner_username',
           'group_id',
+          'khang_reported_at',
         ],
       });
     }

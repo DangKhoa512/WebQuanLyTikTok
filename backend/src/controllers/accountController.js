@@ -108,7 +108,6 @@ const getAccount = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
 
-    const eligibility = await getEligibilitySettings(owner_username);
     const transaction = await Account.sequelize.transaction();
     try {
       const account = await Account.findOne({
@@ -150,6 +149,7 @@ const phoneSubmit = async (req, res, next) => {
     if (device_id)    upd.device_id    = device_id;
     if (note)        upd.note        = note;
     if (fail_reason) upd.fail_reason = fail_reason;
+    if (status === 'ACC_DA_KHANG') upd.khang_reported_at = new Date();
     await account.update(upd);
     logger.info('upload phone-submit', { username, status, device_id });
     return success(res, { account }, 'Cập nhật thành công');
@@ -161,6 +161,7 @@ const getCanUpvideo = async (req, res, next) => {
   try {
     const { device_id } = req.body;
     const owner_username = ownerFromRequest(req);
+    const eligibility = await getEligibilitySettings(owner_username);
     if (!device_id) return error(res, 'Thiếu device_id', 400);
     const transaction = await Account.sequelize.transaction();
     try {

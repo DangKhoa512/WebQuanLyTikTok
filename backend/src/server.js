@@ -142,6 +142,18 @@ const startServer = async () => {
       logger.warn('Migration accounts local skipped:', e.message);
     }
     try {
+      await sequelize.query('ALTER TABLE accounts ADD COLUMN khang_reported_at DATETIME NULL');
+      logger.info('accounts khang_reported_at column added');
+    } catch (e) {
+      logger.warn('Migration accounts khang_reported_at skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE accounts ADD INDEX idx_accounts_khang_reported_at (khang_reported_at)');
+      logger.info('accounts khang_reported_at index ready');
+    } catch (e) {
+      logger.warn('Migration accounts khang_reported_at index skipped:', e.message);
+    }
+    try {
       await sequelize.query('ALTER TABLE chrome_accounts ADD COLUMN group_id INT UNSIGNED NULL');
       logger.info('chrome_accounts group_id column added');
     } catch (e) {

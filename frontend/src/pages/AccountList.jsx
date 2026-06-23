@@ -463,6 +463,7 @@ export default function AccountList() {
     search:      sp.get('search')      || '',
     date_from:   sp.get('date_from')   || '',
     date_to:     sp.get('date_to')     || '',
+    soak_days:   sp.get('soak_days')   || '',
     video_min:   sp.get('video_min')   || '',
     video_max:   sp.get('video_max')   || '',
     sort_by:     sp.get('sort_by')      || '',
@@ -694,12 +695,21 @@ export default function AccountList() {
               <input type="date" value={filters.date_to} onChange={(e) => setFilter('date_to', e.target.value)} />
             </div>
             <div className="filter-group">
+              <label>Ngâm kháng</label>
+              <select value={filters.soak_days} onChange={(e) => setFilter('soak_days', e.target.value)}>
+                <option value="">Tất cả</option>
+                {[1, 2, 3, 4, 5, 7, 10, 14].map((day) => (
+                  <option key={day} value={day}>Trên {day} ngày</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group">
               <label>Số dòng</label>
               <select value={filters.limit} onChange={(e) => setFilter('limit', parseInt(e.target.value))}>
                 {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} dòng</option>)}
               </select>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', group_id: '', search: '', date_from: '', date_to: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', group_id: '', search: '', date_from: '', date_to: '', soak_days: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>
               ✕ Xoá bộ lọc
             </button>
           </div>
@@ -788,6 +798,7 @@ export default function AccountList() {
                   <SortTh field="followers">Followers</SortTh>
                   <SortTh field="following">Following</SortTh>
                   <th>Note</th>
+                  <SortTh field="khang_reported_at">Kháng lúc</SortTh>
                   <SortTh field="reg_at">Reg At</SortTh>
                 </tr>
               </thead>
@@ -835,6 +846,7 @@ export default function AccountList() {
                       <td style={{ color: '#64748b', fontSize: '.75rem' }}>
                         {acc.note ? acc.note.substring(0, 25) + (acc.note.length > 25 ? '…' : '') : '—'}
                       </td>
+                      <td style={{ color: '#0f766e', fontSize: '.75rem', whiteSpace: 'nowrap' }}>{fmt(acc.khang_reported_at)}</td>
                       <td style={{ color: '#475569', fontSize: '.75rem', whiteSpace: 'nowrap' }}>{fmt(acc.reg_at)}</td>
                     </tr>
                   );

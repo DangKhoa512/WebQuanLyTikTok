@@ -107,6 +107,10 @@ const Account = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    khang_reported_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     last_live_check_at: {
       type: DataTypes.DATE,
       allowNull: true,

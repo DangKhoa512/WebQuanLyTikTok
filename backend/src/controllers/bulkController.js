@@ -68,6 +68,7 @@ const bulkAction = async (req, res, next) => {
           return error(res, `status không hợp lệ. Dùng: ${VALID_STATUSES.join(', ')}`, 400);
         }
         updateData = { status };
+        if (status === 'ACC_DA_KHANG') updateData.khang_reported_at = new Date();
         message    = `Đã đổi ${ids.length} accounts → ${status}`;
         break;
 

@@ -47,6 +47,7 @@ const SORT_FIELDS = {
   followers:   'followers',
   following:   'following',
   reg_at:      'reg_at',
+  khang_reported_at: 'khang_reported_at',
   created_at:  'created_at',
 };
 
@@ -215,6 +216,7 @@ const getAccounts = async (query, ownerFilter = null) => {
   const {
     status, live_status, device_id, group_id, search,
     date_from, date_to, video_min, video_max,
+    soak_days,
     sort_by, sort_dir,
     page  = 1,
     limit = 20,
@@ -239,6 +241,10 @@ const getAccounts = async (query, ownerFilter = null) => {
     where.video_count = {};
     if (video_min !== undefined) where.video_count[Op.gte] = parseInt(video_min);
     if (video_max !== undefined) where.video_count[Op.lte] = parseInt(video_max);
+  }
+  const soakDays = parseInt(soak_days, 10);
+  if (Number.isInteger(soakDays) && soakDays > 0) {
+    where.khang_reported_at = { [Op.lte]: new Date(Date.now() - soakDays * 24 * 60 * 60 * 1000) };
   }
 
   const pageNum  = Math.max(1, parseInt(page)  || 1);
@@ -304,6 +310,7 @@ const updateAccount = async (id, data, ownerFilter = null) => {
   allowed.forEach((field) => {
     if (data[field] !== undefined) updateData[field] = data[field];
   });
+  if (data.status === 'ACC_DA_KHANG') updateData.khang_reported_at = new Date();
 
   await account.update(updateData);
   return account;
