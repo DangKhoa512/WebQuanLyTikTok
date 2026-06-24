@@ -5,6 +5,7 @@ const logger = require('../config/logger');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { checkOne, parseProxy } = require('../utils/checkLiveUtils');
+const { addDailyJobs } = require('../services/jobDailyStatService');
 
 const STATUSES = [
   'ACCOUNT_CHAY',
@@ -324,6 +325,14 @@ const reportResult = async (req, res, next) => {
     const currentJobs = Number(account.job_count) || 0;
     const nextJobs = jobLive !== null ? jobLive : currentJobs;
     const addedJobs = jobLive !== null ? Math.max(nextJobs - currentJobs, 0) : 0;
+    if (addedJobs > 0) {
+      await addDailyJobs({
+        owner_username,
+        device_id,
+        stat_date: vietnamToday(),
+        jobs: addedJobs,
+      });
+    }
     await account.update({
       status,
       device_id,
@@ -372,6 +381,14 @@ const addJobCount = async (req, res, next) => {
 
     const currentJobs = Number(account.job_count) || 0;
     const totalJobs = currentJobs + addJobs;
+    if (addJobs > 0) {
+      await addDailyJobs({
+        owner_username,
+        device_id,
+        stat_date: vietnamToday(),
+        jobs: addJobs,
+      });
+    }
     await account.update({
       device_id,
       job_count: totalJobs,

@@ -263,6 +263,7 @@ const getDeviceStats = async (ownerFilter = null) => {
 const getJobStats = async (ownerFilter = null) => {
   const replacements = { todayDate: vietnamToday() };
   if (ownerFilter) replacements.owner = ownerFilter;
+  const ownerDailyAnd = ownerFilter ? 'AND owner_username = :owner' : '';
 
   const [row = {}] = await sequelize.query(
     `SELECT
@@ -279,10 +280,32 @@ const getJobStats = async (ownerFilter = null) => {
        SUM(status = 'LOI_CAU_HINH') AS config_error,
        COALESCE(SUM(job_count), 0) AS total_jobs,
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu,
-       COALESCE(SUM(CASE WHEN today_job_date = :todayDate THEN today_job_count ELSE 0 END), 0) AS today_jobs,
-       COALESCE(SUM(CASE WHEN today_job_date = :todayDate THEN today_job_count ELSE 0 END), 0) * :xuPerJob AS today_xu,
-       COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
-       COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) * :xuPerJob AS month_xu,
+       (
+         SELECT COALESCE(SUM(job_count), 0)
+         FROM job_daily_stats
+         WHERE stat_date = :todayDate
+           ${ownerDailyAnd}
+       ) AS today_jobs,
+       (
+         SELECT COALESCE(SUM(job_count), 0) * :xuPerJob
+         FROM job_daily_stats
+         WHERE stat_date = :todayDate
+           ${ownerDailyAnd}
+       ) AS today_xu,
+       (
+         SELECT COALESCE(SUM(job_count), 0)
+         FROM job_daily_stats
+         WHERE YEAR(stat_date) = YEAR(CURDATE())
+           AND MONTH(stat_date) = MONTH(CURDATE())
+           ${ownerDailyAnd}
+       ) AS month_jobs,
+       (
+         SELECT COALESCE(SUM(job_count), 0) * :xuPerJob
+         FROM job_daily_stats
+         WHERE YEAR(stat_date) = YEAR(CURDATE())
+           AND MONTH(stat_date) = MONTH(CURDATE())
+           ${ownerDailyAnd}
+       ) AS month_xu,
        SUM(DATE(login_at) = :todayDate) AS today_login_success,
        SUM(DATE(completed_at) = :todayDate AND status = 'DUOI_50_JOB') AS today_failed,
        SUM(DATE(completed_at) = :todayDate AND status = 'LOI_CAU_HINH') AS today_config_error,
@@ -325,47 +348,70 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
   const replacements = { days: daysInt };
   if (ownerFilter) replacements.owner = ownerFilter;
   const ownerAnd = ownerFilter ? 'AND owner_username = :owner' : '';
-  const dailyDateWhere = daysInt === 1
+  const dailyStatDateWhere = daysInt === 1
+    ? 'stat_date = CURDATE()'
+    : 'stat_date >= DATE_SUB(CURDATE(), INTERVAL :days DAY)';
+  const dailyActivityDateWhere = daysInt === 1
     ? `DATE(${jobActivityAt}) = CURDATE()`
     : `${jobActivityAt} >= DATE_SUB(CURDATE(), INTERVAL :days DAY)`;
-  const dailyJobsExpr = `
-    CASE
-      WHEN DATE(${jobActivityAt}) = CURDATE() AND today_job_date = CURDATE()
-        THEN today_job_count
-      ELSE job_count
-    END
-  `;
 
   const daily = await sequelize.query(
     `SELECT
-       DATE(${jobActivityAt}) AS date,
-       COUNT(*) AS completed_accounts,
-       SUM(status = 'DA_CHAY_XONG') AS done_accounts,
-       SUM(status = 'DUOI_50_JOB') AS failed_accounts,
-       SUM(status = 'LOI_CAU_HINH') AS config_error_accounts,
-       SUM(status = 'DANG_LAM') AS working_accounts,
-       COALESCE(SUM(${dailyJobsExpr}), 0) AS total_jobs,
-       COALESCE(SUM(${dailyJobsExpr}), 0) * :xuPerJob AS total_xu
-      FROM job_accounts
-      WHERE ${dailyDateWhere}
-        ${jobTouchedWhere}
-        ${ownerAnd}
-      GROUP BY DATE(${jobActivityAt})
-     ORDER BY date ASC`,
+        d.date,
+        COALESCE(a.completed_accounts, 0) AS completed_accounts,
+        COALESCE(a.done_accounts, 0) AS done_accounts,
+        COALESCE(a.failed_accounts, 0) AS failed_accounts,
+        COALESCE(a.config_error_accounts, 0) AS config_error_accounts,
+        COALESCE(a.working_accounts, 0) AS working_accounts,
+        COALESCE(j.total_jobs, 0) AS total_jobs,
+        COALESCE(j.total_jobs, 0) * :xuPerJob AS total_xu
+      FROM (
+        SELECT stat_date AS date
+        FROM job_daily_stats
+        WHERE ${dailyStatDateWhere}
+          ${ownerAnd}
+        UNION
+        SELECT DATE(${jobActivityAt}) AS date
+        FROM job_accounts
+        WHERE ${dailyActivityDateWhere}
+          ${jobTouchedWhere}
+          ${ownerAnd}
+      ) d
+      LEFT JOIN (
+        SELECT stat_date AS date, COALESCE(SUM(job_count), 0) AS total_jobs
+        FROM job_daily_stats
+        WHERE ${dailyStatDateWhere}
+          ${ownerAnd}
+        GROUP BY stat_date
+      ) j ON j.date = d.date
+      LEFT JOIN (
+        SELECT
+          DATE(${jobActivityAt}) AS date,
+          COUNT(*) AS completed_accounts,
+          SUM(status = 'DA_CHAY_XONG') AS done_accounts,
+          SUM(status = 'DUOI_50_JOB') AS failed_accounts,
+          SUM(status = 'LOI_CAU_HINH') AS config_error_accounts,
+          SUM(status = 'DANG_LAM') AS working_accounts
+        FROM job_accounts
+        WHERE ${dailyActivityDateWhere}
+          ${jobTouchedWhere}
+          ${ownerAnd}
+        GROUP BY DATE(${jobActivityAt})
+      ) a ON a.date = d.date
+      ORDER BY d.date ASC`,
     { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
   );
 
   const monthly = await sequelize.query(
     `SELECT
-       DATE_FORMAT(${jobActivityAt}, '%Y-%m') AS month,
+       DATE_FORMAT(stat_date, '%Y-%m') AS month,
        COUNT(*) AS completed_accounts,
        COALESCE(SUM(job_count), 0) AS total_jobs,
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
-     FROM job_accounts
-     WHERE ${jobActivityAt} >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-       ${jobTouchedWhere}
+     FROM job_daily_stats
+     WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
        ${ownerAnd}
-     GROUP BY DATE_FORMAT(${jobActivityAt}, '%Y-%m')
+     GROUP BY DATE_FORMAT(stat_date, '%Y-%m')
      ORDER BY month ASC`,
     { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
   );
@@ -385,6 +431,7 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
 const getJobDeviceStats = async (ownerFilter = null) => {
   const replacements = { todayDate: vietnamToday() };
   if (ownerFilter) replacements.owner = ownerFilter;
+  const ownerDailyAnd = ownerFilter ? 'AND owner_username = :owner' : '';
 
   return sequelize.query(
     `SELECT
@@ -401,15 +448,27 @@ const getJobDeviceStats = async (ownerFilter = null) => {
        SUM(DATE(${jobActivityAt}) = :todayDate AND status = 'DA_CHAY_XONG') AS today_done_accounts,
        COALESCE(SUM(job_count), 0) AS total_jobs,
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu,
-       COALESCE(SUM(CASE WHEN today_job_date = :todayDate THEN today_job_count ELSE 0 END), 0) AS today_jobs,
-       COALESCE(SUM(CASE WHEN today_job_date = :todayDate THEN today_job_count ELSE 0 END), 0) * :xuPerJob AS today_xu,
-       COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
-       COALESCE(SUM(CASE WHEN YEAR(${jobActivityAt}) = YEAR(CURDATE()) AND MONTH(${jobActivityAt}) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) * :xuPerJob AS month_xu,
+       COALESCE(MAX(ds.today_jobs), 0) AS today_jobs,
+       COALESCE(MAX(ds.today_jobs), 0) * :xuPerJob AS today_xu,
+       COALESCE(MAX(ds.month_jobs), 0) AS month_jobs,
+       COALESCE(MAX(ds.month_jobs), 0) * :xuPerJob AS month_xu,
        MAX(${jobActivityAt}) AS last_seen
-     FROM job_accounts
-     ${ownerWhere(ownerFilter)}
-       ${ownerFilter ? jobTouchedWhere : jobTouchedWhere.replace('AND', 'WHERE')}
-     GROUP BY COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown')
+      FROM job_accounts
+      LEFT JOIN (
+        SELECT
+          owner_username AS daily_owner_username,
+          device_id AS daily_device_id,
+          SUM(CASE WHEN stat_date = :todayDate THEN job_count ELSE 0 END) AS today_jobs,
+          SUM(CASE WHEN YEAR(stat_date) = YEAR(CURDATE()) AND MONTH(stat_date) = MONTH(CURDATE()) THEN job_count ELSE 0 END) AS month_jobs
+        FROM job_daily_stats
+        WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+          ${ownerDailyAnd}
+        GROUP BY owner_username, device_id
+      ) ds ON ds.daily_owner_username = job_accounts.owner_username
+        AND ds.daily_device_id = COALESCE(NULLIF(job_accounts.device_id, ''), NULLIF(job_accounts.locked_by, ''), 'unknown')
+      ${ownerWhere(ownerFilter)}
+        ${ownerFilter ? jobTouchedWhere : jobTouchedWhere.replace('AND', 'WHERE')}
+      GROUP BY COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown')
      ORDER BY total_xu DESC, login_success DESC`,
     { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
   );

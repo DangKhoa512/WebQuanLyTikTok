@@ -214,6 +214,49 @@ const startServer = async () => {
     }
 
     try {
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS job_daily_stats (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL DEFAULT '${adminOwner()}',
+          device_id VARCHAR(255) NOT NULL,
+          stat_date DATE NOT NULL,
+          job_count INT UNSIGNED NOT NULL DEFAULT 0,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_job_daily_owner_device_date (owner_username, device_id, stat_date),
+          KEY idx_job_daily_owner_date (owner_username, stat_date),
+          KEY idx_job_daily_device (device_id)
+        )
+      `);
+      logger.info('job_daily_stats table ready');
+    } catch (e) {
+      logger.warn('Migration job_daily_stats table skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`
+        INSERT INTO job_daily_stats (owner_username, device_id, stat_date, job_count, created_at, updated_at)
+        SELECT
+          owner_username,
+          COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown') AS device_id,
+          today_job_date AS stat_date,
+          COALESCE(SUM(today_job_count), 0) AS job_count,
+          NOW(),
+          NOW()
+        FROM job_accounts
+        WHERE today_job_date IS NOT NULL
+          AND COALESCE(today_job_count, 0) > 0
+        GROUP BY owner_username, COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown'), today_job_date
+        ON DUPLICATE KEY UPDATE
+          job_count = GREATEST(job_count, VALUES(job_count)),
+          updated_at = NOW()
+      `);
+      logger.info('job_daily_stats backfill ready');
+    } catch (e) {
+      logger.warn('Migration job_daily_stats backfill skipped:', e.message);
+    }
+
+    try {
       await sequelize.query('ALTER TABLE used_accounts ADD COLUMN group_id INT UNSIGNED NULL');
       logger.info('used_accounts group_id column added');
     } catch (e) {
