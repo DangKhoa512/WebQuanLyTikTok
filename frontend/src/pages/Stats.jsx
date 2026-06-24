@@ -275,7 +275,12 @@ export default function Stats() {
         <>
           <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
             <SummaryCard title="Acc còn lại" value={stats?.ACCOUNT_CHAY} color="#06b6d4" icon="🚀" />
-            <SummaryCard title="Acc đang làm" value={stats?.DANG_LAM} color="#10b981" icon="⚡" />
+            <SummaryCard
+              title={isTodayRange ? 'Acc đang làm' : 'Acc đã lấy ra'}
+              value={isTodayRange ? stats?.DANG_LAM : deviceTotals.login_success}
+              color="#10b981"
+              icon="⚡"
+            />
             {isTodayRange && <SummaryCard title="Tổng acc hôm nay" value={deviceTotals.today_accounts} color="#2563eb" icon="✅" />}
             <SummaryCard title="Account fail" value={summaryFailed} color="#ef4444" icon="❌" />
             <SummaryCard title="Cấu hình lỗi" value={summaryConfigError} color="#f97316" icon="⚠️" />

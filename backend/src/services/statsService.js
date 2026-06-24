@@ -325,6 +325,16 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
   const replacements = { days: daysInt };
   if (ownerFilter) replacements.owner = ownerFilter;
   const ownerAnd = ownerFilter ? 'AND owner_username = :owner' : '';
+  const dailyDateWhere = daysInt === 1
+    ? `DATE(${jobActivityAt}) = CURDATE()`
+    : `${jobActivityAt} >= DATE_SUB(CURDATE(), INTERVAL :days DAY)`;
+  const dailyJobsExpr = `
+    CASE
+      WHEN DATE(${jobActivityAt}) = CURDATE() AND today_job_date = CURDATE()
+        THEN today_job_count
+      ELSE job_count
+    END
+  `;
 
   const daily = await sequelize.query(
     `SELECT
@@ -334,13 +344,13 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
        SUM(status = 'DUOI_50_JOB') AS failed_accounts,
        SUM(status = 'LOI_CAU_HINH') AS config_error_accounts,
        SUM(status = 'DANG_LAM') AS working_accounts,
-       COALESCE(SUM(job_count), 0) AS total_jobs,
-       COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
-     FROM job_accounts
-     WHERE ${jobActivityAt} >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
-       ${jobTouchedWhere}
-       ${ownerAnd}
-     GROUP BY DATE(${jobActivityAt})
+       COALESCE(SUM(${dailyJobsExpr}), 0) AS total_jobs,
+       COALESCE(SUM(${dailyJobsExpr}), 0) * :xuPerJob AS total_xu
+      FROM job_accounts
+      WHERE ${dailyDateWhere}
+        ${jobTouchedWhere}
+        ${ownerAnd}
+      GROUP BY DATE(${jobActivityAt})
      ORDER BY date ASC`,
     { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
   );
