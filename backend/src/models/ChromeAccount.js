@@ -46,6 +46,7 @@ const ChromeAccount = sequelize.define(
     locked_by:   { type: DataTypes.STRING(255),      allowNull: true },
     locked_at:   { type: DataTypes.DATE,             allowNull: true },
     reg_at:            { type: DataTypes.DATE, allowNull: true },
+    khang_reported_at: { type: DataTypes.DATE, allowNull: true },
     last_live_check_at:{ type: DataTypes.DATE, allowNull: true },
     fail_reason: { type: DataTypes.STRING(500), allowNull: true },
   },

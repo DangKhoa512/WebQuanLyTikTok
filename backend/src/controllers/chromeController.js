@@ -140,6 +140,7 @@ const SORT_FIELDS = {
   followers:   'followers',
   following:   'following',
   reg_at:      'reg_at',
+  khang_reported_at: 'khang_reported_at',
   id:          'id',
 };
 
@@ -178,11 +179,13 @@ const phoneSubmit = async (req, res, next) => {
         cookie: nullify(cookie), proxy: nullify(proxy),
         device_id: nullify(device_id), status, note: nullify(note),
         fail_reason: nullify(fail_reason), reg_at: new Date(), owner_username,
+        khang_reported_at: status === 'ACC_DA_KHANG' ? new Date() : null,
       },
     });
 
     if (!created) {
       const upd = { status, locked_by: null, locked_at: null }; // clear lock khi phone gửi kết quả
+      if (status === 'ACC_DA_KHANG') upd.khang_reported_at = new Date();
       if (device_id)   upd.device_id   = device_id;
       if (note)        upd.note        = note;
       if (fail_reason) upd.fail_reason = fail_reason;
@@ -291,7 +294,7 @@ const getAccount = async (req, res, next) => {
 // ── Dashboard: List ──────────────────────────────────────────────────────────
 const getAll = async (req, res, next) => {
   try {
-    const { status, live_status, search, device_id, group_id, date_from, date_to, video_max, video_min, sort_by, sort_dir, page = 1, limit = 20 } = req.query;
+    const { status, live_status, search, device_id, group_id, date_from, date_to, soak_days, video_max, video_min, sort_by, sort_dir, page = 1, limit = 20 } = req.query;
     const where = scopedWhere(req);
     if (status)      where.status      = status;
     if (live_status) where.live_status = live_status;
@@ -307,6 +310,10 @@ const getAll = async (req, res, next) => {
       where.video_count = {};
       if (video_min !== undefined) where.video_count[Op.gte] = parseInt(video_min);
       if (video_max !== undefined) where.video_count[Op.lte] = parseInt(video_max);
+    }
+    const soakDays = parseInt(soak_days, 10);
+    if (Number.isInteger(soakDays) && soakDays > 0) {
+      where.khang_reported_at = { [Op.lte]: new Date(Date.now() - soakDays * 24 * 60 * 60 * 1000) };
     }
 
     const pageNum   = Math.max(1, parseInt(page));
@@ -357,6 +364,7 @@ const updateAccount = async (req, res, next) => {
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
+    if (req.body.status === 'ACC_DA_KHANG') updates.khang_reported_at = new Date();
     await account.update(updates);
     logger.info('chrome update', { id: req.params.id, updates, admin: req.admin?.username });
     return success(res, { account }, 'Cập nhật thành công');
@@ -427,7 +435,15 @@ const importChromeAccounts = async (req, res, next) => {
       try {
         const parsed = parseLine(line);
         if (!parsed) { parseErrors.push(`Thiếu username: "${line.substring(0, 60)}"`); continue; }
-        if (!seenUsernames.has(parsed.username)) seenUsernames.set(parsed.username, { ...parsed, status, owner_username, group_id: groupId });
+        if (!seenUsernames.has(parsed.username)) {
+          seenUsernames.set(parsed.username, {
+            ...parsed,
+            status,
+            owner_username,
+            group_id: groupId,
+            khang_reported_at: status === 'ACC_DA_KHANG' ? new Date() : null,
+          });
+        }
       } catch (_) {
         parseErrors.push(`Lỗi parse: "${line.substring(0, 60)}"`);
       }
@@ -447,7 +463,7 @@ const importChromeAccounts = async (req, res, next) => {
 
     if (toInsert.length > 0) {
       await ChromeAccount.bulkCreate(toInsert, {
-        fields: ['username','password','email','email_pass','cookie','token','status','reg_at','owner_username','group_id'],
+        fields: ['username','password','email','email_pass','cookie','token','status','reg_at','owner_username','group_id','khang_reported_at'],
       });
     }
 
@@ -625,6 +641,7 @@ const bulkAction = async (req, res, next) => {
       case 'set_status':
         if (!status || !ALL_STATUSES.includes(status)) return error(res, `status không hợp lệ. Dùng: ${ALL_STATUSES.join(', ')}`, 400);
         updateData = { status };
+        if (status === 'ACC_DA_KHANG') updateData.khang_reported_at = new Date();
         message    = `Đã đổi ${ids.length} accounts → ${status}`;
         break;
       case 'set_note':

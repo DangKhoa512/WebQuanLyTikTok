@@ -165,6 +165,18 @@ const startServer = async () => {
     } catch (e) {
       logger.warn('Migration chrome group_id index skipped:', e.message);
     }
+    try {
+      await sequelize.query('ALTER TABLE chrome_accounts ADD COLUMN khang_reported_at DATETIME NULL');
+      logger.info('chrome_accounts khang_reported_at column added');
+    } catch (e) {
+      logger.warn('Migration chrome khang_reported_at skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE chrome_accounts ADD INDEX idx_chrome_khang_reported_at (khang_reported_at)');
+      logger.info('chrome_accounts khang_reported_at index ready');
+    } catch (e) {
+      logger.warn('Migration chrome khang_reported_at index skipped:', e.message);
+    }
 
     try {
       await sequelize.query("ALTER TABLE account_groups ADD COLUMN job_type ENUM('chrome','hotmail') NULL");
