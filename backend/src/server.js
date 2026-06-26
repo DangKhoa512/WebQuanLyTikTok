@@ -232,12 +232,13 @@ const startServer = async () => {
           owner_username VARCHAR(100) NOT NULL DEFAULT '${adminOwner()}',
           device_id VARCHAR(255) NOT NULL,
           stat_date DATE NOT NULL,
+          web ENUM('TDS','XSMM') NOT NULL DEFAULT 'TDS',
           job_count INT UNSIGNED NOT NULL DEFAULT 0,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           PRIMARY KEY (id),
-          UNIQUE KEY uq_job_daily_owner_device_date (owner_username, device_id, stat_date),
-          KEY idx_job_daily_owner_date (owner_username, stat_date),
+          UNIQUE KEY uq_job_daily_owner_device_date_web (owner_username, device_id, stat_date, web),
+          KEY idx_job_daily_owner_date (owner_username, stat_date, web),
           KEY idx_job_daily_device (device_id)
         )
       `);
@@ -247,18 +248,58 @@ const startServer = async () => {
     }
     try {
       await sequelize.query(`
-        INSERT INTO job_daily_stats (owner_username, device_id, stat_date, job_count, created_at, updated_at)
+        ALTER TABLE job_accounts
+        ADD COLUMN job_web ENUM('TDS','XSMM') NOT NULL DEFAULT 'TDS'
+      `);
+      logger.info('job_accounts job_web column added');
+    } catch (e) {
+      logger.warn('Migration job_accounts job_web skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE job_accounts ADD INDEX idx_job_accounts_owner_web (owner_username, job_web)');
+      logger.info('job_accounts job_web index ready');
+    } catch (e) {
+      logger.warn('Migration job_accounts job_web index skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`
+        ALTER TABLE job_daily_stats
+        ADD COLUMN web ENUM('TDS','XSMM') NOT NULL DEFAULT 'TDS'
+      `);
+      logger.info('job_daily_stats web column added');
+    } catch (e) {
+      logger.warn('Migration job_daily_stats web skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE job_daily_stats DROP INDEX uq_job_daily_owner_device_date');
+      logger.info('job_daily_stats old unique index removed');
+    } catch (e) {
+      logger.warn('Migration job_daily_stats old unique index skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`
+        ALTER TABLE job_daily_stats
+        ADD UNIQUE KEY uq_job_daily_owner_device_date_web (owner_username, device_id, stat_date, web)
+      `);
+      logger.info('job_daily_stats web unique index ready');
+    } catch (e) {
+      logger.warn('Migration job_daily_stats web unique index skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`
+        INSERT INTO job_daily_stats (owner_username, device_id, stat_date, web, job_count, created_at, updated_at)
         SELECT
           owner_username,
           COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown') AS device_id,
           today_job_date AS stat_date,
+          COALESCE(job_web, 'TDS') AS web,
           COALESCE(SUM(today_job_count), 0) AS job_count,
           NOW(),
           NOW()
         FROM job_accounts
         WHERE today_job_date IS NOT NULL
           AND COALESCE(today_job_count, 0) > 0
-        GROUP BY owner_username, COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown'), today_job_date
+        GROUP BY owner_username, COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown'), today_job_date, COALESCE(job_web, 'TDS')
         ON DUPLICATE KEY UPDATE
           job_count = GREATEST(job_count, VALUES(job_count)),
           updated_at = NOW()

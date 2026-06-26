@@ -18,6 +18,7 @@ const STATUSES = [
 ];
 const FINAL_STATUSES = ['DUOI_50_JOB', 'FAIL_AVT', 'LOI_CAU_HINH', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
 const JOB_TYPES = ['chrome', 'hotmail'];
+const JOB_WEBS = ['TDS', 'XSMM'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.JOB_LOCK_TIMEOUT_MIN, 10) || 40;
 const XU_PER_JOB = parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400;
 const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
@@ -52,6 +53,11 @@ const parseJobType = (value, fallback = 'chrome') => {
   const normalized = String(value || fallback).trim().toLowerCase();
   return JOB_TYPES.includes(normalized) ? normalized : null;
 };
+const parseJobWeb = (value, fallback = 'TDS') => {
+  const normalized = String(value || fallback).trim().toUpperCase();
+  return JOB_WEBS.includes(normalized) ? normalized : fallback;
+};
+const xuPerJobForWeb = (web) => (web === 'XSMM' ? 1 : XU_PER_JOB);
 const vietnamToday = () => VN_DATE_FORMATTER.format(new Date());
 const todayJobUpdate = (account, addedJobs) => {
   const today = vietnamToday();
@@ -251,6 +257,7 @@ const getForPhone = async (req, res, next) => {
 const loginSuccess = async (req, res, next) => {
   try {
     const device_id = nullify(req.body.device_id);
+    const jobWeb = parseJobWeb(req.body.web);
     const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thieu device_id', 400);
     const where = accountWhere(req, owner_username);
@@ -266,6 +273,7 @@ const loginSuccess = async (req, res, next) => {
     await account.update({
       status: 'DANG_LAM',
       device_id,
+      job_web: jobWeb,
       locked_by: device_id,
       locked_at: new Date(),
       login_at: new Date(),
@@ -316,6 +324,8 @@ const reportResult = async (req, res, next) => {
 
     const account = await JobAccount.findOne({ where });
     if (!account) return error(res, 'Account JOB khong ton tai', 404);
+    const jobWeb = parseJobWeb(req.body.web ?? req.query.web ?? account.job_web);
+    const xuPerJob = xuPerJobForWeb(jobWeb);
     assertDeviceOwnership(account, device_id);
     if (account.status !== 'DANG_LAM') {
       return error(res, `Account khong o trang thai DANG_LAM (${account.status})`, 409);
@@ -331,11 +341,13 @@ const reportResult = async (req, res, next) => {
         device_id,
         stat_date: vietnamToday(),
         jobs: addedJobs,
+        web: jobWeb,
       });
     }
     await account.update({
       status,
       device_id,
+      job_web: jobWeb,
       job_count: nextJobs,
       ...(addedJobs > 0 ? todayJobUpdate(account, addedJobs) : {}),
       fail_reason: nullify(req.body.reason),
@@ -349,9 +361,10 @@ const reportResult = async (req, res, next) => {
       account,
       jobs: jobLive,
       added_jobs: addedJobs,
-      xu_per_job: XU_PER_JOB,
-      added_xu: addedJobs * XU_PER_JOB,
-      total_xu: nextJobs * XU_PER_JOB,
+      web: jobWeb,
+      xu_per_job: xuPerJob,
+      added_xu: addedJobs * xuPerJob,
+      total_xu: nextJobs * xuPerJob,
     }, `Da chuyen account sang ${status}`);
   } catch (err) {
     next(err);
@@ -361,6 +374,8 @@ const reportResult = async (req, res, next) => {
 const addJobCount = async (req, res, next) => {
   try {
     const device_id = nullify(req.body.device_id);
+    const jobWeb = parseJobWeb(req.body.web ?? req.query.web);
+    const xuPerJob = xuPerJobForWeb(jobWeb);
     const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thieu device_id', 400);
     const where = accountWhere(req, owner_username);
@@ -387,10 +402,12 @@ const addJobCount = async (req, res, next) => {
         device_id,
         stat_date: vietnamToday(),
         jobs: addJobs,
+        web: jobWeb,
       });
     }
     await account.update({
       device_id,
+      job_web: jobWeb,
       job_count: totalJobs,
       ...todayJobUpdate(account, addJobs),
       locked_by: device_id,
@@ -400,10 +417,11 @@ const addJobCount = async (req, res, next) => {
     return success(res, {
       account,
       added_jobs: addJobs,
-      added_xu: addJobs * XU_PER_JOB,
-      xu_per_job: XU_PER_JOB,
+      web: jobWeb,
+      added_xu: addJobs * xuPerJob,
+      xu_per_job: xuPerJob,
       total_jobs: totalJobs,
-      total_xu: totalJobs * XU_PER_JOB,
+      total_xu: totalJobs * xuPerJob,
     }, `Da cong them ${addJobs} job`);
   } catch (err) {
     next(err);

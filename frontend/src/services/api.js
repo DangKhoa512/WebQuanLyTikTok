@@ -91,9 +91,9 @@ export const statsApi = {
   getStats:      ()     => api.get('/stats', { timeout: 60_000 }),
   getDailyStats: (days) => api.get('/stats/daily', { params: { days }, timeout: 60_000 }),
   getDeviceStats: ()    => api.get('/stats/devices', { timeout: 60_000 }),
-  getJobStats:      ()     => api.get('/stats/job', { timeout: 60_000 }),
-  getJobDailyStats: (days) => api.get('/stats/job/daily', { params: { days }, timeout: 60_000 }),
-  getJobDeviceStats: ()    => api.get('/stats/job/devices', { timeout: 60_000 }),
+  getJobStats:      (web = 'TDS')     => api.get('/stats/job', { params: { web }, timeout: 60_000 }),
+  getJobDailyStats: (days, web = 'TDS') => api.get('/stats/job/daily', { params: { days, web }, timeout: 60_000 }),
+  getJobDeviceStats: (web = 'TDS')    => api.get('/stats/job/devices', { params: { web }, timeout: 60_000 }),
 };
 
 export const settingsApi = {

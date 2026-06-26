@@ -620,10 +620,10 @@ export default function ChromeAccountList() {
       {/* Filters */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="filter-bar">
-          <div className="filter-row">
+          <div className="filter-row" style={{ gap: '.65rem' }}>
             <div className="filter-group">
               <label>Tìm username</label>
-              <input type="text" placeholder="username…" value={filters.search} onChange={(e) => setFilter('search', e.target.value)} />
+              <input type="text" placeholder="username…" value={filters.search} onChange={(e) => setFilter('search', e.target.value)} style={{ minWidth: 180, width: 196 }} />
             </div>
             <div className="filter-group">
               <label>Live status</label>
@@ -645,14 +645,14 @@ export default function ChromeAccountList() {
             </div>
             <div className="filter-group">
               <label>Nhóm</label>
-              <select value={filters.group_id} onChange={(e) => setFilter('group_id', e.target.value)}>
+              <select value={filters.group_id} onChange={(e) => setFilter('group_id', e.target.value)} style={{ minWidth: 130, width: 140 }}>
                 <option value="">Tất cả nhóm</option>
                 {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
               </select>
             </div>
             <div className="filter-group">
               <label>Device ID</label>
-              <input type="text" placeholder="device_id…" value={filters.device_id} onChange={(e) => setFilter('device_id', e.target.value)} />
+              <input type="text" placeholder="device_id…" value={filters.device_id} onChange={(e) => setFilter('device_id', e.target.value)} style={{ minWidth: 170, width: 196 }} />
             </div>
             <div className="filter-group">
               <label>Từ ngày</label>
@@ -664,7 +664,7 @@ export default function ChromeAccountList() {
             </div>
             <div className="filter-group">
               <label>Ngâm kháng</label>
-              <select value={filters.soak_days} onChange={(e) => setFilter('soak_days', e.target.value)}>
+              <select value={filters.soak_days} onChange={(e) => setFilter('soak_days', e.target.value)} style={{ minWidth: 120, width: 130 }}>
                 <option value="">Tất cả</option>
                 {[1, 2, 3, 4, 5, 7, 10, 14].map((day) => (
                   <option key={day} value={day}>Trên {day} ngày</option>
@@ -673,7 +673,7 @@ export default function ChromeAccountList() {
             </div>
             <div className="filter-group">
               <label>Số dòng</label>
-              <select value={filters.limit} onChange={(e) => setFilter('limit', parseInt(e.target.value))}>
+              <select value={filters.limit} onChange={(e) => setFilter('limit', parseInt(e.target.value))} style={{ minWidth: 120, width: 130 }}>
                 {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} dòng</option>)}
               </select>
             </div>

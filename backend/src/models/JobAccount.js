@@ -43,6 +43,11 @@ const JobAccount = sequelize.define(
       allowNull: false,
       defaultValue: 'chrome',
     },
+    job_web: {
+      type: DataTypes.ENUM('TDS', 'XSMM'),
+      allowNull: false,
+      defaultValue: 'TDS',
+    },
     status: {
       type: DataTypes.ENUM(
         'ACCOUNT_CHAY',

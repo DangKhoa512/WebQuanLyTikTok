@@ -23,6 +23,11 @@ const RANGE_OPTIONS = [
   { label: '90 ngày', value: 90, days: 90 },
 ];
 
+const WEB_OPTIONS = [
+  { label: 'TDS', value: 'TDS' },
+  { label: 'XSMM', value: 'XSMM' },
+];
+
 const fmtNum = (value) => Number(value || 0).toLocaleString('vi-VN');
 const fmtXu = (value) => `${fmtNum(value)} xu`;
 const fmtDate = (value) =>
@@ -72,6 +77,7 @@ function SummaryCard({ title, value, color, icon, suffix = '' }) {
 
 export default function Stats() {
   const [range, setRange] = useState('today');
+  const [web, setWeb] = useState('TDS');
   const [stats, setStats] = useState(null);
   const [daily, setDaily] = useState(null);
   const [devices, setDevices] = useState([]);
@@ -86,9 +92,9 @@ export default function Stats() {
     const selectedRange = RANGE_OPTIONS.find((item) => item.value === range) || RANGE_OPTIONS[2];
     try {
       const [statsRes, dailyRes, deviceRes] = await Promise.all([
-        statsApi.getJobStats(),
-        statsApi.getJobDailyStats(selectedRange.days),
-        statsApi.getJobDeviceStats(),
+        statsApi.getJobStats(web),
+        statsApi.getJobDailyStats(selectedRange.days, web),
+        statsApi.getJobDeviceStats(web),
       ]);
       setStats(statsRes.data || {});
       setDaily(dailyRes.data || {});
@@ -98,7 +104,7 @@ export default function Stats() {
     } finally {
       setLoading(false);
     }
-  }, [range]);
+  }, [range, web]);
 
   useEffect(() => {
     fetchData();
@@ -243,6 +249,28 @@ export default function Stats() {
           <div className="subtitle">Theo dõi account chạy job, lỗi và tổng xu theo máy/ngày/tháng.</div>
         </div>
         <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '.35rem', alignItems: 'center', marginRight: '.35rem' }}>
+            {WEB_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setWeb(option.value)}
+                style={{
+                  padding: '.5rem .95rem',
+                  borderRadius: 8,
+                  border: `1px solid ${web === option.value ? '#10b981' : '#cbd5e1'}`,
+                  background: web === option.value ? '#10b981' : '#fff',
+                  color: web === option.value ? '#fff' : '#0f172a',
+                  cursor: 'pointer',
+                  fontSize: '.84rem',
+                  fontWeight: 850,
+                  boxShadow: web === option.value ? '0 6px 14px rgba(16,185,129,.18)' : 'none',
+                }}
+                title={option.value === 'TDS' ? 'TDS: nhân xu theo 1.400/job' : 'XSMM: giữ nguyên xu theo job'}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           {RANGE_OPTIONS.map((option) => (
             <button
               key={option.value}

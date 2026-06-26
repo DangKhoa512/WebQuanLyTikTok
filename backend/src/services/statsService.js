@@ -38,6 +38,10 @@ const ownerWhere = (ownerFilter, prefix = 'WHERE') =>
 
 const numeric = (row, key) => Number(row?.[key]) || 0;
 const vietnamToday = () => VN_DATE_FORMATTER.format(new Date());
+const normalizeJobWeb = (value = 'TDS') => (
+  String(value || 'TDS').trim().toUpperCase() === 'XSMM' ? 'XSMM' : 'TDS'
+);
+const xuPerJobForWeb = (web) => (web === 'XSMM' ? 1 : XU_PER_JOB);
 const jobTouchedWhere = `
   AND (
     device_id IS NOT NULL
@@ -260,10 +264,15 @@ const getDeviceStats = async (ownerFilter = null) => {
   return [...map.values()].sort((a, b) => new Date(b.last_seen || 0) - new Date(a.last_seen || 0));
 };
 
-const getJobStats = async (ownerFilter = null) => {
-  const replacements = { todayDate: vietnamToday() };
+const getJobStats = async (ownerFilter = null, webFilter = 'TDS') => {
+  const jobWeb = normalizeJobWeb(webFilter);
+  const replacements = { todayDate: vietnamToday(), jobWeb };
   if (ownerFilter) replacements.owner = ownerFilter;
   const ownerDailyAnd = ownerFilter ? 'AND owner_username = :owner' : '';
+  const accountWhereSql = ownerFilter
+    ? 'WHERE owner_username = :owner AND job_web = :jobWeb'
+    : 'WHERE job_web = :jobWeb';
+  const xuPerJob = xuPerJobForWeb(jobWeb);
 
   const [row = {}] = await sequelize.query(
     `SELECT
@@ -284,12 +293,14 @@ const getJobStats = async (ownerFilter = null) => {
          SELECT COALESCE(SUM(job_count), 0)
          FROM job_daily_stats
          WHERE stat_date = :todayDate
+           AND web = :jobWeb
            ${ownerDailyAnd}
        ) AS today_jobs,
        (
          SELECT COALESCE(SUM(job_count), 0) * :xuPerJob
          FROM job_daily_stats
          WHERE stat_date = :todayDate
+           AND web = :jobWeb
            ${ownerDailyAnd}
        ) AS today_xu,
        (
@@ -297,6 +308,7 @@ const getJobStats = async (ownerFilter = null) => {
          FROM job_daily_stats
          WHERE YEAR(stat_date) = YEAR(CURDATE())
            AND MONTH(stat_date) = MONTH(CURDATE())
+           AND web = :jobWeb
            ${ownerDailyAnd}
        ) AS month_jobs,
        (
@@ -304,6 +316,7 @@ const getJobStats = async (ownerFilter = null) => {
          FROM job_daily_stats
          WHERE YEAR(stat_date) = YEAR(CURDATE())
            AND MONTH(stat_date) = MONTH(CURDATE())
+           AND web = :jobWeb
            ${ownerDailyAnd}
        ) AS month_xu,
        SUM(DATE(login_at) = :todayDate) AS today_login_success,
@@ -313,8 +326,8 @@ const getJobStats = async (ownerFilter = null) => {
        SUM(live_status = 'die') AS die_live,
        SUM(live_status = 'unknown') AS unknown_live
      FROM job_accounts
-     ${ownerWhere(ownerFilter)}`,
-    { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
+     ${accountWhereSql}`,
+    { replacements: { ...replacements, xuPerJob }, type: QueryTypes.SELECT }
   );
 
   const stats = {};
@@ -343,11 +356,19 @@ const getJobStats = async (ownerFilter = null) => {
   return stats;
 };
 
-const getJobDailyStats = async (days = 30, ownerFilter = null) => {
+const getJobDailyStats = async (days = 30, ownerFilter = null, webFilter = 'TDS') => {
   const daysInt = Math.min(365, Math.max(1, parseInt(days, 10) || 30));
-  const replacements = { days: daysInt };
+  const jobWeb = normalizeJobWeb(webFilter);
+  const replacements = { days: daysInt, jobWeb };
   if (ownerFilter) replacements.owner = ownerFilter;
   const ownerAnd = ownerFilter ? 'AND owner_username = :owner' : '';
+  const accountAnd = ownerFilter
+    ? 'AND owner_username = :owner AND job_web = :jobWeb'
+    : 'AND job_web = :jobWeb';
+  const accountWhereSql = ownerFilter
+    ? 'WHERE owner_username = :owner AND job_web = :jobWeb'
+    : 'WHERE job_web = :jobWeb';
+  const xuPerJob = xuPerJobForWeb(jobWeb);
   const dailyStatDateWhere = daysInt === 1
     ? 'stat_date = CURDATE()'
     : 'stat_date >= DATE_SUB(CURDATE(), INTERVAL :days DAY)';
@@ -369,18 +390,20 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
         SELECT stat_date AS date
         FROM job_daily_stats
         WHERE ${dailyStatDateWhere}
+          AND web = :jobWeb
           ${ownerAnd}
         UNION
         SELECT DATE(${jobActivityAt}) AS date
         FROM job_accounts
         WHERE ${dailyActivityDateWhere}
           ${jobTouchedWhere}
-          ${ownerAnd}
+          ${accountAnd}
       ) d
       LEFT JOIN (
         SELECT stat_date AS date, COALESCE(SUM(job_count), 0) AS total_jobs
         FROM job_daily_stats
         WHERE ${dailyStatDateWhere}
+          AND web = :jobWeb
           ${ownerAnd}
         GROUP BY stat_date
       ) j ON j.date = d.date
@@ -395,11 +418,11 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
         FROM job_accounts
         WHERE ${dailyActivityDateWhere}
           ${jobTouchedWhere}
-          ${ownerAnd}
+          ${accountAnd}
         GROUP BY DATE(${jobActivityAt})
       ) a ON a.date = d.date
       ORDER BY d.date ASC`,
-    { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
+    { replacements: { ...replacements, xuPerJob }, type: QueryTypes.SELECT }
   );
 
   const monthly = await sequelize.query(
@@ -410,16 +433,17 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
        COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
      FROM job_daily_stats
      WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+       AND web = :jobWeb
        ${ownerAnd}
      GROUP BY DATE_FORMAT(stat_date, '%Y-%m')
      ORDER BY month ASC`,
-    { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
+    { replacements: { ...replacements, xuPerJob }, type: QueryTypes.SELECT }
   );
 
   const statusDist = await sequelize.query(
     `SELECT status, COUNT(*) AS cnt
      FROM job_accounts
-     ${ownerWhere(ownerFilter)}
+     ${accountWhereSql}
      GROUP BY status
      ORDER BY cnt DESC`,
     { replacements, type: QueryTypes.SELECT }
@@ -428,10 +452,15 @@ const getJobDailyStats = async (days = 30, ownerFilter = null) => {
   return { daily_job: daily, monthly_job: monthly, status_dist: statusDist };
 };
 
-const getJobDeviceStats = async (ownerFilter = null) => {
-  const replacements = { todayDate: vietnamToday() };
+const getJobDeviceStats = async (ownerFilter = null, webFilter = 'TDS') => {
+  const jobWeb = normalizeJobWeb(webFilter);
+  const replacements = { todayDate: vietnamToday(), jobWeb };
   if (ownerFilter) replacements.owner = ownerFilter;
   const ownerDailyAnd = ownerFilter ? 'AND owner_username = :owner' : '';
+  const accountWhereSql = ownerFilter
+    ? 'WHERE job_accounts.owner_username = :owner AND job_accounts.job_web = :jobWeb'
+    : 'WHERE job_accounts.job_web = :jobWeb';
+  const xuPerJob = xuPerJobForWeb(jobWeb);
 
   return sequelize.query(
     `SELECT
@@ -462,15 +491,16 @@ const getJobDeviceStats = async (ownerFilter = null) => {
           SUM(CASE WHEN YEAR(stat_date) = YEAR(CURDATE()) AND MONTH(stat_date) = MONTH(CURDATE()) THEN job_count ELSE 0 END) AS month_jobs
         FROM job_daily_stats
         WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+          AND web = :jobWeb
           ${ownerDailyAnd}
         GROUP BY owner_username, device_id
       ) ds ON ds.daily_owner_username = job_accounts.owner_username
         AND ds.daily_device_id = COALESCE(NULLIF(job_accounts.device_id, ''), NULLIF(job_accounts.locked_by, ''), 'unknown')
-      ${ownerWhere(ownerFilter)}
-        ${ownerFilter ? jobTouchedWhere : jobTouchedWhere.replace('AND', 'WHERE')}
+      ${accountWhereSql}
+        ${jobTouchedWhere}
       GROUP BY COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown')
      ORDER BY total_xu DESC, login_success DESC`,
-    { replacements: { ...replacements, xuPerJob: XU_PER_JOB }, type: QueryTypes.SELECT }
+    { replacements: { ...replacements, xuPerJob }, type: QueryTypes.SELECT }
   );
 };
 

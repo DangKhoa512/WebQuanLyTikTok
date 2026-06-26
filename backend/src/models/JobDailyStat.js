@@ -22,6 +22,11 @@ const JobDailyStat = sequelize.define(
       type: DataTypes.DATEONLY,
       allowNull: false,
     },
+    web: {
+      type: DataTypes.ENUM('TDS', 'XSMM'),
+      allowNull: false,
+      defaultValue: 'TDS',
+    },
     job_count: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
@@ -34,12 +39,6 @@ const JobDailyStat = sequelize.define(
     createdAt: 'created_at',
     updatedAt: 'updated_at',
     indexes: [
-      {
-        unique: true,
-        name: 'uq_job_daily_owner_device_date',
-        fields: ['owner_username', 'device_id', 'stat_date'],
-      },
-      { fields: ['owner_username', 'stat_date'] },
       { fields: ['device_id'] },
     ],
   }
