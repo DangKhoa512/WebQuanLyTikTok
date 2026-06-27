@@ -70,6 +70,12 @@ const parseRegAt = (value) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+const looksLikeCookie = (value) => {
+  const normalized = nullify(value);
+  if (!normalized) return false;
+  return /(^|;\s*)(sessionid|sid_guard|uid_tt|ttwid|passport_csrf_token|tt_csrf_token|odin_tt)=/i.test(normalized);
+};
+
 /**
  * Parse một dòng text → { username, password, email, email_pass, reg_at } | null
  */
@@ -94,6 +100,8 @@ const parseLine = (line) => {
   const parts    = dataPart.split('|');
   const username = nullify(parts[0]);
   if (!username) return null;
+  const maybeRegAt = parseRegAt(parts[6]);
+  const cookie = looksLikeCookie(parts[6]) ? nullify(parts[6]) : null;
 
   return {
     username,
@@ -102,8 +110,9 @@ const parseLine = (line) => {
     email_pass: nullify(parts[3]),
     refresh_token: nullify(parts[4]),
     client_id:     nullify(parts[5]),
-    reg_at:        parseRegAt(parts[6]) || reg_at || new Date(),
-    local:         nullify(parts[7]),
+    cookie,
+    reg_at:        cookie ? (parseRegAt(parts[7]) || reg_at || new Date()) : (maybeRegAt || reg_at || new Date()),
+    local:         cookie ? nullify(parts[8]) : nullify(parts[7]),
     raw_data:      dataPart,
   };
 };
@@ -187,6 +196,7 @@ const importAccounts = async (req, res, next) => {
           'email_pass',
           'refresh_token',
           'client_id',
+          'cookie',
           'reg_at',
           'local',
           'status',

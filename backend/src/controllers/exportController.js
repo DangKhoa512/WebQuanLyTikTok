@@ -13,16 +13,31 @@ const formatRegAt = (value) => {
   if (Number.isNaN(date.getTime())) return pipeValue(value);
   return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())} ${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
 };
-const formatAppPipe = (account) => [
-  account.username || '',
-  pipeValue(account.password),
-  pipeValue(account.email),
-  pipeValue(account.email_pass),
-  pipeValue(account.refresh_token),
-  pipeValue(account.client_id),
-  formatRegAt(account.reg_at),
-  pipeValue(account.local),
-].join('|');
+const trimTrailingNulls = (values) => {
+  const out = values.map((value) => pipeValue(value));
+  while (out.length > 4 && out[out.length - 1] === 'null') out.pop();
+  return out;
+};
+const formatAppPipe = (account) => {
+  const values = [
+    account.username || '',
+    account.password,
+    account.email,
+    account.email_pass,
+  ];
+  const hasExtended =
+    account.refresh_token || account.client_id || account.cookie || account.reg_at || account.local;
+  if (hasExtended) {
+    values.push(account.refresh_token, account.client_id);
+    if (account.cookie) {
+      values.push(account.cookie);
+      if (account.reg_at || account.local) values.push(formatRegAt(account.reg_at), account.local);
+    } else {
+      values.push(formatRegAt(account.reg_at), account.local);
+    }
+  }
+  return trimTrailingNulls(values).join('|');
+};
 
 /**
  * GET /api/export/accounts
