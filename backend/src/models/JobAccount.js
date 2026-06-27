@@ -29,6 +29,18 @@ const JobAccount = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
     },
+    refresh_token: {
+      type: DataTypes.TEXT('long'),
+      allowNull: true,
+    },
+    client_id: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    reg_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     owner_username: {
       type: DataTypes.STRING(100),
       allowNull: false,

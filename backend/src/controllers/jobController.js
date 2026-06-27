@@ -44,6 +44,80 @@ const nullify = (value) => {
 };
 const pipeValue = (value) =>
   value === undefined || value === null || value === '' ? 'null' : String(value);
+const pad2 = (value) => String(value).padStart(2, '0');
+const buildLocalDate = ({ dd, MM, yyyy, hh = '0', min = '0', ss = '0' }) => {
+  const date = new Date(
+    Number(yyyy),
+    Number(MM) - 1,
+    Number(dd),
+    Number(hh),
+    Number(min),
+    Number(ss)
+  );
+  const isValid =
+    date.getFullYear() === Number(yyyy) &&
+    date.getMonth() === Number(MM) - 1 &&
+    date.getDate() === Number(dd);
+  return isValid ? date : null;
+};
+const parseRegAt = (value) => {
+  const normalized = nullify(value);
+  if (!normalized) return null;
+  const timeFirst = normalized.match(
+    /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s+(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+  );
+  if (timeFirst) {
+    const [, hh, min, ss = '0', dd, MM, yyyy] = timeFirst;
+    return buildLocalDate({ dd, MM, yyyy, hh, min, ss });
+  }
+  const dayFirst = normalized.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+  );
+  if (dayFirst) {
+    const [, dd, MM, yyyy, hh = '0', min = '0', ss = '0'] = dayFirst;
+    return buildLocalDate({ dd, MM, yyyy, hh, min, ss });
+  }
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+const formatRegAt = (value) => {
+  if (!value) return 'null';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return pipeValue(value);
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())} ${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+};
+const trimTrailingNulls = (values) => {
+  const out = values.map((value) => pipeValue(value));
+  while (out.length > 4 && out[out.length - 1] === 'null') out.pop();
+  return out;
+};
+const formatJobPipe = (account) => {
+  const rawData = String(account.raw_data || '').trim();
+  if (account.job_type === 'hotmail' && rawData.split('|').length > 4) return rawData;
+
+  const values = [
+    account.username || '',
+    account.password,
+    account.email,
+    account.email_pass,
+  ];
+  if (account.refresh_token || account.client_id || account.reg_at) {
+    values.push(account.refresh_token, account.client_id, formatRegAt(account.reg_at));
+  }
+  return trimTrailingNulls(values).join('|');
+};
+const serializeJobAccount = (account) => {
+  const data = account?.toJSON ? account.toJSON() : { ...account };
+  if (data.job_type === 'hotmail' && data.raw_data) {
+    const parts = String(data.raw_data).split('|');
+    if (parts.length > 4) {
+      data.refresh_token = data.refresh_token || nullify(parts[4]);
+      data.client_id = data.client_id || nullify(parts[5]);
+      data.reg_at = data.reg_at || parseRegAt(parts[6]);
+    }
+  }
+  return data;
+};
 
 const parseNonNegativeInt = (value) => {
   const parsed = parseInt(value, 10);
@@ -178,6 +252,9 @@ const importAccounts = async (req, res, next) => {
           password: nullify(parts[1]),
           email: nullify(parts[2]),
           email_pass: nullify(parts[3]),
+          refresh_token: nullify(parts[4]),
+          client_id: nullify(parts[5]),
+          reg_at: parseRegAt(parts[6]),
           owner_username,
           group_id: groupId,
           job_type: jobType,
@@ -243,7 +320,7 @@ const getForPhone = async (req, res, next) => {
     if (workingAccount) {
       await workingAccount.update({ locked_by: device_id, locked_at: new Date() }, { transaction });
       await transaction.commit();
-      return success(res, { account: workingAccount }, 'May dang co account JOB DANG_LAM, tra lai account cu');
+      return success(res, { account: serializeJobAccount(workingAccount) }, 'May dang co account JOB DANG_LAM, tra lai account cu');
     }
 
     const lockExpiredAt = new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000);
@@ -270,7 +347,7 @@ const getForPhone = async (req, res, next) => {
 
     await account.update({ locked_by: device_id, locked_at: new Date(), device_id }, { transaction });
     await transaction.commit();
-    return success(res, { account }, 'Lay account JOB thanh cong');
+    return success(res, { account: serializeJobAccount(account) }, 'Lay account JOB thanh cong');
   } catch (err) {
     if (!transaction.finished) await transaction.rollback();
     next(err);
@@ -622,7 +699,7 @@ const bulkGet = async (req, res, next) => {
     });
     const text = accounts
       .filter((account) => account.username)
-      .map((account) => [account.username || '', pipeValue(account.password), pipeValue(account.email), pipeValue(account.email_pass)].join('|'))
+      .map(formatJobPipe)
       .join('\n');
     return success(res, { text, count: accounts.length }, 'OK');
   } catch (err) {

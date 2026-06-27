@@ -203,6 +203,9 @@ const startServer = async () => {
       ["ALTER TABLE job_accounts MODIFY COLUMN status ENUM('ACCOUNT_CHAY','DANG_LAM','DUOI_50_JOB','FAIL_AVT','LOI_CAU_HINH','DA_CHAY_XONG','ACCOUNT_DIE') NOT NULL DEFAULT 'ACCOUNT_CHAY'", 'job_accounts status enum ready'],
       ['ALTER TABLE job_accounts ADD COLUMN group_id INT UNSIGNED NULL', 'job_accounts group_id column added'],
       ["ALTER TABLE job_accounts ADD COLUMN job_type ENUM('chrome','hotmail') NOT NULL DEFAULT 'chrome'", 'job_accounts job_type column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN refresh_token LONGTEXT NULL', 'job_accounts refresh_token column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN client_id VARCHAR(255) NULL', 'job_accounts client_id column added'],
+      ['ALTER TABLE job_accounts ADD COLUMN reg_at DATETIME NULL', 'job_accounts reg_at column added'],
       ["ALTER TABLE job_accounts ADD COLUMN live_status ENUM('unknown','live','die') NOT NULL DEFAULT 'unknown'", 'job_accounts live_status column added'],
       ['ALTER TABLE job_accounts ADD COLUMN video_count INT UNSIGNED NULL', 'job_accounts video_count column added'],
       ['ALTER TABLE job_accounts ADD COLUMN followers INT UNSIGNED NULL', 'job_accounts followers column added'],
@@ -223,6 +226,25 @@ const startServer = async () => {
       } catch (e) {
         logger.warn(`Migration ${message} skipped:`, e.message);
       }
+    }
+
+    try {
+      await sequelize.query(`
+        UPDATE job_accounts
+        SET
+          refresh_token = COALESCE(NULLIF(refresh_token, ''), NULLIF(SUBSTRING_INDEX(SUBSTRING_INDEX(raw_data, '|', 5), '|', -1), '')),
+          client_id = COALESCE(NULLIF(client_id, ''), NULLIF(SUBSTRING_INDEX(SUBSTRING_INDEX(raw_data, '|', 6), '|', -1), '')),
+          reg_at = COALESCE(
+            reg_at,
+            STR_TO_DATE(NULLIF(SUBSTRING_INDEX(SUBSTRING_INDEX(raw_data, '|', 7), '|', -1), ''), '%H:%i:%s %d/%m/%Y')
+          )
+        WHERE job_type = 'hotmail'
+          AND raw_data IS NOT NULL
+          AND (LENGTH(raw_data) - LENGTH(REPLACE(raw_data, '|', ''))) >= 6
+      `);
+      logger.info('job_accounts hotmail extra fields backfill ready');
+    } catch (e) {
+      logger.warn('Migration job_accounts hotmail extra fields backfill skipped:', e.message);
     }
 
     try {
