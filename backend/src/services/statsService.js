@@ -39,7 +39,7 @@ const ownerWhere = (ownerFilter, prefix = 'WHERE') =>
 const numeric = (row, key) => Number(row?.[key]) || 0;
 const vietnamToday = () => VN_DATE_FORMATTER.format(new Date());
 const normalizeJobWeb = (value = 'TDS') => (
-  String(value || 'TDS').trim().toUpperCase() === 'XSMM' ? 'XSMM' : 'TDS'
+  ['XSMM', 'XSMB'].includes(String(value || 'TDS').trim().toUpperCase()) ? 'XSMM' : 'TDS'
 );
 const xuPerJobForWeb = (web) => (web === 'XSMM' ? 1 : XU_PER_JOB);
 const jobTouchedWhere = `
@@ -288,7 +288,7 @@ const getJobStats = async (ownerFilter = null, webFilter = 'TDS') => {
        SUM(status = 'DUOI_50_JOB') AS failed,
        SUM(status = 'LOI_CAU_HINH') AS config_error,
        COALESCE(SUM(job_count), 0) AS total_jobs,
-       COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu,
+       COALESCE(SUM(COALESCE(xu_count, job_count * :xuPerJob)), 0) AS total_xu,
        (
          SELECT COALESCE(SUM(job_count), 0)
          FROM job_daily_stats
@@ -297,7 +297,7 @@ const getJobStats = async (ownerFilter = null, webFilter = 'TDS') => {
            ${ownerDailyAnd}
        ) AS today_jobs,
        (
-         SELECT COALESCE(SUM(job_count), 0) * :xuPerJob
+         SELECT COALESCE(SUM(COALESCE(xu_count, job_count * :xuPerJob)), 0)
          FROM job_daily_stats
          WHERE stat_date = :todayDate
            AND web = :jobWeb
@@ -312,7 +312,7 @@ const getJobStats = async (ownerFilter = null, webFilter = 'TDS') => {
            ${ownerDailyAnd}
        ) AS month_jobs,
        (
-         SELECT COALESCE(SUM(job_count), 0) * :xuPerJob
+         SELECT COALESCE(SUM(COALESCE(xu_count, job_count * :xuPerJob)), 0)
          FROM job_daily_stats
          WHERE YEAR(stat_date) = YEAR(CURDATE())
            AND MONTH(stat_date) = MONTH(CURDATE())
@@ -385,7 +385,7 @@ const getJobDailyStats = async (days = 30, ownerFilter = null, webFilter = 'TDS'
         COALESCE(a.config_error_accounts, 0) AS config_error_accounts,
         COALESCE(a.working_accounts, 0) AS working_accounts,
         COALESCE(j.total_jobs, 0) AS total_jobs,
-        COALESCE(j.total_jobs, 0) * :xuPerJob AS total_xu
+        COALESCE(j.total_xu, 0) AS total_xu
       FROM (
         SELECT stat_date AS date
         FROM job_daily_stats
@@ -400,7 +400,10 @@ const getJobDailyStats = async (days = 30, ownerFilter = null, webFilter = 'TDS'
           ${accountAnd}
       ) d
       LEFT JOIN (
-        SELECT stat_date AS date, COALESCE(SUM(job_count), 0) AS total_jobs
+        SELECT
+          stat_date AS date,
+          COALESCE(SUM(job_count), 0) AS total_jobs,
+          COALESCE(SUM(COALESCE(xu_count, job_count * :xuPerJob)), 0) AS total_xu
         FROM job_daily_stats
         WHERE ${dailyStatDateWhere}
           AND web = :jobWeb
@@ -430,7 +433,7 @@ const getJobDailyStats = async (days = 30, ownerFilter = null, webFilter = 'TDS'
        DATE_FORMAT(stat_date, '%Y-%m') AS month,
        COUNT(*) AS completed_accounts,
        COALESCE(SUM(job_count), 0) AS total_jobs,
-       COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu
+       COALESCE(SUM(COALESCE(xu_count, job_count * :xuPerJob)), 0) AS total_xu
      FROM job_daily_stats
      WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
        AND web = :jobWeb
@@ -476,11 +479,11 @@ const getJobDeviceStats = async (ownerFilter = null, webFilter = 'TDS') => {
        SUM(DATE(${jobActivityAt}) = :todayDate AND status = 'LOI_CAU_HINH') AS today_config_error_accounts,
        SUM(DATE(${jobActivityAt}) = :todayDate AND status = 'DA_CHAY_XONG') AS today_done_accounts,
        COALESCE(SUM(job_count), 0) AS total_jobs,
-       COALESCE(SUM(job_count), 0) * :xuPerJob AS total_xu,
+       COALESCE(SUM(COALESCE(xu_count, job_count * :xuPerJob)), 0) AS total_xu,
        COALESCE(MAX(ds.today_jobs), 0) AS today_jobs,
-       COALESCE(MAX(ds.today_jobs), 0) * :xuPerJob AS today_xu,
+       COALESCE(MAX(ds.today_xu), 0) AS today_xu,
        COALESCE(MAX(ds.month_jobs), 0) AS month_jobs,
-       COALESCE(MAX(ds.month_jobs), 0) * :xuPerJob AS month_xu,
+       COALESCE(MAX(ds.month_xu), 0) AS month_xu,
        MAX(${jobActivityAt}) AS last_seen
       FROM job_accounts
       LEFT JOIN (
@@ -488,7 +491,9 @@ const getJobDeviceStats = async (ownerFilter = null, webFilter = 'TDS') => {
           owner_username AS daily_owner_username,
           device_id AS daily_device_id,
           SUM(CASE WHEN stat_date = :todayDate THEN job_count ELSE 0 END) AS today_jobs,
-          SUM(CASE WHEN YEAR(stat_date) = YEAR(CURDATE()) AND MONTH(stat_date) = MONTH(CURDATE()) THEN job_count ELSE 0 END) AS month_jobs
+          SUM(CASE WHEN stat_date = :todayDate THEN COALESCE(xu_count, job_count * :xuPerJob) ELSE 0 END) AS today_xu,
+          SUM(CASE WHEN YEAR(stat_date) = YEAR(CURDATE()) AND MONTH(stat_date) = MONTH(CURDATE()) THEN job_count ELSE 0 END) AS month_jobs,
+          SUM(CASE WHEN YEAR(stat_date) = YEAR(CURDATE()) AND MONTH(stat_date) = MONTH(CURDATE()) THEN COALESCE(xu_count, job_count * :xuPerJob) ELSE 0 END) AS month_xu
         FROM job_daily_stats
         WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
           AND web = :jobWeb

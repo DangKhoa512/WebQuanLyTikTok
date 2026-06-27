@@ -49,12 +49,35 @@ const parseNonNegativeInt = (value) => {
   const parsed = parseInt(value, 10);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 };
+const parseXuInput = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+};
+const addedXuFromRequest = (req, currentXu, addedJobs, jobWeb) => {
+  const totalXu = parseXuInput(req.body.xulive ?? req.body.total_xu ?? req.body.total_coin ?? req.body.total_coins);
+  if (totalXu !== null) {
+    return { addedXu: Math.max(totalXu - currentXu, 0), nextXu: totalXu };
+  }
+
+  const addXu = parseXuInput(
+    req.body.xu ?? req.body.xu_count ?? req.body.xu_nhan ?? req.body.coin ?? req.body.coins ?? req.body.money
+  );
+  if (addXu !== null) {
+    return { addedXu: addXu, nextXu: currentXu + addXu };
+  }
+
+  if (jobWeb === 'XSMM') return null;
+  const computedXu = addedJobs * XU_PER_JOB;
+  return { addedXu: computedXu, nextXu: currentXu + computedXu };
+};
 const parseJobType = (value, fallback = 'chrome') => {
   const normalized = String(value || fallback).trim().toLowerCase();
   return JOB_TYPES.includes(normalized) ? normalized : null;
 };
 const parseJobWeb = (value, fallback = 'TDS') => {
   const normalized = String(value || fallback).trim().toUpperCase();
+  if (normalized === 'XSMB') return 'XSMM';
   return JOB_WEBS.includes(normalized) ? normalized : fallback;
 };
 const xuPerJobForWeb = (web) => (web === 'XSMM' ? 1 : XU_PER_JOB);
@@ -335,12 +358,18 @@ const reportResult = async (req, res, next) => {
     const currentJobs = Number(account.job_count) || 0;
     const nextJobs = jobLive !== null ? jobLive : currentJobs;
     const addedJobs = jobLive !== null ? Math.max(nextJobs - currentJobs, 0) : 0;
+    const currentXu = Number(account.xu_count) || 0;
+    const xuResult = addedJobs > 0 ? addedXuFromRequest(req, currentXu, addedJobs, jobWeb) : { addedXu: 0, nextXu: currentXu };
+    if (!xuResult) {
+      return error(res, 'XSMM can truyen them xu hoac xu_count', 400);
+    }
     if (addedJobs > 0) {
       await addDailyJobs({
         owner_username,
         device_id,
         stat_date: vietnamToday(),
         jobs: addedJobs,
+        xu: xuResult.addedXu,
         web: jobWeb,
       });
     }
@@ -349,6 +378,7 @@ const reportResult = async (req, res, next) => {
       device_id,
       job_web: jobWeb,
       job_count: nextJobs,
+      xu_count: xuResult.nextXu,
       ...(addedJobs > 0 ? todayJobUpdate(account, addedJobs) : {}),
       fail_reason: nullify(req.body.reason),
       note: nullify(req.body.note),
@@ -363,8 +393,8 @@ const reportResult = async (req, res, next) => {
       added_jobs: addedJobs,
       web: jobWeb,
       xu_per_job: xuPerJob,
-      added_xu: addedJobs * xuPerJob,
-      total_xu: nextJobs * xuPerJob,
+      added_xu: xuResult.addedXu,
+      total_xu: xuResult.nextXu,
     }, `Da chuyen account sang ${status}`);
   } catch (err) {
     next(err);
@@ -374,8 +404,6 @@ const reportResult = async (req, res, next) => {
 const addJobCount = async (req, res, next) => {
   try {
     const device_id = nullify(req.body.device_id);
-    const jobWeb = parseJobWeb(req.body.web ?? req.query.web);
-    const xuPerJob = xuPerJobForWeb(jobWeb);
     const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thieu device_id', 400);
     const where = accountWhere(req, owner_username);
@@ -383,6 +411,8 @@ const addJobCount = async (req, res, next) => {
 
     const account = await JobAccount.findOne({ where });
     if (!account) return error(res, 'Account JOB khong ton tai', 404);
+    const jobWeb = parseJobWeb(req.body.web ?? req.query.web ?? account.job_web);
+    const xuPerJob = xuPerJobForWeb(jobWeb);
     assertDeviceOwnership(account, device_id);
     if (account.status !== 'DANG_LAM') {
       return error(res, `Account khong o trang thai DANG_LAM (${account.status})`, 409);
@@ -396,12 +426,18 @@ const addJobCount = async (req, res, next) => {
 
     const currentJobs = Number(account.job_count) || 0;
     const totalJobs = currentJobs + addJobs;
+    const currentXu = Number(account.xu_count) || 0;
+    const xuResult = addJobs > 0 ? addedXuFromRequest(req, currentXu, addJobs, jobWeb) : { addedXu: 0, nextXu: currentXu };
+    if (!xuResult) {
+      return error(res, 'XSMM can truyen them xu hoac xu_count', 400);
+    }
     if (addJobs > 0) {
       await addDailyJobs({
         owner_username,
         device_id,
         stat_date: vietnamToday(),
         jobs: addJobs,
+        xu: xuResult.addedXu,
         web: jobWeb,
       });
     }
@@ -409,6 +445,7 @@ const addJobCount = async (req, res, next) => {
       device_id,
       job_web: jobWeb,
       job_count: totalJobs,
+      xu_count: xuResult.nextXu,
       ...todayJobUpdate(account, addJobs),
       locked_by: device_id,
       locked_at: new Date(),
@@ -418,10 +455,10 @@ const addJobCount = async (req, res, next) => {
       account,
       added_jobs: addJobs,
       web: jobWeb,
-      added_xu: addJobs * xuPerJob,
+      added_xu: xuResult.addedXu,
       xu_per_job: xuPerJob,
       total_jobs: totalJobs,
-      total_xu: totalJobs * xuPerJob,
+      total_xu: xuResult.nextXu,
     }, `Da cong them ${addJobs} job`);
   } catch (err) {
     next(err);

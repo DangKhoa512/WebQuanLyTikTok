@@ -32,6 +32,11 @@ const JobDailyStat = sequelize.define(
       allowNull: false,
       defaultValue: 0,
     },
+    xu_count: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+    },
   },
   {
     tableName: 'job_daily_stats',

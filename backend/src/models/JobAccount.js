@@ -65,6 +65,11 @@ const JobAccount = sequelize.define(
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true,
     },
+    xu_count: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+    },
     today_job_date: {
       type: DataTypes.DATEONLY,
       allowNull: true,

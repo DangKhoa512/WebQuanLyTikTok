@@ -234,6 +234,7 @@ const startServer = async () => {
           stat_date DATE NOT NULL,
           web ENUM('TDS','XSMM') NOT NULL DEFAULT 'TDS',
           job_count INT UNSIGNED NOT NULL DEFAULT 0,
+          xu_count INT UNSIGNED NOT NULL DEFAULT 0,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           PRIMARY KEY (id),
@@ -256,6 +257,24 @@ const startServer = async () => {
       logger.warn('Migration job_accounts job_web skipped:', e.message);
     }
     try {
+      await sequelize.query('ALTER TABLE job_accounts ADD COLUMN xu_count INT UNSIGNED NOT NULL DEFAULT 0');
+      logger.info('job_accounts xu_count column added');
+    } catch (e) {
+      logger.warn('Migration job_accounts xu_count skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`
+        UPDATE job_accounts
+        SET xu_count = COALESCE(job_count, 0) * ${parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400}
+        WHERE COALESCE(xu_count, 0) = 0
+          AND COALESCE(job_count, 0) > 0
+          AND COALESCE(job_web, 'TDS') = 'TDS'
+      `);
+      logger.info('job_accounts xu_count backfill ready');
+    } catch (e) {
+      logger.warn('Migration job_accounts xu_count backfill skipped:', e.message);
+    }
+    try {
       await sequelize.query('ALTER TABLE job_accounts ADD INDEX idx_job_accounts_owner_web (owner_username, job_web)');
       logger.info('job_accounts job_web index ready');
     } catch (e) {
@@ -269,6 +288,24 @@ const startServer = async () => {
       logger.info('job_daily_stats web column added');
     } catch (e) {
       logger.warn('Migration job_daily_stats web skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE job_daily_stats ADD COLUMN xu_count INT UNSIGNED NOT NULL DEFAULT 0');
+      logger.info('job_daily_stats xu_count column added');
+    } catch (e) {
+      logger.warn('Migration job_daily_stats xu_count skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`
+        UPDATE job_daily_stats
+        SET xu_count = COALESCE(job_count, 0) * ${parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400}
+        WHERE COALESCE(xu_count, 0) = 0
+          AND COALESCE(job_count, 0) > 0
+          AND COALESCE(web, 'TDS') = 'TDS'
+      `);
+      logger.info('job_daily_stats xu_count backfill ready');
+    } catch (e) {
+      logger.warn('Migration job_daily_stats xu_count backfill skipped:', e.message);
     }
     try {
       await sequelize.query('ALTER TABLE job_daily_stats DROP INDEX uq_job_daily_owner_device_date');
@@ -287,13 +324,17 @@ const startServer = async () => {
     }
     try {
       await sequelize.query(`
-        INSERT INTO job_daily_stats (owner_username, device_id, stat_date, web, job_count, created_at, updated_at)
+        INSERT INTO job_daily_stats (owner_username, device_id, stat_date, web, job_count, xu_count, created_at, updated_at)
         SELECT
           owner_username,
           COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown') AS device_id,
           today_job_date AS stat_date,
           COALESCE(job_web, 'TDS') AS web,
           COALESCE(SUM(today_job_count), 0) AS job_count,
+          CASE
+            WHEN COALESCE(job_web, 'TDS') = 'TDS' THEN COALESCE(SUM(today_job_count), 0) * ${parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400}
+            ELSE 0
+          END AS xu_count,
           NOW(),
           NOW()
         FROM job_accounts
@@ -302,6 +343,7 @@ const startServer = async () => {
         GROUP BY owner_username, COALESCE(NULLIF(device_id, ''), NULLIF(locked_by, ''), 'unknown'), today_job_date, COALESCE(job_web, 'TDS')
         ON DUPLICATE KEY UPDATE
           job_count = GREATEST(job_count, VALUES(job_count)),
+          xu_count = GREATEST(xu_count, VALUES(xu_count)),
           updated_at = NOW()
       `);
       logger.info('job_daily_stats backfill ready');
