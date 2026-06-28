@@ -397,24 +397,14 @@ const loginFail = async (req, res, next) => {
     if (!account) return error(res, 'Account JOB khong ton tai', 404);
     assertDeviceOwnership(account, device_id);
 
-    const nextFailCount = (Number(account.login_fail_count) || 0) + 1;
-    const isDie = nextFailCount >= 3;
-    const reason = nullify(req.body.reason);
-
     await account.update({
-      status: isDie ? 'ACCOUNT_DIE' : 'ACCOUNT_CHAY',
+      status: 'ACCOUNT_CHAY',
       device_id,
-      login_fail_count: nextFailCount,
-      last_login_fail_at: new Date(),
       locked_by: null,
       locked_at: null,
-      fail_reason: reason || (isDie ? 'Login fail 3 lan' : null),
+      fail_reason: nullify(req.body.reason),
     });
-    return success(
-      res,
-      { account, login_fail_count: nextFailCount },
-      isDie ? 'Login fail 3 lan, da chuyen account sang Die' : 'Da mo lock de phone khac lay lai'
-    );
+    return success(res, { account }, 'Da mo lock de phone khac lay lai');
   } catch (err) {
     next(err);
   }
