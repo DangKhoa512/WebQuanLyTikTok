@@ -426,9 +426,12 @@ const reportResult = async (req, res, next) => {
     if (!account) return error(res, 'Account JOB khong ton tai', 404);
     const jobWeb = parseJobWeb(req.body.web ?? req.query.web ?? account.job_web);
     const xuPerJob = xuPerJobForWeb(jobWeb);
-    assertDeviceOwnership(account, device_id);
-    if (account.status !== 'DANG_LAM') {
-      return error(res, `Account khong o trang thai DANG_LAM (${account.status})`, 409);
+    const isDieReport = status === 'ACCOUNT_DIE';
+    if (!isDieReport) {
+      assertDeviceOwnership(account, device_id);
+      if (account.status !== 'DANG_LAM') {
+        return error(res, `Account khong o trang thai DANG_LAM (${account.status})`, 409);
+      }
     }
 
     const jobLive = parseNonNegativeInt(req.body.joblive ?? req.body.jobs ?? req.body.job_count);
