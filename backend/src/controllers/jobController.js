@@ -60,6 +60,17 @@ const buildLocalDate = ({ dd, MM, yyyy, hh = '0', min = '0', ss = '0' }) => {
     date.getDate() === Number(dd);
   return isValid ? date : null;
 };
+
+const normalizeJobStatus = (value) => {
+  const normalized = String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+  if (['DIE', 'ACC_DIE', 'ACCOUNT_DIE'].includes(normalized)) return 'ACCOUNT_DIE';
+  return normalized;
+};
+
+const isDieReportRequest = (req) => (
+  normalizeJobStatus(req.body.status) === 'ACCOUNT_DIE'
+  || String(req.body.live_status || req.body.live || '').trim().toLowerCase() === 'die'
+);
 const parseRegAt = (value) => {
   const normalized = nullify(value);
   if (!normalized) return null;
@@ -395,16 +406,22 @@ const loginFail = async (req, res, next) => {
 
     const account = await JobAccount.findOne({ where });
     if (!account) return error(res, 'Account JOB khong ton tai', 404);
-    assertDeviceOwnership(account, device_id);
+    const isDieReport = isDieReportRequest(req);
+    if (!isDieReport) assertDeviceOwnership(account, device_id);
 
     await account.update({
-      status: 'ACCOUNT_CHAY',
+      status: isDieReport ? 'ACCOUNT_DIE' : 'ACCOUNT_CHAY',
       device_id,
+      ...(isDieReport ? { live_status: 'die', last_live_check_at: new Date(), completed_at: new Date() } : {}),
       locked_by: null,
       locked_at: null,
       fail_reason: nullify(req.body.reason),
     });
-    return success(res, { account }, 'Da mo lock de phone khac lay lai');
+    return success(
+      res,
+      { account },
+      isDieReport ? 'Da chuyen account sang ACCOUNT_DIE va mo lock' : 'Da mo lock de phone khac lay lai'
+    );
   } catch (err) {
     next(err);
   }
@@ -413,7 +430,7 @@ const loginFail = async (req, res, next) => {
 const reportResult = async (req, res, next) => {
   try {
     const device_id = nullify(req.body.device_id);
-    const status = String(req.body.status || '').trim().toUpperCase();
+    const status = normalizeJobStatus(req.body.status);
     const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thieu device_id', 400);
     if (!FINAL_STATUSES.includes(status)) {
@@ -463,6 +480,7 @@ const reportResult = async (req, res, next) => {
       fail_reason: nullify(req.body.reason),
       note: nullify(req.body.note),
       completed_at: new Date(),
+      ...(isDieReport ? { live_status: 'die', last_live_check_at: new Date() } : {}),
       locked_by: null,
       locked_at: null,
     });
