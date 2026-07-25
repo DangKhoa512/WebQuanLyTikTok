@@ -248,7 +248,7 @@ const getAccounts = async (query, ownerFilter = null) => {
   }
 
   const pageNum  = Math.max(1, parseInt(page)  || 1);
-  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+  const limitNum = Math.min(2000, Math.max(1, parseInt(limit) || 20));
   const offset   = (pageNum - 1) * limitNum;
 
   const { count, rows } = await Account.findAndCountAll({

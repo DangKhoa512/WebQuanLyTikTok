@@ -441,7 +441,7 @@ export default function UsedAccounts() {
             <div className="filter-group">
               <label>Số dòng</label>
               <select value={filters.limit} onChange={(e) => setFilter('limit', Number(e.target.value))}>
-                {[20, 50, 100, 200].map((value) => <option key={value} value={value}>{value}</option>)}
+                {[20, 50, 100, 200, 500, 1000, 2000].map((value) => <option key={value} value={value}>{value}</option>)}
               </select>
             </div>
             <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ date: todayInput(), account_type: filters.account_type, username: '', live_status: '', video_min: '', video_max: '', group_id: '', device_id: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>

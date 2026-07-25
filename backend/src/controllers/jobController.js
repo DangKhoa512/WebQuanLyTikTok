@@ -67,10 +67,20 @@ const normalizeJobStatus = (value) => {
   return normalized;
 };
 
-const isDieReportRequest = (req) => (
-  normalizeJobStatus(req.body.status) === 'ACCOUNT_DIE'
-  || String(req.body.live_status || req.body.live || '').trim().toLowerCase() === 'die'
-);
+const requestValue = (req, ...keys) => {
+  for (const key of keys) {
+    const value = req.body?.[key] ?? req.query?.[key];
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+  }
+  return '';
+};
+
+const isDieReportRequest = (req) => {
+  const status = normalizeJobStatus(requestValue(req, 'status', 'trang_thai', 'state'));
+  const liveStatus = String(requestValue(req, 'live_status', 'live', 'result')).trim().toLowerCase();
+  const reason = String(requestValue(req, 'reason', 'note', 'message')).trim().toLowerCase();
+  return status === 'ACCOUNT_DIE' || liveStatus === 'die' || /\bdie\b/.test(reason);
+};
 const parseRegAt = (value) => {
   const normalized = nullify(value);
   if (!normalized) return null;
@@ -186,9 +196,9 @@ const buildSortOrder = (sortBy, sortDir) => {
 };
 
 const accountWhere = (req, owner_username) => {
-  const id = parseInt(req.body.id, 10);
+  const id = parseInt(req.body.id ?? req.query.id, 10);
   if (Number.isInteger(id) && id > 0) return { id, owner_username };
-  const username = nullify(req.body.username);
+  const username = nullify(req.body.username ?? req.query.username);
   return username ? { username, owner_username } : null;
 };
 
@@ -430,7 +440,7 @@ const loginFail = async (req, res, next) => {
 const reportResult = async (req, res, next) => {
   try {
     const device_id = nullify(req.body.device_id);
-    const status = normalizeJobStatus(req.body.status);
+    const status = normalizeJobStatus(requestValue(req, 'status', 'trang_thai', 'state'));
     const owner_username = ownerFromRequest(req);
     if (!device_id) return error(res, 'Thieu device_id', 400);
     if (!FINAL_STATUSES.includes(status)) {
@@ -567,7 +577,7 @@ const getAll = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 2000);
     const status = String(req.query.status || '').trim().toUpperCase();
     const live_status = String(req.query.live_status || '').trim();
     const jobType = parseJobType(req.query.job_type, 'chrome');

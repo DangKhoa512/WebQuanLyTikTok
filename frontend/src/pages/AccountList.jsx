@@ -706,7 +706,7 @@ export default function AccountList() {
             <div className="filter-group">
               <label>Số dòng</label>
               <select value={filters.limit} onChange={(e) => setFilter('limit', parseInt(e.target.value))}>
-                {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n} dòng</option>)}
+                {[10, 20, 50, 100, 200, 500, 1000, 2000].map((n) => <option key={n} value={n}>{n} dòng</option>)}
               </select>
             </div>
             <button className="btn btn-secondary btn-sm" onClick={() => setFilters({ status: '', live_status: '', device_id: '', group_id: '', search: '', date_from: '', date_to: '', soak_days: '', video_min: '', video_max: '', sort_by: '', sort_dir: '', page: 1, limit: filters.limit })}>

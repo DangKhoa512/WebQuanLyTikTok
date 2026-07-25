@@ -91,7 +91,7 @@ const idsForCurrentFilters = async (Model, where) => {
 const listUsedAccounts = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.max(10, Math.min(200, parseInt(req.query.limit, 10) || 50));
+    const limit = Math.max(10, Math.min(2000, parseInt(req.query.limit, 10) || 50));
     const offset = (page - 1) * limit;
     const accountType = req.query.account_type;
     const dateFilter = parseDateFilter(req.query.date);

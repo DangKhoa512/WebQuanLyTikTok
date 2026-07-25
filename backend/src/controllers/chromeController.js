@@ -317,7 +317,7 @@ const getAll = async (req, res, next) => {
     }
 
     const pageNum   = Math.max(1, parseInt(page));
-    const pageLimit = Math.min(100, parseInt(limit) || 20);
+    const pageLimit = Math.min(2000, Math.max(1, parseInt(limit) || 20));
     const offset    = (pageNum - 1) * pageLimit;
 
     const { count, rows } = await ChromeAccount.findAndCountAll({
