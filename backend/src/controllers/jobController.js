@@ -44,6 +44,12 @@ const nullify = (value) => {
 };
 const pipeValue = (value) =>
   value === undefined || value === null || value === '' ? 'null' : String(value);
+const looksLikeTokenData = (value) => {
+  const normalized = nullify(value);
+  if (!normalized) return false;
+  return /(^|[;\s])(sessionid|sid_guard|uid_tt|ttwid|passport_csrf_token|tt_csrf_token|odin_tt|mstoken|x-web-secsdk-uid|store-country-sign|store-country-code|tt-target-idc)=/i.test(normalized)
+    || normalized.length > 255;
+};
 const pad2 = (value) => String(value).padStart(2, '0');
 const buildLocalDate = ({ dd, MM, yyyy, hh = '0', min = '0', ss = '0' }) => {
   const date = new Date(
@@ -114,6 +120,8 @@ const trimTrailingNulls = (values) => {
 };
 const formatJobPipe = (account) => {
   const rawData = String(account.raw_data || '').trim();
+  const rawParts = rawData.split('|');
+  if (rawParts.length === 4 && looksLikeTokenData(rawParts[3])) return rawData;
   if (account.job_type === 'hotmail' && rawData.split('|').length > 4) return rawData;
 
   const values = [
@@ -267,13 +275,15 @@ const importAccounts = async (req, res, next) => {
         continue;
       }
       if (!unique.has(username)) {
+        const fourthValue = nullify(parts[3]);
+        const fourthIsToken = looksLikeTokenData(fourthValue);
         unique.set(username, {
           raw_data: line,
           username,
           password: nullify(parts[1]),
           email: nullify(parts[2]),
-          email_pass: nullify(parts[3]),
-          refresh_token: nullify(parts[4]),
+          email_pass: fourthIsToken ? null : fourthValue,
+          refresh_token: fourthIsToken ? fourthValue : nullify(parts[4]),
           client_id: nullify(parts[5]),
           reg_at: parseRegAt(parts[6]),
           owner_username,

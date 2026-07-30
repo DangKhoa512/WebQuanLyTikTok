@@ -79,7 +79,8 @@ const looksLikeTokenData = (value) => {
   const normalized = nullify(value);
   if (!normalized) return false;
   return looksLikeCookie(normalized)
-    || /(^|;\s*)(mstoken|x-web-secsdk-uid|store-country-sign|store-country-code|tt-target-idc|msToken)=/i.test(normalized);
+    || /(^|;\s*)(mstoken|x-web-secsdk-uid|store-country-sign|store-country-code|tt-target-idc)=/i.test(normalized)
+    || normalized.length > 255;
 };
 
 /**

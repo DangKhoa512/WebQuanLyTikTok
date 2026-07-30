@@ -44,7 +44,8 @@ const looksLikeEmail = (value) => /^[^\s@|]+@[^\s@|]+\.[^\s@|]+$/.test(String(va
 const looksLikeCookie = (value) => /(^|[;\s])sid_guard=|tt_chain_token=|sessionid=|uid_tt=/.test(String(value || ''));
 const looksLikeTokenData = (value) =>
   looksLikeCookie(value)
-  || /(^|[;\s])(mstoken|x-web-secsdk-uid|store-country-sign|store-country-code|tt-target-idc)=/i.test(String(value || ''));
+  || /(^|[;\s])(mstoken|x-web-secsdk-uid|store-country-sign|store-country-code|tt-target-idc)=/i.test(String(value || ''))
+  || String(value || '').trim().length > 255;
 const chromeLegacyFields = (account) => {
   const rawData = String(account.raw_data || '').trim();
   const rawParts = rawData.split('|');
