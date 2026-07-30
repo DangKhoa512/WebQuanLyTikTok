@@ -20,7 +20,21 @@ const trimTrailingNulls = (values) => {
   while (out.length > 4 && out[out.length - 1] === 'null') out.pop();
   return out;
 };
+const looksLikeTokenData = (value) =>
+  /(^|[;\s])(sessionid|sid_guard|uid_tt|ttwid|passport_csrf_token|tt_csrf_token|odin_tt|mstoken|x-web-secsdk-uid|store-country-sign|store-country-code|tt-target-idc)=/i.test(String(value || ''));
+
 const formatAppPipe = (account) => {
+  const rawData = String(account.raw_data || '').trim();
+  const rawParts = rawData.split('|');
+  if (rawParts.length === 4 && looksLikeTokenData(rawParts[3])) return rawData;
+  if (account.token && !account.email_pass && !account.refresh_token && !account.client_id && !account.cookie) {
+    return [
+      account.username || '',
+      pipeValue(account.password),
+      pipeValue(account.email),
+      pipeValue(account.token),
+    ].join('|');
+  }
   const values = [
     account.username || '',
     account.password,
@@ -28,7 +42,7 @@ const formatAppPipe = (account) => {
     account.email_pass,
   ];
   const hasExtended =
-    account.refresh_token || account.client_id || account.cookie || account.reg_at || account.local;
+    account.refresh_token || account.client_id || account.cookie || account.token || account.reg_at || account.local;
   if (hasExtended) {
     values.push(account.refresh_token, account.client_id);
     if (account.cookie) {
@@ -37,6 +51,7 @@ const formatAppPipe = (account) => {
     } else {
       values.push(formatRegAt(account.reg_at), account.local);
     }
+    if (account.token && !account.cookie) values.push(account.token);
   }
   return trimTrailingNulls(values).join('|');
 };
@@ -167,8 +182,8 @@ const bulkGet = async (req, res, next) => {
 
     const accounts = await Account.findAll({
       where: scopedWhere(req, { id: { [Op.in]: ids } }),
-      attributes: ['id','username','password','email','email_pass',
-                   'refresh_token','client_id','cookie','reg_at','local',
+      attributes: ['id','raw_data','username','password','email','email_pass',
+                   'refresh_token','client_id','cookie','token','reg_at','local',
                    'status','live_status','video_count','proxy','device_id'],
       order: [['id','ASC']],
     });
@@ -208,7 +223,7 @@ const copyUnused = async (req, res, next) => {
 
     const accounts = await Account.findAll({
       where:      scopedWhere(req, { status, note: null }),
-      attributes: ['id','username','password','email','email_pass','refresh_token','client_id','cookie','reg_at','local','status','owner_username'],
+      attributes: ['id','raw_data','username','password','email','email_pass','refresh_token','client_id','cookie','token','reg_at','local','status','owner_username'],
       order:      [['id','ASC']],
       limit:      Math.min(parseInt(limit) || 500, 1000),
     });

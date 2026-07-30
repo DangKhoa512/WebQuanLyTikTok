@@ -415,6 +415,7 @@ function ImportModal({ onClose, onImported, groups = [], onGroupCreated }) {
           value={text} onChange={(e) => setText(e.target.value)}
           placeholder={
             'USER|PASS|MAIL|PASS MAIL|refresh_token|client_id|time reg|local\n' +
+            'USER|PASS|MAIL|TOKEN\n' +
             'Ví dụ time reg: 16/05/2026 10:30:00'
           }
           rows={10}

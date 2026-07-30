@@ -42,7 +42,16 @@ const legacyPipeValue = (value) =>
   value === undefined || value === null || value === '' ? 'Null' : String(value);
 const looksLikeEmail = (value) => /^[^\s@|]+@[^\s@|]+\.[^\s@|]+$/.test(String(value || '').trim());
 const looksLikeCookie = (value) => /(^|[;\s])sid_guard=|tt_chain_token=|sessionid=|uid_tt=/.test(String(value || ''));
+const looksLikeTokenData = (value) =>
+  looksLikeCookie(value)
+  || /(^|[;\s])(mstoken|x-web-secsdk-uid|store-country-sign|store-country-code|tt-target-idc)=/i.test(String(value || ''));
 const chromeLegacyFields = (account) => {
+  const rawData = String(account.raw_data || '').trim();
+  const rawParts = rawData.split('|');
+  if (rawParts.length === 4 && looksLikeTokenData(rawParts[3])) return rawParts;
+  if (account.token && !account.email_pass && !account.cookie) {
+    return [account.username || '', legacyPipeValue(account.password), legacyPipeValue(account.email), account.token];
+  }
   let password = account.password;
   let email = account.email;
   let emailPass = account.email_pass;
@@ -390,6 +399,8 @@ const parseLine = (line) => {
   const parts    = dataPart.split('|');
   const username = nullify(parts[0]);
   if (!username) return null;
+  const fourthValue = nullify(parts[3]);
+  const fourthIsToken = looksLikeTokenData(fourthValue);
   const legacyChromeImport = looksLikeEmail(parts[1])
     && (parts.length === 3 || looksLikeCookie(parts[3]));
 
@@ -397,10 +408,11 @@ const parseLine = (line) => {
     username,
     password:   legacyChromeImport ? null : nullify(parts[1]),
     email:      legacyChromeImport ? nullify(parts[1]) : nullify(parts[2]),
-    email_pass: legacyChromeImport ? nullify(parts[2]) : nullify(parts[3]),
+    email_pass: legacyChromeImport ? nullify(parts[2]) : (fourthIsToken ? null : fourthValue),
     cookie:     legacyChromeImport ? nullify(parts[3]) : null,
-    token:      legacyChromeImport ? nullify(parts[4]) : null,
+    token:      legacyChromeImport ? nullify(parts[4]) : (fourthIsToken ? fourthValue : null),
     reg_at:     reg_at || new Date(),
+    raw_data:   dataPart,
   };
 };
 
@@ -463,7 +475,7 @@ const importChromeAccounts = async (req, res, next) => {
 
     if (toInsert.length > 0) {
       await ChromeAccount.bulkCreate(toInsert, {
-        fields: ['username','password','email','email_pass','cookie','token','status','reg_at','owner_username','group_id','khang_reported_at'],
+        fields: ['raw_data','username','password','email','email_pass','cookie','token','status','reg_at','owner_username','group_id','khang_reported_at'],
       });
     }
 
@@ -689,7 +701,7 @@ const bulkGet = async (req, res, next) => {
 
     const accounts = await ChromeAccount.findAll({
       where:      scopedWhere(req, { id: { [Op.in]: ids } }),
-      attributes: ['id','username','password','email','email_pass','cookie','status','live_status','video_count','proxy','device_id'],
+      attributes: ['id','raw_data','username','password','email','email_pass','cookie','token','status','live_status','video_count','proxy','device_id'],
       order:      [['id','ASC']],
     });
 
@@ -700,7 +712,7 @@ const bulkGet = async (req, res, next) => {
 
     if (format === 'pipe') {
       const lines = accounts.filter((a) => a.username).map((a) =>
-        [a.username || '', pipeValue(a.password), pipeValue(a.email), pipeValue(a.email_pass)].join('|')
+        chromeLegacyFields(a).join('|')
       );
       return success(res, { text: lines.join('\n'), count: lines.length }, 'OK');
     }

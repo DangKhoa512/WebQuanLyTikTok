@@ -3,7 +3,8 @@ import { accountApi } from '../services/api';
 import { toast } from './Toast';
 
 const EXAMPLE = `bi.thanh.lm769|Null|buithanhlam59o9njnae985@antttool.us|Phan9999|refresh-token-1|client-id-1|06/05/2026 15:06:00|VN
-another.user|Pass@123|user@gmail.com|mailpass456|refresh-token-2|client-id-2|1746606600|US`;
+another.user|Pass@123|user@gmail.com|mailpass456|refresh-token-2|client-id-2|1746606600|US
+token.user|Pass@123|user@gmail.com|msToken=abc; x-web-secsdk-uid=uuid; store-country-sign=xyz;`;
 
 export default function ImportModal({ onClose, onSuccess }) {
   const [text,    setText]    = useState('');
@@ -86,6 +87,9 @@ export default function ImportModal({ onClose, onSuccess }) {
                 <span style={{ color: '#94a3b8' }}>
                   |PASS|MAIL|PASS MAIL|refresh_token|client_id|time reg|local
                 </span>
+              </div>
+              <div style={{ color: '#94a3b8' }}>
+                Hoặc: USER|PASS|MAIL|TOKEN
               </div>
               <div style={{ color: '#94a3b8' }}>
                 time reg hỗ trợ DD/MM/YYYY HH:MM:SS, ISO hoặc Unix timestamp

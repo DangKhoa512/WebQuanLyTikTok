@@ -75,6 +75,12 @@ const looksLikeCookie = (value) => {
   if (!normalized) return false;
   return /(^|;\s*)(sessionid|sid_guard|uid_tt|ttwid|passport_csrf_token|tt_csrf_token|odin_tt)=/i.test(normalized);
 };
+const looksLikeTokenData = (value) => {
+  const normalized = nullify(value);
+  if (!normalized) return false;
+  return looksLikeCookie(normalized)
+    || /(^|;\s*)(mstoken|x-web-secsdk-uid|store-country-sign|store-country-code|tt-target-idc|msToken)=/i.test(normalized);
+};
 
 /**
  * Parse một dòng text → { username, password, email, email_pass, reg_at } | null
@@ -100,6 +106,8 @@ const parseLine = (line) => {
   const parts    = dataPart.split('|');
   const username = nullify(parts[0]);
   if (!username) return null;
+  const fourthValue = nullify(parts[3]);
+  const fourthIsToken = looksLikeTokenData(fourthValue);
   const maybeRegAt = parseRegAt(parts[6]);
   const cookie = looksLikeCookie(parts[6]) ? nullify(parts[6]) : null;
 
@@ -107,10 +115,11 @@ const parseLine = (line) => {
     username,
     password:   nullify(parts[1]),
     email:      nullify(parts[2]),
-    email_pass: nullify(parts[3]),
+    email_pass: fourthIsToken ? null : fourthValue,
     refresh_token: nullify(parts[4]),
     client_id:     nullify(parts[5]),
     cookie,
+    token:         fourthIsToken ? fourthValue : null,
     reg_at:        cookie ? (parseRegAt(parts[7]) || reg_at || new Date()) : (maybeRegAt || reg_at || new Date()),
     local:         cookie ? nullify(parts[8]) : nullify(parts[7]),
     raw_data:      dataPart,
@@ -197,6 +206,7 @@ const importAccounts = async (req, res, next) => {
           'refresh_token',
           'client_id',
           'cookie',
+          'token',
           'reg_at',
           'local',
           'status',
