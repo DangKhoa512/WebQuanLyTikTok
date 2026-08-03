@@ -33,6 +33,8 @@ const MANUAL_STATUSES  = ['ACC_LOGIN'];
 const ALL_STATUSES     = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
 const KHANG_MIN_VIDEOS = 10;
+const KHANG_DAILY_LIMIT = parseInt(process.env.CHROME_KHANG_DAILY_LIMIT, 10) || 8;
+const KHANG_RESULT_STATUSES = ['ACC_DA_KHANG', 'ACC_CHUA_KHANG'];
 
 const nullify = (v) =>
   (!v || v.trim() === '' || v.trim().toLowerCase() === 'null') ? null : v.trim();
@@ -78,6 +80,42 @@ const availableLockWhere = () => ({
     { locked_at: { [Op.lt]: new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000) } },
   ],
 });
+const isKhangResultStatus = (status) => KHANG_RESULT_STATUSES.includes(status);
+const vietnamTodayRange = () => {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date()).map((part) => [part.type, part.value])
+  );
+  const start = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), -7));
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
+};
+const countDeviceKhangToday = async (owner_username, device_id, transaction = null) => {
+  const { start, end } = vietnamTodayRange();
+  const lockCutoff = new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000);
+  const reported = await ChromeAccount.count({
+    where: {
+      owner_username,
+      device_id,
+      status: { [Op.in]: KHANG_RESULT_STATUSES },
+      khang_reported_at: { [Op.gte]: start, [Op.lt]: end },
+    },
+    transaction,
+  });
+  const holding = await ChromeAccount.count({
+    where: {
+      owner_username,
+      locked_by: device_id,
+      status: 'LOGIN_THANH_CONG',
+      locked_at: { [Op.gte]: lockCutoff },
+    },
+    transaction,
+  });
+  return reported + holding;
+};
 
 const isEligibleAge = (regAt, minAgeDays) => {
   if (!regAt) return false;
@@ -189,13 +227,13 @@ const phoneSubmit = async (req, res, next) => {
         cookie: nullify(cookie), proxy: nullify(proxy),
         device_id: nullify(device_id), status, note: nullify(note),
         fail_reason: nullify(fail_reason), reg_at: new Date(), owner_username,
-        khang_reported_at: status === 'ACC_DA_KHANG' ? new Date() : null,
+        khang_reported_at: isKhangResultStatus(status) ? new Date() : null,
       },
     });
 
     if (!created) {
       const upd = { status, locked_by: null, locked_at: null }; // clear lock khi phone gửi kết quả
-      if (status === 'ACC_DA_KHANG') upd.khang_reported_at = new Date();
+      if (isKhangResultStatus(status)) upd.khang_reported_at = new Date();
       if (device_id)   upd.device_id   = device_id;
       if (note)        upd.note        = note;
       if (fail_reason) upd.fail_reason = fail_reason;
@@ -277,6 +315,15 @@ const getAccount = async (req, res, next) => {
     const transaction = await sequelize.transaction();
 
     try {
+      const usedToday = await countDeviceKhangToday(owner_username, device_id, transaction);
+      if (usedToday >= KHANG_DAILY_LIMIT) {
+        await transaction.rollback();
+        return success(res, {
+          limit: KHANG_DAILY_LIMIT,
+          used_today: usedToday,
+        }, 'Full limit');
+      }
+
       const account = await ChromeAccount.findOne({
         where:  { status: 'LOGIN_THANH_CONG', owner_username, ...availableLockWhere() },
         lock:   transaction.LOCK.UPDATE,
