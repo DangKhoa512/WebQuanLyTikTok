@@ -95,8 +95,7 @@ const vietnamTodayRange = () => {
 };
 const countDeviceKhangToday = async (owner_username, device_id, transaction = null) => {
   const { start, end } = vietnamTodayRange();
-  const lockCutoff = new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000);
-  const reported = await ChromeAccount.count({
+  return ChromeAccount.count({
     where: {
       owner_username,
       device_id,
@@ -105,16 +104,6 @@ const countDeviceKhangToday = async (owner_username, device_id, transaction = nu
     },
     transaction,
   });
-  const holding = await ChromeAccount.count({
-    where: {
-      owner_username,
-      locked_by: device_id,
-      status: 'LOGIN_THANH_CONG',
-      locked_at: { [Op.gte]: lockCutoff },
-    },
-    transaction,
-  });
-  return reported + holding;
 };
 
 const isEligibleAge = (regAt, minAgeDays) => {
