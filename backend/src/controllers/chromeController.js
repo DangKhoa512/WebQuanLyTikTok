@@ -18,6 +18,7 @@
 
 const { Op, fn, col } = require('sequelize');
 const ChromeAccount = require('../models/ChromeAccount');
+const ChromeKhangDailyLog = require('../models/ChromeKhangDailyLog');
 const AccountGroup = require('../models/AccountGroup');
 const logger    = require('../config/logger');
 const { success, error } = require('../utils/response');
@@ -81,29 +82,49 @@ const availableLockWhere = () => ({
   ],
 });
 const isKhangResultStatus = (status) => KHANG_RESULT_STATUSES.includes(status);
-const vietnamTodayRange = () => {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(new Date()).map((part) => [part.type, part.value])
-  );
-  const start = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), -7));
-  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
-};
+const vietnamDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const vietnamTodayDate = () => vietnamDateFormatter.format(new Date());
 const countDeviceKhangToday = async (owner_username, device_id, transaction = null) => {
-  const { start, end } = vietnamTodayRange();
-  return ChromeAccount.count({
+  return ChromeKhangDailyLog.count({
     where: {
       owner_username,
       device_id,
-      status: { [Op.in]: KHANG_RESULT_STATUSES },
-      khang_reported_at: { [Op.gte]: start, [Op.lt]: end },
+      report_date: vietnamTodayDate(),
     },
     transaction,
   });
+};
+const recordDeviceKhangDailyLog = async ({ owner_username, device_id, username, status, transaction = null }) => {
+  if (!owner_username || !device_id || !username || !isKhangResultStatus(status)) return;
+
+  const reportDate = vietnamTodayDate();
+  const now = new Date();
+  const [log, created] = await ChromeKhangDailyLog.findOrCreate({
+    where: {
+      owner_username,
+      device_id,
+      username,
+      report_date: reportDate,
+    },
+    defaults: {
+      owner_username,
+      device_id,
+      username,
+      status,
+      report_date: reportDate,
+      reported_at: now,
+    },
+    transaction,
+  });
+
+  if (!created) {
+    await log.update({ status, reported_at: now }, { transaction });
+  }
 };
 
 const isEligibleAge = (regAt, minAgeDays) => {
@@ -230,6 +251,13 @@ const phoneSubmit = async (req, res, next) => {
       if (cookie)      upd.cookie      = cookie;
       await account.update(upd);
     }
+
+    await recordDeviceKhangDailyLog({
+      owner_username,
+      device_id: nullify(device_id),
+      username: account.username,
+      status,
+    });
 
     logger.info('chrome phone-submit', { username, status, device_id, created });
     return success(res, { account }, created ? 'Tạo mới thành công' : 'Cập nhật thành công', created ? 201 : 200);
