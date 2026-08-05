@@ -70,6 +70,7 @@ export const accountApi = {
 // ── Chrome Account endpoints (Loại 2) ────────────────────────────────────────
 export const chromeAccountApi = {
   getAll:  (params)       => api.get('/chrome-accounts', { params }),
+  getKhangDailyLogs: (params = {}) => api.get('/chrome-accounts/khang-daily-logs', { params }),
   getById: (id)           => api.get(`/chrome-accounts/${id}`),
   update:  (id, data)     => api.patch(`/chrome-accounts/${id}`, data),
   import:  (text, status = 'ACC_LOGIN', group_id = null) =>
@@ -100,6 +101,8 @@ export const settingsApi = {
   getEligibility: () => api.get('/settings/eligibility'),
   updateEligibility: (min_age_days, min_videos) =>
     api.put('/settings/eligibility', { min_age_days, min_videos }),
+  getChromeKhangLimit: () => api.get('/settings/chrome-khang-limit'),
+  updateChromeKhangLimit: (limit) => api.put('/settings/chrome-khang-limit', { limit }),
 };
 
 export const userApi = {

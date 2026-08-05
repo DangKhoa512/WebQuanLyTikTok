@@ -16,7 +16,7 @@
  *   POST   /chrome-accounts/bulk-delete
  */
 
-const { Op, fn, col } = require('sequelize');
+const { Op, fn, col, literal } = require('sequelize');
 const ChromeAccount = require('../models/ChromeAccount');
 const ChromeKhangDailyLog = require('../models/ChromeKhangDailyLog');
 const AccountGroup = require('../models/AccountGroup');
@@ -26,7 +26,7 @@ const { checkOne, batchCheckLive, parseProxy } = require('../utils/checkLiveUtil
 const { withFullData } = require('../utils/response');
 const { ownerFromRequest, ownerFromAdmin, scopedWhere } = require('../utils/owner');
 const { recordUsageHistory } = require('../services/usageHistoryService');
-const { getEligibilitySettings } = require('../services/settingsService');
+const { getEligibilitySettings, getChromeKhangLimitSettings } = require('../services/settingsService');
 
 // Phone có thể set: LOGIN_THANH_CONG (login OK), ACC_LOGIN (login fail → về Chờ Login), DA_KHANG, CHUA_KHANG
 const PHONE_STATUSES   = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','UPVIDEO_DONE'];
@@ -34,7 +34,6 @@ const MANUAL_STATUSES  = ['ACC_LOGIN'];
 const ALL_STATUSES     = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
 const KHANG_MIN_VIDEOS = 10;
-const KHANG_DAILY_LIMIT = parseInt(process.env.CHROME_KHANG_DAILY_LIMIT, 10) || 8;
 const KHANG_RESULT_STATUSES = ['ACC_DA_KHANG', 'ACC_CHUA_KHANG'];
 
 const nullify = (v) =>
@@ -333,10 +332,11 @@ const getAccount = async (req, res, next) => {
 
     try {
       const usedToday = await countDeviceKhangToday(owner_username, device_id, transaction);
-      if (usedToday >= KHANG_DAILY_LIMIT) {
+      const khangLimit = await getChromeKhangLimitSettings(owner_username);
+      if (usedToday >= khangLimit.limit) {
         await transaction.rollback();
         return success(res, {
-          limit: KHANG_DAILY_LIMIT,
+          limit: khangLimit.limit,
           used_today: usedToday,
         }, 'Full limit');
       }
@@ -419,6 +419,47 @@ const getAll = async (req, res, next) => {
 };
 
 // ── Dashboard: Detail ────────────────────────────────────────────────────────
+const getKhangDailyLogs = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const { date = vietnamTodayDate(), device_id } = req.query;
+    const khangLimit = await getChromeKhangLimitSettings(owner_username);
+    const where = { owner_username, report_date: date };
+    if (device_id) where.device_id = { [Op.like]: `%${device_id}%` };
+
+    const rows = await ChromeKhangDailyLog.findAll({
+      where,
+      attributes: [
+        'device_id',
+        [fn('COUNT', col('id')), 'total'],
+        [fn('SUM', literal("CASE WHEN status = 'ACC_DA_KHANG' THEN 1 ELSE 0 END")), 'da_khang'],
+        [fn('SUM', literal("CASE WHEN status = 'ACC_CHUA_KHANG' THEN 1 ELSE 0 END")), 'chua_khang'],
+        [fn('MAX', col('reported_at')), 'latest_reported_at'],
+      ],
+      group: ['device_id'],
+      raw: true,
+    });
+
+    rows.sort((a, b) => String(a.device_id || '').localeCompare(String(b.device_id || ''), 'vi', { numeric: true, sensitivity: 'base' }));
+
+    const devices = rows.map((row) => ({
+      device_id: row.device_id,
+      total: Number(row.total) || 0,
+      da_khang: Number(row.da_khang) || 0,
+      chua_khang: Number(row.chua_khang) || 0,
+      latest_reported_at: row.latest_reported_at,
+    }));
+
+    return success(res, {
+      date,
+      limit: khangLimit.limit,
+      total_devices: devices.length,
+      total_accounts: devices.reduce((sum, row) => sum + row.total, 0),
+      devices,
+    }, 'OK');
+  } catch (err) { next(err); }
+};
+
 const getById = async (req, res, next) => {
   try {
     const account = await ChromeAccount.findOne({ where: scopedWhere(req, { id: req.params.id }) });
@@ -802,7 +843,7 @@ const bulkDelete = async (req, res, next) => {
 module.exports = {
   phoneSubmit, getChoLogin, loginSuccess, getAccount,
   getCanUpvideo, reportUpload, getCanKhang,
-  getAll, getById, updateAccount,
+  getAll, getKhangDailyLogs, getById, updateAccount,
   importChromeAccounts,
   checkLive, promoteEligible,
   bulkAction, bulkGet, bulkDelete,

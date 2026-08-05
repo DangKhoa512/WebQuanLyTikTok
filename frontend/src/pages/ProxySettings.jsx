@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { loadCheckLiveSettings, saveCheckLiveSettings } from '../services/checkLiveSettings';
 import { settingsApi } from '../services/api';
 import { toast } from '../components/Toast';
+import { authService } from '../services/authService';
 
 export default function ProxySettings() {
   const init = loadCheckLiveSettings();
@@ -11,7 +12,10 @@ export default function ProxySettings() {
   const [batchSize,   setBatchSize]   = useState(init.batchSize);
   const [minVideos,   setMinVideos]   = useState(20);
   const [minAgeDays,  setMinAgeDays]  = useState(4);
+  const [khangDailyLimit, setKhangDailyLimit] = useState(8);
+  const [canEditKhangLimit, setCanEditKhangLimit] = useState(false);
   const [saving,      setSaving]      = useState(false);
+  const isAdminUser = authService.getUsername().toLowerCase() === 'admin';
 
   const proxyList = proxies.split('\n').map((l) => l.trim()).filter(Boolean);
 
@@ -25,6 +29,14 @@ export default function ProxySettings() {
         setMinAgeDays(settings.min_age_days || 4);
       })
       .catch((err) => toast.error(err.message || 'Không tải được cài đặt đủ điều kiện'));
+    settingsApi.getChromeKhangLimit()
+      .then((res) => {
+        if (!mounted) return;
+        const settings = res.data?.settings || {};
+        setKhangDailyLimit(settings.limit || 8);
+        setCanEditKhangLimit(!!settings.editable);
+      })
+      .catch((err) => toast.error(err.message || 'Không tải được limit Chrome kháng'));
     return () => { mounted = false; };
   }, []);
 
@@ -40,6 +52,7 @@ export default function ProxySettings() {
         });
         return settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10));
       })
+      .then(() => canEditKhangLimit ? settingsApi.updateChromeKhangLimit(parseInt(khangDailyLimit, 10)) : null)
       .then(() => toast.success('Đã lưu cài đặt'))
       .catch((err) => toast.error(err.message || 'Lưu cài đặt thất bại'))
       .finally(() => setSaving(false));
@@ -52,8 +65,10 @@ export default function ProxySettings() {
     setBatchSize(60);
     setMinVideos(20);
     setMinAgeDays(4);
+    setKhangDailyLimit(8);
     saveCheckLiveSettings({ proxies: '', concurrency: 12, delayMs: 200, batchSize: 60 });
     settingsApi.updateEligibility(4, 20)
+      .then(() => canEditKhangLimit ? settingsApi.updateChromeKhangLimit(8) : null)
       .then(() => toast.success('Đã reset cài đặt'))
       .catch((err) => toast.error(err.message || 'Reset cài đặt thất bại'));
   };
@@ -115,6 +130,36 @@ export default function ProxySettings() {
             Áp dụng cho App Acc và Chrome Acc khi chuyển sang Đủ điều kiện.
           </div>
         </div>
+
+        {isAdminUser && (
+          <div className="card">
+            <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
+              ⚡ Limit Chrome kháng
+            </h3>
+            <div style={{ maxWidth: 240 }}>
+              <label style={{ color: '#94a3b8', fontSize: '.85rem', display: 'block', marginBottom: '.4rem' }}>
+                Số acc / máy / ngày
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={khangDailyLimit}
+                disabled={!canEditKhangLimit}
+                onChange={(e) => setKhangDailyLimit(e.target.value)}
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: '#1e293b', color: '#e2e8f0',
+                  border: '1px solid #334155', borderRadius: '8px',
+                  padding: '.6rem .75rem', fontWeight: 700,
+                  opacity: canEditKhangLimit ? 1 : 0.6,
+                }}
+              />
+            </div>
+            <div style={{ marginTop: '.65rem', color: '#64748b', fontSize: '.76rem' }}>
+              Chỉ áp dụng cho key admin. Các key khác luôn giữ mặc định 8 acc/máy/ngày.
+            </div>
+          </div>
+        )}
 
         {/* Proxy pool */}
         <div className="card">

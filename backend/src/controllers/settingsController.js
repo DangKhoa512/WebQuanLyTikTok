@@ -3,6 +3,8 @@ const { ownerFromAdmin } = require('../utils/owner');
 const {
   getEligibilitySettings,
   saveEligibilitySettings,
+  getChromeKhangLimitSettings,
+  saveChromeKhangLimitSettings,
 } = require('../services/settingsService');
 
 const getEligibility = async (req, res, next) => {
@@ -32,4 +34,33 @@ const updateEligibility = async (req, res, next) => {
   }
 };
 
-module.exports = { getEligibility, updateEligibility };
+const getChromeKhangLimit = async (req, res, next) => {
+  try {
+    const settings = await getChromeKhangLimitSettings(ownerFromAdmin(req));
+    return success(res, { settings }, 'Lấy cài đặt limit Chrome kháng thành công');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateChromeKhangLimit = async (req, res, next) => {
+  try {
+    const owner = ownerFromAdmin(req);
+    const current = await getChromeKhangLimitSettings(owner);
+    if (!current.editable) {
+      return error(res, 'Chỉ admin được sửa limit Chrome kháng', 403);
+    }
+
+    const limit = parseInt(req.body.limit, 10);
+    if (!Number.isInteger(limit) || limit <= 0) {
+      return error(res, 'Limit phải lớn hơn 0', 400);
+    }
+
+    const settings = await saveChromeKhangLimitSettings(owner, { limit });
+    return success(res, { settings }, 'Đã lưu limit Chrome kháng');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit };

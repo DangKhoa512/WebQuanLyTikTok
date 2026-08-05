@@ -20,6 +20,7 @@ router.post('/bulk-action',      jwtAuth, ctrl.bulkAction);
 router.post('/bulk-get',         jwtAuth, ctrl.bulkGet);
 router.post('/bulk-delete',      jwtAuth, ctrl.bulkDelete);
 
+router.get('/khang-daily-logs', jwtAuth, ctrl.getKhangDailyLogs);
 router.get('/',    jwtAuth, ctrl.getAll);
 router.get('/:id', jwtAuth, ctrl.getById);
 router.patch('/:id', jwtAuth, ctrl.updateAccount);
