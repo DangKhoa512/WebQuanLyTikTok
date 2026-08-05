@@ -13,6 +13,7 @@ import ChromeAccountList from './pages/ChromeAccountList';
 import Users             from './pages/Users';
 import UsedAccounts      from './pages/UsedAccounts';
 import JobAccounts       from './pages/JobAccounts';
+import ChromeKhangStats  from './pages/ChromeKhangStats';
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="export"         element={<Export />} />
             <Route path="proxy-settings"   element={<ProxySettings />} />
             <Route path="chrome-accounts"  element={<ChromeAccountList />} />
+            <Route path="chrome-khang-stats" element={<ChromeKhangStats />} />
             <Route path="jobs"             element={<JobAccounts />} />
             <Route path="used-accounts"    element={<UsedAccounts />} />
             <Route path="users"            element={<Users />} />

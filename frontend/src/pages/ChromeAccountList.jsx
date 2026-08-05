@@ -37,7 +37,6 @@ const STATUS_COLOR = {
 };
 
 const LIVE_COLOR = { live: '#4ade80', die: '#f87171', unknown: '#94a3b8' };
-const KHANG_RESULT_STATUSES = ['ACC_DA_KHANG', 'ACC_CHUA_KHANG'];
 
 // ── Chrome Bulk Bar ──────────────────────────────────────────────────────────
 function ChromeBulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }) {
@@ -406,69 +405,6 @@ function KhangQuickBar({ status, onFilter, onClearFilter, videoMax }) {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-function KhangDailyLogPanel({ data, loading }) {
-  const rows = data?.devices || [];
-  const limit = Number(data?.limit) || 8;
-
-  return (
-    <div className="card" style={{ marginBottom: '1rem', overflow: 'hidden' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: '1rem', padding: '.8rem 1rem', borderBottom: '1px solid #e2e8f0',
-        flexWrap: 'wrap',
-      }}>
-        <div>
-          <h3 style={{ margin: 0, fontSize: '1rem' }}>📊 Máy đã báo cáo kháng hôm nay</h3>
-          <div style={{ color: '#64748b', fontSize: '.8rem', marginTop: '.25rem' }}>
-            {loading
-              ? 'Đang tải dữ liệu...'
-              : `${data?.total_devices || 0} máy · ${data?.total_accounts || 0} acc đã báo cáo`}
-          </div>
-        </div>
-        <div style={{ color: '#64748b', fontSize: '.8rem' }}>Giới hạn: {limit} acc/máy/ngày</div>
-      </div>
-
-      <div style={{ overflowX: 'auto' }}>
-        <table className="table" style={{ margin: 0 }}>
-          <thead>
-            <tr>
-              <th>Tên máy</th>
-              <th>Đã báo cáo</th>
-              <th>Đã kháng</th>
-              <th>Chưa kháng</th>
-              <th>Còn lại</th>
-              <th>Báo cáo cuối</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', color: '#94a3b8', padding: '1.25rem' }}>
-                  {loading ? 'Đang tải...' : 'Chưa có máy nào báo cáo kháng hôm nay'}
-                </td>
-              </tr>
-            )}
-            {rows.map((row) => {
-              const used = Number(row.total) || 0;
-              const remain = Math.max(0, limit - used);
-              return (
-                <tr key={row.device_id}>
-                  <td style={{ fontWeight: 700 }}>{row.device_id || 'unknown'}</td>
-                  <td style={{ color: used >= limit ? '#ef4444' : '#7c3aed', fontWeight: 800 }}>{used}/{limit}</td>
-                  <td style={{ color: '#10b981', fontWeight: 700 }}>{fmtNum(row.da_khang)}</td>
-                  <td style={{ color: '#f97316', fontWeight: 700 }}>{fmtNum(row.chua_khang)}</td>
-                  <td style={{ color: remain === 0 ? '#ef4444' : '#0ea5e9', fontWeight: 700 }}>{remain}</td>
-                  <td style={{ color: '#475569', whiteSpace: 'nowrap' }}>{fmt(row.latest_reported_at)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 export default function ChromeAccountList() {
   const eligibility = useEligibilitySettings();
   const [sp, setSp] = useSearchParams();
@@ -484,8 +420,6 @@ export default function ChromeAccountList() {
   const [clResults,  setClResults]  = useState(null);
   const [clProgress, setClProgress] = useState(null);
   const [groups,     setGroups]     = useState([]);
-  const [khangLogs,  setKhangLogs]  = useState(null);
-  const [khangLogsLoading, setKhangLogsLoading] = useState(false);
 
   const [filters, setFilters] = useState({
     status:      sp.get('status')      || '',
@@ -525,31 +459,9 @@ export default function ChromeAccountList() {
     }
   }, []);
 
-  const fetchKhangLogs = useCallback(async (deviceId = '') => {
-    setKhangLogsLoading(true);
-    try {
-      const params = deviceId ? { device_id: deviceId } : {};
-      const res = await chromeAccountApi.getKhangDailyLogs(params);
-      setKhangLogs(res.data || null);
-    } catch (err) {
-      toast.error(err.message || 'Không tải được thống kê kháng hôm nay');
-      setKhangLogs(null);
-    } finally {
-      setKhangLogsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     fetchGroups();
   }, [fetchGroups]);
-
-  useEffect(() => {
-    if (KHANG_RESULT_STATUSES.includes(filters.status)) {
-      fetchKhangLogs(filters.device_id);
-    } else {
-      setKhangLogs(null);
-    }
-  }, [filters.status, filters.device_id, fetchKhangLogs]);
 
   useEffect(() => {
     fetchAccounts(filters);
@@ -652,10 +564,7 @@ export default function ChromeAccountList() {
 
   const refreshCurrentView = useCallback(() => {
     fetchAccounts(filters);
-    if (KHANG_RESULT_STATUSES.includes(filters.status)) {
-      fetchKhangLogs(filters.device_id);
-    }
-  }, [fetchAccounts, fetchKhangLogs, filters]);
+  }, [fetchAccounts, filters]);
 
   const currentStatus = filters.status;
   const currentTab    = STATUS_TABS.find((t) => t.value === currentStatus) || STATUS_TABS[0];
@@ -794,9 +703,6 @@ export default function ChromeAccountList() {
           onClearFilter={() => setFilters((p) => ({ ...p, video_max: '', video_min: '', page: 1 }))}
           videoMax={filters.video_max}
         />
-      )}
-      {KHANG_RESULT_STATUSES.includes(currentStatus) && (
-        <KhangDailyLogPanel data={khangLogs} loading={khangLogsLoading} />
       )}
 
       {/* Bulk bar */}

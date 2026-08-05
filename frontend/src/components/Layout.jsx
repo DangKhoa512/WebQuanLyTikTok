@@ -9,6 +9,7 @@ const NAV = [
   { to: '/chrome-accounts', icon: '🖥️', label: 'Chrome Acc' },
   { to: '/jobs',            icon: '⚡', label: 'JOB' },
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
+  { to: '/chrome-khang-stats', icon: '📊', label: 'Trạng Thái Máy' },
   { to: '/export',          icon: '📥', label: 'Xuất file'  },
   { to: '/proxy-settings',  icon: '⚙️', label: 'Cài đặt'    },
   { to: '/users',           icon: '👤', label: 'Cấp user', adminOnly: true },
