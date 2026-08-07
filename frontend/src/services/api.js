@@ -102,7 +102,9 @@ export const settingsApi = {
   updateEligibility: (min_age_days, min_videos) =>
     api.put('/settings/eligibility', { min_age_days, min_videos }),
   getChromeKhangLimit: () => api.get('/settings/chrome-khang-limit'),
-  updateChromeKhangLimit: (limit) => api.put('/settings/chrome-khang-limit', { limit }),
+  getChromeKhangLimits: () => api.get('/settings/chrome-khang-limits'),
+  updateChromeKhangLimit: (limit, owner_username = null) =>
+    api.put('/settings/chrome-khang-limit', { limit, owner_username }),
 };
 
 export const userApi = {

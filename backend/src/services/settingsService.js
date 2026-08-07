@@ -52,27 +52,18 @@ const saveEligibilitySettings = async (owner_username = 'admin', data = {}) => {
   return saveSetting(owner_username, ELIGIBILITY_KEY, normalized);
 };
 
-const isDefaultAdminOwner = (owner_username = 'admin') =>
-  normalizeOwner(owner_username) === defaultOwner();
-
 const getChromeKhangLimitSettings = async (owner_username = 'admin') => {
-  if (!isDefaultAdminOwner(owner_username)) {
-    return { limit: DEFAULT_CHROME_KHANG_DAILY_LIMIT, editable: false };
-  }
-
-  const stored = await getSetting(defaultOwner(), CHROME_KHANG_LIMIT_KEY);
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, CHROME_KHANG_LIMIT_KEY);
   const normalized = normalizeChromeKhangLimit(stored || { limit: DEFAULT_CHROME_KHANG_DAILY_LIMIT });
-  return { ...normalized, editable: true };
+  return normalized;
 };
 
 const saveChromeKhangLimitSettings = async (owner_username = 'admin', data = {}) => {
-  if (!isDefaultAdminOwner(owner_username)) {
-    return { limit: DEFAULT_CHROME_KHANG_DAILY_LIMIT, editable: false };
-  }
-
+  const owner = normalizeOwner(owner_username) || defaultOwner();
   const normalized = normalizeChromeKhangLimit(data);
-  await saveSetting(defaultOwner(), CHROME_KHANG_LIMIT_KEY, normalized);
-  return { ...normalized, editable: true };
+  await saveSetting(owner, CHROME_KHANG_LIMIT_KEY, normalized);
+  return normalized;
 };
 
 module.exports = {

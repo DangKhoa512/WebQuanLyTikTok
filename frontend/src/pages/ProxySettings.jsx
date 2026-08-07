@@ -13,9 +13,10 @@ export default function ProxySettings() {
   const [minVideos,   setMinVideos]   = useState(20);
   const [minAgeDays,  setMinAgeDays]  = useState(4);
   const [khangDailyLimit, setKhangDailyLimit] = useState(8);
-  const [canEditKhangLimit, setCanEditKhangLimit] = useState(false);
+  const [userKhangLimits, setUserKhangLimits] = useState([]);
+  const [savingLimitUser, setSavingLimitUser] = useState('');
   const [saving,      setSaving]      = useState(false);
-  const isAdminUser = authService.getUsername().toLowerCase() === 'admin';
+  const isAdminUser = authService.getRole() === 'admin';
 
   const proxyList = proxies.split('\n').map((l) => l.trim()).filter(Boolean);
 
@@ -34,11 +35,18 @@ export default function ProxySettings() {
         if (!mounted) return;
         const settings = res.data?.settings || {};
         setKhangDailyLimit(settings.limit || 8);
-        setCanEditKhangLimit(!!settings.editable);
       })
       .catch((err) => toast.error(err.message || 'Không tải được limit Chrome kháng'));
+    if (isAdminUser) {
+      settingsApi.getChromeKhangLimits()
+        .then((res) => {
+          if (!mounted) return;
+          setUserKhangLimits(res.data?.users || []);
+        })
+        .catch((err) => toast.error(err.message || 'Không tải được limit user'));
+    }
     return () => { mounted = false; };
-  }, []);
+  }, [isAdminUser]);
 
   const handleSave = () => {
     setSaving(true);
@@ -52,7 +60,6 @@ export default function ProxySettings() {
         });
         return settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10));
       })
-      .then(() => canEditKhangLimit ? settingsApi.updateChromeKhangLimit(parseInt(khangDailyLimit, 10)) : null)
       .then(() => toast.success('Đã lưu cài đặt'))
       .catch((err) => toast.error(err.message || 'Lưu cài đặt thất bại'))
       .finally(() => setSaving(false));
@@ -68,9 +75,36 @@ export default function ProxySettings() {
     setKhangDailyLimit(8);
     saveCheckLiveSettings({ proxies: '', concurrency: 12, delayMs: 200, batchSize: 60 });
     settingsApi.updateEligibility(4, 20)
-      .then(() => canEditKhangLimit ? settingsApi.updateChromeKhangLimit(8) : null)
       .then(() => toast.success('Đã reset cài đặt'))
       .catch((err) => toast.error(err.message || 'Reset cài đặt thất bại'));
+  };
+
+  const handleSaveUserLimit = async (username) => {
+    const row = userKhangLimits.find((item) => item.username === username);
+    if (!row) return;
+
+    const limit = parseInt(row.limit, 10);
+    if (!Number.isInteger(limit) || limit <= 0) {
+      toast.error('Limit phải lớn hơn 0');
+      return;
+    }
+
+    setSavingLimitUser(username);
+    try {
+      const res = await settingsApi.updateChromeKhangLimit(limit, username);
+      const saved = res.data?.settings || {};
+      setUserKhangLimits((prev) => prev.map((item) =>
+        item.username === username ? { ...item, limit: saved.limit || limit } : item
+      ));
+      if (username === authService.getUsername().toLowerCase()) {
+        setKhangDailyLimit(saved.limit || limit);
+      }
+      toast.success(`Đã lưu limit cho ${username}`);
+    } catch (err) {
+      toast.error(err.message || 'Lưu limit thất bại');
+    } finally {
+      setSavingLimitUser('');
+    }
   };
 
   return (
@@ -131,32 +165,83 @@ export default function ProxySettings() {
           </div>
         </div>
 
-        {isAdminUser && (
+        {isAdminUser ? (
+          <div className="card">
+            <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
+              ⚡ Limit Chrome kháng theo user
+            </h3>
+            <div style={{ color: '#64748b', fontSize: '.78rem', marginBottom: '.85rem' }}>
+              Admin có thể chỉnh giới hạn số acc mỗi máy được làm trong ngày cho từng user.
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table" style={{ margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Trạng thái</th>
+                    <th>Limit acc/máy/ngày</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userKhangLimits.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8', padding: '1rem' }}>
+                        Chưa tải được danh sách user
+                      </td>
+                    </tr>
+                  )}
+                  {userKhangLimits.map((user) => (
+                    <tr key={user.username}>
+                      <td style={{ fontWeight: 700 }}>{user.username}</td>
+                      <td>{user.role}</td>
+                      <td style={{ color: user.is_active ? '#10b981' : '#ef4444', fontWeight: 700 }}>
+                        {user.is_active ? 'Đang bật' : 'Đã tắt'}
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min={1}
+                          value={user.limit}
+                          onChange={(e) => setUserKhangLimits((prev) => prev.map((item) =>
+                            item.username === user.username ? { ...item, limit: e.target.value } : item
+                          ))}
+                          style={{
+                            width: 120, boxSizing: 'border-box',
+                            background: '#1e293b', color: '#e2e8f0',
+                            border: '1px solid #334155', borderRadius: '8px',
+                            padding: '.45rem .6rem', fontWeight: 700,
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => handleSaveUserLimit(user.username)}
+                          disabled={savingLimitUser === user.username}
+                          style={{
+                            background: savingLimitUser === user.username ? '#334155' : '#2563eb',
+                            border: 'none', color: '#fff', borderRadius: '7px',
+                            padding: '.45rem .85rem', cursor: savingLimitUser === user.username ? 'not-allowed' : 'pointer',
+                            fontWeight: 700, whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {savingLimitUser === user.username ? 'Đang lưu...' : 'Lưu'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
           <div className="card">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               ⚡ Limit Chrome kháng
             </h3>
-            <div style={{ maxWidth: 240 }}>
-              <label style={{ color: '#94a3b8', fontSize: '.85rem', display: 'block', marginBottom: '.4rem' }}>
-                Số acc / máy / ngày
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={khangDailyLimit}
-                disabled={!canEditKhangLimit}
-                onChange={(e) => setKhangDailyLimit(e.target.value)}
-                style={{
-                  width: '100%', boxSizing: 'border-box',
-                  background: '#1e293b', color: '#e2e8f0',
-                  border: '1px solid #334155', borderRadius: '8px',
-                  padding: '.6rem .75rem', fontWeight: 700,
-                  opacity: canEditKhangLimit ? 1 : 0.6,
-                }}
-              />
-            </div>
-            <div style={{ marginTop: '.65rem', color: '#64748b', fontSize: '.76rem' }}>
-              Chỉ áp dụng cho key admin. Các key khác luôn giữ mặc định 8 acc/máy/ngày.
+            <div style={{ color: '#94a3b8', fontSize: '.85rem' }}>
+              Limit hiện tại của bạn: <b style={{ color: '#e2e8f0' }}>{khangDailyLimit}</b> acc/máy/ngày
             </div>
           </div>
         )}
