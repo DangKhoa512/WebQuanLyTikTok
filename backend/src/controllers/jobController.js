@@ -19,7 +19,7 @@ const STATUSES = [
 const FINAL_STATUSES = ['DUOI_50_JOB', 'FAIL_AVT', 'LOI_CAU_HINH', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
 const JOB_TYPES = ['chrome', 'hotmail'];
 const JOB_WEBS = ['TDS', 'XSMM'];
-const LOCK_TIMEOUT_MIN = parseInt(process.env.JOB_LOCK_TIMEOUT_MIN, 10) || 40;
+const LOCK_TIMEOUT_MIN = parseInt(process.env.JOB_LOCK_TIMEOUT_MIN, 10) || 120;
 const XU_PER_JOB = parseInt(process.env.JOB_XU_PER_JOB, 10) || 1400;
 const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Ho_Chi_Minh',
