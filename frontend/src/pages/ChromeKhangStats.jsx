@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { chromeAccountApi } from '../services/api';
+import { accountApi, chromeAccountApi } from '../services/api';
 import { toast } from '../components/Toast';
 
 const fmt = (d) =>
@@ -11,12 +11,14 @@ export default function ChromeKhangStats() {
   const [data, setData] = useState(null);
   const [deviceId, setDeviceId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [accountType, setAccountType] = useState('app');
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
       const params = deviceId.trim() ? { device_id: deviceId.trim() } : {};
-      const res = await chromeAccountApi.getKhangDailyLogs(params);
+      const api = accountType === 'chrome' ? chromeAccountApi : accountApi;
+      const res = await api.getKhangDailyLogs(params);
       setData(res.data || null);
     } catch (err) {
       toast.error(err.message || 'Không tải được thống kê kháng hôm nay');
@@ -24,23 +26,53 @@ export default function ChromeKhangStats() {
     } finally {
       setLoading(false);
     }
-  }, [deviceId]);
+  }, [deviceId, accountType]);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
   const rows = data?.devices || [];
-  const limit = Number(data?.limit) || 8;
+  const limit = accountType === 'chrome' ? (Number(data?.limit) || 8) : null;
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <h1>📊 Thống kê kháng</h1>
+          <h1>{"\uD83D\uDCCA Tr\u1ea1ng Th\u00e1i M\u00e1y"}</h1>
           <p style={{ color: '#94a3b8', fontSize: '.9rem', margin: '.25rem 0 0' }}>
-            Theo dõi số acc Chrome đã báo cáo kháng theo từng máy trong ngày hôm nay.
+            {`Theo d\u00f5i s\u1ed1 acc ${accountType === 'chrome' ? 'Chrome' : 'App'} \u0111\u00e3 b\u00e1o c\u00e1o kh\u00e1ng theo t\u1eebng m\u00e1y trong ng\u00e0y h\u00f4m nay.`}
           </p>
+        </div>
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setAccountType('app')}
+            style={{
+              background: accountType === 'app' ? '#10b981' : '#fff',
+              border: accountType === 'app' ? 'none' : '1px solid #dbe3ef',
+              color: accountType === 'app' ? '#fff' : '#0f172a',
+              borderRadius: '8px',
+              padding: '.55rem 1rem',
+              cursor: 'pointer',
+              fontWeight: 700,
+            }}
+          >
+            Account App
+          </button>
+          <button
+            onClick={() => setAccountType('chrome')}
+            style={{
+              background: accountType === 'chrome' ? '#0ea5e9' : '#fff',
+              border: accountType === 'chrome' ? 'none' : '1px solid #dbe3ef',
+              color: accountType === 'chrome' ? '#fff' : '#0f172a',
+              borderRadius: '8px',
+              padding: '.55rem 1rem',
+              cursor: 'pointer',
+              fontWeight: 700,
+            }}
+          >
+            Chrome Acc
+          </button>
         </div>
         <button
           onClick={fetchLogs}
@@ -97,7 +129,7 @@ export default function ChromeKhangStats() {
                 : `${data?.total_devices || 0} máy · ${data?.total_accounts || 0} acc đã báo cáo`}
             </div>
           </div>
-          <div style={{ color: '#64748b', fontSize: '.8rem' }}>Giới hạn: {limit} acc/máy/ngày</div>
+          {limit && <div style={{ color: '#64748b', fontSize: '.8rem' }}>Gi\u1edbi h\u1ea1n: {limit} acc/m\u00e1y/ng\u00e0y</div>}
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -122,14 +154,14 @@ export default function ChromeKhangStats() {
               )}
               {rows.map((row) => {
                 const used = Number(row.total) || 0;
-                const remain = Math.max(0, limit - used);
+                const remain = limit ? Math.max(0, limit - used) : null;
                 return (
                   <tr key={row.device_id}>
                     <td style={{ fontWeight: 700 }}>{row.device_id || 'unknown'}</td>
-                    <td style={{ color: used >= limit ? '#ef4444' : '#7c3aed', fontWeight: 800 }}>{used}/{limit}</td>
+                    <td style={{ color: limit && used >= limit ? '#ef4444' : '#7c3aed', fontWeight: 800 }}>{limit ? `${used}/${limit}` : fmtNum(used)}</td>
                     <td style={{ color: '#10b981', fontWeight: 700 }}>{fmtNum(row.da_khang)}</td>
                     <td style={{ color: '#f97316', fontWeight: 700 }}>{fmtNum(row.chua_khang)}</td>
-                    <td style={{ color: remain === 0 ? '#ef4444' : '#0ea5e9', fontWeight: 700 }}>{remain}</td>
+                    <td style={{ color: remain === 0 ? '#ef4444' : '#0ea5e9', fontWeight: 700 }}>{remain == null ? '\u2014' : remain}</td>
                     <td style={{ color: '#475569', whiteSpace: 'nowrap' }}>{fmt(row.latest_reported_at)}</td>
                   </tr>
                 );

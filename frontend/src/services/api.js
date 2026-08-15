@@ -46,6 +46,7 @@ export const authApi = {
 // ── Account endpoints ─────────────────────────────────────────────────────────
 export const accountApi = {
   getAll:  (params)       => api.get('/accounts', { params }),
+  getKhangDailyLogs: (params = {}) => api.get('/accounts/khang-daily-logs', { params }),
   getById: (id)           => api.get(`/accounts/${id}`),
   update:  (id, data)     => api.patch(`/accounts/${id}`, data),
   // Import

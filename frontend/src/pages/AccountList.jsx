@@ -77,6 +77,16 @@ function BulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }) {
     finally { setBusy(false); }
   };
 
+  const handleClearLock = async () => {
+    if (!confirm(`M\u1edf kho\u00e1 ${ids.length} accounts \u0111ang ch\u1ecdn?`)) return;
+    setBusy(true);
+    try {
+      const res = await accountApi.bulkAction(ids, 'clear_lock');
+      toast.success(res.message); onClear(); onRefresh();
+    } catch (e) { toast.error(e.message); }
+    finally { setBusy(false); }
+  };
+
   const handleSetStatus = async () => {
     if (!statusPick) return;
     if (!confirm(`Đổi ${ids.length} accounts → ${statusPick}?`)) return;
@@ -137,6 +147,7 @@ function BulkBar({ selected, onClear, onRefresh, onCheckLive, clChecking }) {
       <BB icon="📋"   label="Copy"              onClick={handleCopy}        color="#3b82f6" />
       <BB icon="📋✅" label="Copy & Đánh dấu"  onClick={handleCopyAndMark} color="#8b5cf6" />
       <BB icon="🏷️"  label="Đánh dấu Đã dùng" onClick={handleMarkUsed}    color="#f59e0b" />
+      <BB icon={"\uD83D\uDD13"}   label={"M\u1edf lock"}          onClick={handleClearLock}   color="#f59e0b" />
       <BB icon="🗑️"  label="Xóa"               onClick={handleDelete}      color="#dc2626" />
       <div style={{ position: 'relative' }}>
         <BB icon="🔄" label="Đổi trạng thái" onClick={() => setShowStatusDlg((v) => !v)} color="#10b981" />
@@ -798,6 +809,7 @@ export default function AccountList() {
                   <SortTh field="video_count">Videos</SortTh>
                   <SortTh field="followers">Followers</SortTh>
                   <SortTh field="following">Following</SortTh>
+                  <th>Lock</th>
                   <th>Note</th>
                   <SortTh field="khang_reported_at">Kháng lúc</SortTh>
                   <SortTh field="reg_at">Reg At</SortTh>
@@ -844,6 +856,9 @@ export default function AccountList() {
                       </td>
                       <td style={{ color: '#2563eb', fontWeight: 700 }}>{fmtNum(acc.followers)}</td>
                       <td style={{ color: '#7c3aed', fontWeight: 700 }}>{fmtNum(acc.following)}</td>
+                      <td style={{ color: acc.locked_by ? '#92400e' : '#64748b', fontSize: '.72rem', whiteSpace: 'nowrap' }}>
+                        {acc.locked_by ? `\uD83D\uDD12 ${acc.locked_by} - ${fmt(acc.locked_at)}` : '\u2014'}
+                      </td>
                       <td style={{ color: '#64748b', fontSize: '.75rem' }}>
                         {acc.note ? acc.note.substring(0, 25) + (acc.note.length > 25 ? '…' : '') : '—'}
                       </td>

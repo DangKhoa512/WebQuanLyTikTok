@@ -8,5 +8,6 @@ const JobAccount    = require('./JobAccount');
 const JobDailyStat  = require('./JobDailyStat');
 const AppSetting    = require('./AppSetting');
 const ChromeKhangDailyLog = require('./ChromeKhangDailyLog');
+const AppKhangDailyLog = require('./AppKhangDailyLog');
 
-module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, AppSetting, ChromeKhangDailyLog };
+module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, AppSetting, ChromeKhangDailyLog, AppKhangDailyLog };

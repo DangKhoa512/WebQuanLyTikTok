@@ -1,5 +1,6 @@
-const { Op }    = require('sequelize');
+const { Op, fn, col, literal } = require('sequelize');
 const Account   = require('../models/Account');
+const AppKhangDailyLog = require('../models/AppKhangDailyLog');
 const accountService = require('../services/accountService');
 const { success, error, withFullData } = require('../utils/response');
 const logger = require('../config/logger');
@@ -10,6 +11,7 @@ const { getEligibilitySettings } = require('../services/settingsService');
 const PHONE_STATUSES = ['ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','UPVIDEO_DONE'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.ACCOUNT_LOCK_TIMEOUT_MIN, 10) || 40;
 const KHANG_MIN_VIDEOS = 10;
+const KHANG_RESULT_STATUSES = ['ACC_DA_KHANG', 'ACC_CHUA_KHANG'];
 const PHONE_ACCOUNT_FIELDS = [
   'id',
   'username',
@@ -26,6 +28,42 @@ const PHONE_ACCOUNT_FIELDS = [
   'status',
   'video_count',
 ];
+
+const isKhangResultStatus = (status) => KHANG_RESULT_STATUSES.includes(status);
+const vietnamDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const vietnamTodayDate = () => vietnamDateFormatter.format(new Date());
+const recordDeviceKhangDailyLog = async ({ owner_username, device_id, username, status, transaction = null }) => {
+  if (!owner_username || !device_id || !username || !isKhangResultStatus(status)) return;
+
+  const reportDate = vietnamTodayDate();
+  const now = new Date();
+  const [log, created] = await AppKhangDailyLog.findOrCreate({
+    where: {
+      owner_username,
+      device_id,
+      username,
+      report_date: reportDate,
+    },
+    defaults: {
+      owner_username,
+      device_id,
+      username,
+      status,
+      report_date: reportDate,
+      reported_at: now,
+    },
+    transaction,
+  });
+
+  if (!created) {
+    await log.update({ status, reported_at: now }, { transaction });
+  }
+};
 
 const isEligibleAge = (regAt, minAgeDays) => {
   if (!regAt) return false;
@@ -151,6 +189,12 @@ const phoneSubmit = async (req, res, next) => {
     if (fail_reason) upd.fail_reason = fail_reason;
     if (status === 'ACC_DA_KHANG') upd.khang_reported_at = new Date();
     await account.update(upd);
+    await recordDeviceKhangDailyLog({
+      owner_username,
+      device_id,
+      username: account.username,
+      status,
+    });
     logger.info('upload phone-submit', { username, status, device_id });
     return success(res, { account }, 'Cập nhật thành công');
   } catch (err) { next(err); }
@@ -272,6 +316,45 @@ const updateLive = async (req, res, next) => {
   }
 };
 
+const getKhangDailyLogs = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const { date = vietnamTodayDate(), device_id } = req.query;
+    const where = { owner_username, report_date: date };
+    if (device_id) where.device_id = { [Op.like]: `%${device_id}%` };
+
+    const rows = await AppKhangDailyLog.findAll({
+      where,
+      attributes: [
+        'device_id',
+        [fn('COUNT', col('id')), 'total'],
+        [fn('SUM', literal("CASE WHEN status = 'ACC_DA_KHANG' THEN 1 ELSE 0 END")), 'da_khang'],
+        [fn('SUM', literal("CASE WHEN status = 'ACC_CHUA_KHANG' THEN 1 ELSE 0 END")), 'chua_khang'],
+        [fn('MAX', col('reported_at')), 'latest_reported_at'],
+      ],
+      group: ['device_id'],
+      raw: true,
+    });
+
+    rows.sort((a, b) => String(a.device_id || '').localeCompare(String(b.device_id || ''), 'vi', { numeric: true, sensitivity: 'base' }));
+
+    const devices = rows.map((row) => ({
+      device_id: row.device_id,
+      total: Number(row.total) || 0,
+      da_khang: Number(row.da_khang) || 0,
+      chua_khang: Number(row.chua_khang) || 0,
+      latest_reported_at: row.latest_reported_at,
+    }));
+
+    return success(res, {
+      date,
+      total_devices: devices.length,
+      total_accounts: devices.reduce((sum, row) => sum + row.total, 0),
+      devices,
+    }, 'OK');
+  } catch (err) { next(err); }
+};
+
 const getAccounts = async (req, res, next) => {
   try {
     const result = await accountService.getAccounts(req.query, ownerFromAdmin(req));
@@ -304,5 +387,6 @@ module.exports = {
   getUpvideo, getAccount, phoneSubmit,
   getCanUpvideo, reportUpload, getCanKhang,
   uploadSuccess, uploadFail, updateLive,
+  getKhangDailyLogs,
   getAccounts, getAccountById, updateAccount,
 };

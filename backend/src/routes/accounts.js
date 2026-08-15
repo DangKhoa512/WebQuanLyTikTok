@@ -31,6 +31,7 @@ router.post('/copy-unused',      jwtAuth, bulkCtrl.copyUnused);
 router.post('/bulk-delete',      jwtAuth, bulkCtrl.bulkDelete);
 
 // ── Dashboard API  (require JWT Bearer token) ──────────────────────────────────
+router.get('/khang-daily-logs', jwtAuth, ctrl.getKhangDailyLogs);
 router.get('/',    jwtAuth, ctrl.getAccounts);
 router.get('/:id', jwtAuth, ctrl.getAccountById);
 router.patch('/:id', jwtAuth, validate(schemas.updateAccount), ctrl.updateAccount);

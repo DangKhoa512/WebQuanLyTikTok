@@ -200,6 +200,43 @@ const startServer = async () => {
     }
     try {
       await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS app_khang_daily_logs (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL,
+          device_id VARCHAR(255) NOT NULL,
+          username VARCHAR(255) NOT NULL,
+          status ENUM('ACC_DA_KHANG','ACC_CHUA_KHANG') NOT NULL,
+          report_date DATE NOT NULL,
+          reported_at DATETIME NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_app_khang_owner_device_user_date (owner_username, device_id, username, report_date),
+          KEY idx_app_khang_owner_device_date (owner_username, device_id, report_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      logger.info('app_khang_daily_logs table ready');
+    } catch (e) {
+      logger.warn('Migration app_khang_daily_logs table skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`
+        INSERT IGNORE INTO app_khang_daily_logs
+          (owner_username, device_id, username, status, report_date, reported_at, created_at, updated_at)
+        SELECT owner_username, device_id, username, status, DATE(khang_reported_at), khang_reported_at, NOW(), NOW()
+        FROM accounts
+        WHERE khang_reported_at IS NOT NULL
+          AND device_id IS NOT NULL
+          AND device_id <> ''
+          AND status IN ('ACC_DA_KHANG', 'ACC_CHUA_KHANG')
+      `);
+      logger.info('app_khang_daily_logs backfill ready');
+    } catch (e) {
+      logger.warn('Migration app_khang_daily_logs backfill skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query(`
         INSERT IGNORE INTO chrome_khang_daily_logs
           (owner_username, device_id, username, status, report_date, reported_at, created_at, updated_at)
         SELECT owner_username, device_id, username, status, DATE(khang_reported_at), khang_reported_at, NOW(), NOW()
