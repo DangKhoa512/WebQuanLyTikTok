@@ -195,7 +195,11 @@ const todayJobUpdate = (account, addedJobs) => {
   };
 };
 
-const buildSortOrder = (sortBy, sortDir) => {
+const buildSortOrder = (sortBy, sortDir, status = '') => {
+  if (!sortBy && status === 'DA_CHAY_XONG') {
+    return [['completed_at', 'DESC'], ['id', 'DESC']];
+  }
+
   const field = SORT_FIELDS[sortBy] || 'id';
   const dir = String(sortDir || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
   const order = [[field, dir]];
@@ -622,7 +626,7 @@ const getAll = async (req, res, next) => {
 
     const { rows, count } = await JobAccount.findAndCountAll({
       where,
-      order: buildSortOrder(req.query.sort_by, req.query.sort_dir),
+      order: buildSortOrder(req.query.sort_by, req.query.sort_dir, status),
       limit,
       offset: (page - 1) * limit,
     });
