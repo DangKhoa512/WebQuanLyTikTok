@@ -106,6 +106,15 @@ export const settingsApi = {
   getChromeKhangLimits: () => api.get('/settings/chrome-khang-limits'),
   updateChromeKhangLimit: (limit, owner_username = null) =>
     api.put('/settings/chrome-khang-limit', { limit, owner_username }),
+  getMachineApiKeys: () => api.get('/settings/machine-api-keys'),
+  updateMachineApiKeys: (keys) => api.put('/settings/machine-api-keys', { keys }),
+};
+
+
+export const machineApiConfigsApi = {
+  getAll: () => api.get('/machine-api-configs'),
+  save: (device_id, configs) => api.put('/machine-api-configs', { device_id, configs }),
+  deleteMachine: (device_id) => api.delete('/machine-api-configs/' + encodeURIComponent(device_id)),
 };
 
 export const userApi = {

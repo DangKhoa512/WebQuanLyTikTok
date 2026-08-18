@@ -7,7 +7,8 @@ const AccountGroup  = require('./AccountGroup');
 const JobAccount    = require('./JobAccount');
 const JobDailyStat  = require('./JobDailyStat');
 const AppSetting    = require('./AppSetting');
+const MachineApiConfig = require('./MachineApiConfig');
 const ChromeKhangDailyLog = require('./ChromeKhangDailyLog');
 const AppKhangDailyLog = require('./AppKhangDailyLog');
 
-module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, AppSetting, ChromeKhangDailyLog, AppKhangDailyLog };
+module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog };

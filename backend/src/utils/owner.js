@@ -3,7 +3,7 @@ const normalizeOwner = (value) => (value || '').toString().trim().toLowerCase();
 const defaultOwner = () => normalizeOwner(process.env.ADMIN_USER || 'admin');
 
 const requestedOwner = (req) =>
-  normalizeOwner(req.body?.user || req.body?.owner_username || req.query?.user || '');
+  normalizeOwner(req.api_owner_username || req.body?.user || req.body?.owner_username || req.query?.user || '');
 
 const ownerFromRequest = (req) => requestedOwner(req) || defaultOwner();
 

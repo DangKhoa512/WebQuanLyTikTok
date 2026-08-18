@@ -6,6 +6,8 @@ const {
   saveEligibilitySettings,
   getChromeKhangLimitSettings,
   saveChromeKhangLimitSettings,
+  getMachineApiKeys,
+  saveMachineApiKeys,
 } = require('../services/settingsService');
 
 const getEligibility = async (req, res, next) => {
@@ -93,4 +95,27 @@ const listChromeKhangLimits = async (req, res, next) => {
   }
 };
 
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits };
+
+const getMachineApiKeysSetting = async (req, res, next) => {
+  try {
+    const keys = await getMachineApiKeys();
+    return success(res, { keys, editable: req.admin?.role === 'admin' }, 'Lay danh sach key API may thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateMachineApiKeysSetting = async (req, res, next) => {
+  try {
+    if (req.admin?.role !== 'admin') {
+      return error(res, 'Chi admin duoc sua key API may', 403);
+    }
+    const keys = Array.isArray(req.body.keys) ? req.body.keys : [];
+    const saved = await saveMachineApiKeys(keys);
+    return success(res, { keys: saved, editable: true }, 'Da luu danh sach key API may');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting };

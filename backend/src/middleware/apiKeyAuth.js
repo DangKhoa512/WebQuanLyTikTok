@@ -1,24 +1,28 @@
 const { error } = require('../utils/response');
-const logger    = require('../config/logger');
+const logger = require('../config/logger');
+const User = require('../models/User');
+const { normalizeOwner } = require('../utils/owner');
 
 /**
  * API Key authentication for phone/AutoTouch endpoints.
- * Phone must send header:  x-api-key: <API_KEY from .env>
+ * Phone sends username as API key, for example: x-api-key: admin
  */
-const apiKeyAuth = (req, res, next) => {
-  const key = req.headers['x-api-key'];
+const apiKeyAuth = async (req, res, next) => {
+  const username = normalizeOwner(req.headers['x-api-key']);
 
-  if (!key) {
+  if (!username) {
     logger.warn('API key missing', { ip: req.ip, path: req.path });
-    return error(res, 'Thiếu API key. Thêm header: x-api-key', 401);
+    return error(res, 'Thieu API key. Them header: x-api-key la tai khoan user', 401);
   }
 
-  if (key !== process.env.API_KEY) {
-    logger.warn('Invalid API key attempt', { ip: req.ip, path: req.path });
-    return error(res, 'API key không hợp lệ', 401);
+  const user = await User.findOne({ where: { username, is_active: true }, raw: true });
+  if (!user) {
+    logger.warn('Invalid user API key attempt', { ip: req.ip, path: req.path, username });
+    return error(res, 'API key khong hop le', 401);
   }
 
-  next();
+  req.api_owner_username = username;
+  return next();
 };
 
 module.exports = apiKeyAuth;

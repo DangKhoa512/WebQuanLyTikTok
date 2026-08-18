@@ -179,6 +179,26 @@ const startServer = async () => {
     }
     try {
       await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS machine_api_configs (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL DEFAULT 'admin',
+          device_id VARCHAR(255) NOT NULL,
+          config_key VARCHAR(100) NOT NULL,
+          config_value LONGTEXT NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_machine_api_owner_device_key (owner_username, device_id, config_key),
+          KEY idx_machine_api_owner_device (owner_username, device_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      logger.info('machine_api_configs table ready');
+    } catch (e) {
+      logger.warn('Migration machine_api_configs table skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query(`
         CREATE TABLE IF NOT EXISTS chrome_khang_daily_logs (
           id INT UNSIGNED NOT NULL AUTO_INCREMENT,
           owner_username VARCHAR(100) NOT NULL,

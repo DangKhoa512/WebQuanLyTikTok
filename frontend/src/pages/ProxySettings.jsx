@@ -15,6 +15,9 @@ export default function ProxySettings() {
   const [khangDailyLimit, setKhangDailyLimit] = useState(8);
   const [userKhangLimits, setUserKhangLimits] = useState([]);
   const [savingLimitUser, setSavingLimitUser] = useState('');
+  const [machineApiKeys, setMachineApiKeys] = useState([]);
+  const [newMachineApiKey, setNewMachineApiKey] = useState('');
+  const [savingMachineApiKeys, setSavingMachineApiKeys] = useState(false);
   const [saving,      setSaving]      = useState(false);
   const isAdminUser = authService.getRole() === 'admin';
 
@@ -107,6 +110,41 @@ export default function ProxySettings() {
     }
   };
 
+
+  const normalizeMachineApiKey = (value) => String(value || '').trim().toUpperCase();
+
+  const saveMachineApiKeys = async (keys) => {
+    setSavingMachineApiKeys(true);
+    try {
+      const res = await settingsApi.updateMachineApiKeys(keys);
+      setMachineApiKeys(res.data?.keys || keys);
+      toast.success('Da luu danh sach key API may');
+    } catch (err) {
+      toast.error(err.message || 'Luu key API may that bai');
+    } finally {
+      setSavingMachineApiKeys(false);
+    }
+  };
+
+  const handleAddMachineApiKey = () => {
+    const key = normalizeMachineApiKey(newMachineApiKey);
+    if (!key) {
+      toast.error('Nhap ten key API truoc');
+      return;
+    }
+    if (machineApiKeys.includes(key)) {
+      toast.error('Key API da ton tai');
+      return;
+    }
+    setNewMachineApiKey('');
+    saveMachineApiKeys([...machineApiKeys, key]);
+  };
+
+  const handleRemoveMachineApiKey = (key) => {
+    if (!confirm('Xoa key API ' + key + '?')) return;
+    saveMachineApiKeys(machineApiKeys.filter((item) => item !== key));
+  };
+
   return (
     <div className="page">
       <div className="page-header">
@@ -164,6 +202,61 @@ export default function ProxySettings() {
             Áp dụng cho App Acc và Chrome Acc khi chuyển sang Đủ điều kiện.
           </div>
         </div>
+
+
+        {isAdminUser && (
+          <div className="card">
+            <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
+              {'\uD83D\uDD0C Key cau hinh API may'}
+            </h3>
+            <div style={{ color: '#64748b', fontSize: '.78rem', marginBottom: '.85rem' }}>
+              Chi admin duoc them/xoa cac bang cau hinh API may. Trang API May se dung danh sach key nay.
+            </div>
+            <div style={{ display: 'flex', gap: '.6rem', marginBottom: '.85rem' }}>
+              <input
+                value={newMachineApiKey}
+                onChange={(e) => setNewMachineApiKey(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddMachineApiKey()}
+                placeholder="API_NAME"
+                style={{
+                  flex: 1, boxSizing: 'border-box',
+                  background: '#1e293b', color: '#e2e8f0',
+                  border: '1px solid #334155', borderRadius: '8px',
+                  padding: '.6rem .75rem', fontWeight: 700,
+                }}
+              />
+              <button
+                onClick={handleAddMachineApiKey}
+                disabled={savingMachineApiKeys}
+                style={{
+                  background: savingMachineApiKeys ? '#334155' : '#10b981',
+                  border: 'none', color: '#fff', borderRadius: '8px',
+                  padding: '.6rem 1rem', cursor: savingMachineApiKeys ? 'not-allowed' : 'pointer',
+                  fontWeight: 800, whiteSpace: 'nowrap',
+                }}
+              >
+                Them key
+              </button>
+            </div>
+            <div style={{ border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden' }}>
+              {machineApiKeys.length === 0 ? (
+                <div style={{ padding: '1rem', color: '#94a3b8', textAlign: 'center' }}>Chua co key API nao</div>
+              ) : machineApiKeys.map((key, index) => (
+                <div key={key} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 48px', alignItems: 'center', borderTop: index ? '1px solid #334155' : 'none' }}>
+                  <div style={{ padding: '.75rem 1rem', fontWeight: 900, color: '#e2e8f0', background: '#0f172a' }}>{key}</div>
+                  <button
+                    onClick={() => handleRemoveMachineApiKey(key)}
+                    disabled={savingMachineApiKeys}
+                    title="Xoa key API"
+                    style={{ height: '100%', minHeight: 44, border: 'none', borderLeft: '1px solid #334155', background: '#1e293b', color: '#fca5a5', cursor: savingMachineApiKeys ? 'not-allowed' : 'pointer', fontWeight: 900 }}
+                  >
+                    {'\uD83D\uDDD1'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {isAdminUser ? (
           <div className="card">

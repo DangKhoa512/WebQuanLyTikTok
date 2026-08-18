@@ -3,6 +3,18 @@ const { defaultOwner, normalizeOwner } = require('../utils/owner');
 
 const ELIGIBILITY_KEY = 'eligibility';
 const CHROME_KHANG_LIMIT_KEY = 'chrome_khang_daily_limit';
+const MACHINE_API_KEYS_KEY = 'machine_api_keys';
+const DEFAULT_MACHINE_API_KEYS = [
+  'WEB',
+  'CAPTCHA_TDS',
+  'XOAY_DAPHIEN',
+  'LOCAL',
+  'SHOP1989',
+  'CAPTCHA_TIKTOK',
+  'MAC',
+  'KIOTPROXY',
+  'XSMM',
+];
 const DEFAULT_ELIGIBILITY = {
   min_age_days: 4,
   min_videos: 20,
@@ -21,6 +33,13 @@ const normalizeEligibility = (data = {}) => ({
 const normalizeChromeKhangLimit = (data = {}) => ({
   limit: normalizePositiveInt(data.limit, DEFAULT_CHROME_KHANG_DAILY_LIMIT),
 });
+const normalizeMachineApiKeys = (keys = DEFAULT_MACHINE_API_KEYS) => {
+  const source = Array.isArray(keys) ? keys : DEFAULT_MACHINE_API_KEYS;
+  const normalized = source
+    .map((key) => String(key || '').trim().toUpperCase())
+    .filter((key) => key && key.length <= 100);
+  return [...new Set(normalized)].length ? [...new Set(normalized)] : DEFAULT_MACHINE_API_KEYS;
+};
 
 const getSetting = async (owner_username, setting_key) => {
   const row = await AppSetting.findOne({ where: { owner_username, setting_key } });
@@ -66,11 +85,25 @@ const saveChromeKhangLimitSettings = async (owner_username = 'admin', data = {})
   return normalized;
 };
 
+const getMachineApiKeys = async () => {
+  const stored = await getSetting(defaultOwner(), MACHINE_API_KEYS_KEY);
+  return normalizeMachineApiKeys(stored?.keys || DEFAULT_MACHINE_API_KEYS);
+};
+
+const saveMachineApiKeys = async (keys = DEFAULT_MACHINE_API_KEYS) => {
+  const normalized = normalizeMachineApiKeys(keys);
+  await saveSetting(defaultOwner(), MACHINE_API_KEYS_KEY, { keys: normalized });
+  return normalized;
+};
+
 module.exports = {
   DEFAULT_ELIGIBILITY,
   DEFAULT_CHROME_KHANG_DAILY_LIMIT,
+  DEFAULT_MACHINE_API_KEYS,
   getEligibilitySettings,
   saveEligibilitySettings,
   getChromeKhangLimitSettings,
   saveChromeKhangLimitSettings,
+  getMachineApiKeys,
+  saveMachineApiKeys,
 };

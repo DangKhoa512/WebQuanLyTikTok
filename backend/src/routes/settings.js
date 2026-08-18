@@ -8,5 +8,7 @@ router.put('/eligibility', ctrl.updateEligibility);
 router.get('/chrome-khang-limit', ctrl.getChromeKhangLimit);
 router.put('/chrome-khang-limit', ctrl.updateChromeKhangLimit);
 router.get('/chrome-khang-limits', ctrl.listChromeKhangLimits);
+router.get('/machine-api-keys', ctrl.getMachineApiKeysSetting);
+router.put('/machine-api-keys', ctrl.updateMachineApiKeysSetting);
 
 module.exports = router;
