@@ -375,7 +375,7 @@ const getForPhone = async (req, res, next) => {
     });
     if (activeLockedAccount) {
       await transaction.commit();
-      return success(res, { account: serializeJobAccount(activeLockedAccount) }, 'May dang co account JOB ACCOUNT_CHAY dang lock, tra lai account cu');
+      return success(res, { account: serializeJobAccount(activeLockedAccount) }, 'Lay account JOB thanh cong');
     }
 
     const where = {
