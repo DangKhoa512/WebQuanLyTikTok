@@ -359,6 +359,25 @@ const getForPhone = async (req, res, next) => {
     }
 
     const lockExpiredAt = new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000);
+    const activeLockedWhere = {
+      owner_username,
+      status: 'ACCOUNT_CHAY',
+      locked_by: device_id,
+      locked_at: { [Op.gte]: lockExpiredAt },
+    };
+    if (jobType) activeLockedWhere.job_type = jobType;
+    if (groupId) activeLockedWhere.group_id = groupId;
+    const activeLockedAccount = await JobAccount.findOne({
+      where: activeLockedWhere,
+      order: [['locked_at', 'DESC'], ['id', 'ASC']],
+      lock: transaction.LOCK.UPDATE,
+      transaction,
+    });
+    if (activeLockedAccount) {
+      await transaction.commit();
+      return success(res, { account: serializeJobAccount(activeLockedAccount) }, 'May dang co account JOB ACCOUNT_CHAY dang lock, tra lai account cu');
+    }
+
     const where = {
       owner_username,
       status: 'ACCOUNT_CHAY',
