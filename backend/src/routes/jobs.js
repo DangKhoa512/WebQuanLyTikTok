@@ -1,6 +1,7 @@
 const express = require('express');
 const controller = require('../controllers/jobController');
 const jwtAuth = require('../middleware/jwtAuth');
+const apiKeyAuth = require('../middleware/apiKeyAuth');
 
 const router = express.Router();
 
@@ -10,6 +11,7 @@ router.post('/login-success', controller.loginSuccess);
 router.post('/login-fail', controller.loginFail);
 router.post('/add-job', controller.addJobCount);
 router.post('/report', controller.reportResult);
+router.post('/import-api', apiKeyAuth, controller.importAccountsApi);
 
 // Dashboard API
 router.post('/import', jwtAuth, controller.importAccounts);

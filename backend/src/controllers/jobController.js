@@ -246,6 +246,89 @@ const assertDeviceOwnership = (account, deviceId) => {
   }
 };
 
+const importJobAccounts = async ({ text, owner_username, jobType, groupId }) => {
+  const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) {
+    const err = new Error('Khong co account de import');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (lines.length > 5000) {
+    const err = new Error('Toi da 5000 account moi lan');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const unique = new Map();
+  const invalid = [];
+  for (const line of lines) {
+    const parts = line.split('|');
+    const username = nullify(parts[0]);
+    if (!username) {
+      invalid.push(line.slice(0, 80));
+      continue;
+    }
+    if (!unique.has(username)) {
+      const fourthValue = nullify(parts[3]);
+      const fourthIsToken = looksLikeTokenData(fourthValue);
+      unique.set(username, {
+        raw_data: line,
+        username,
+        password: nullify(parts[1]),
+        email: nullify(parts[2]),
+        email_pass: fourthIsToken ? null : fourthValue,
+        refresh_token: fourthIsToken ? fourthValue : nullify(parts[4]),
+        client_id: nullify(parts[5]),
+        reg_at: parseRegAt(parts[6]),
+        owner_username,
+        group_id: groupId,
+        job_type: jobType,
+        status: 'ACCOUNT_CHAY',
+      });
+    }
+  }
+
+  const rows = [...unique.values()];
+  const existing = rows.length
+    ? await JobAccount.findAll({
+        where: { owner_username, username: { [Op.in]: rows.map((row) => row.username) } },
+        attributes: ['username'],
+      })
+    : [];
+  const existingNames = new Set(existing.map((row) => row.username));
+  const toInsert = rows.filter((row) => !existingNames.has(row.username));
+  if (toInsert.length) await JobAccount.bulkCreate(toInsert);
+
+  return {
+    imported: toInsert.length,
+    duplicates: rows.length - toInsert.length,
+    invalid: invalid.length,
+    invalid_samples: invalid.slice(0, 10),
+  };
+};
+
+const resolveImportJobGroupId = async ({ group_id, group_name, owner_username, jobType }) => {
+  const groupId = group_id ? parseInt(group_id, 10) : null;
+  if (group_id && (!Number.isInteger(groupId) || groupId <= 0)) {
+    const err = new Error('group_id khong hop le');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const where = { owner_username, account_type: 'job', job_type: jobType };
+  if (groupId) where.id = groupId;
+  if (!groupId && nullify(group_name)) where.name = nullify(group_name);
+  if (!groupId && !where.name) return null;
+
+  const group = await AccountGroup.findOne({ where, attributes: ['id'] });
+  if (!group) {
+    const err = new Error('Nhom JOB khong ton tai');
+    err.statusCode = 404;
+    throw err;
+  }
+  return group.id;
+};
+
 const importAccounts = async (req, res, next) => {
   try {
     const { text, group_id } = req.body;
@@ -254,70 +337,35 @@ const importAccounts = async (req, res, next) => {
     if (!text || typeof text !== 'string') return error(res, 'Thieu du lieu import', 400);
     if (!jobType) return error(res, 'job_type khong hop le', 400);
 
-    const groupId = group_id ? parseInt(group_id, 10) : null;
-    if (group_id && (!Number.isInteger(groupId) || groupId <= 0)) {
-      return error(res, 'group_id khong hop le', 400);
-    }
-    if (groupId) {
-      const group = await AccountGroup.findOne({
-        where: { id: groupId, owner_username, account_type: 'job', job_type: jobType },
-      });
-      if (!group) return error(res, 'Nhom JOB khong ton tai', 404);
-    }
-
-    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    if (!lines.length) return error(res, 'Khong co account de import', 400);
-    if (lines.length > 5000) return error(res, 'Toi da 5000 account moi lan', 400);
-
-    const unique = new Map();
-    const invalid = [];
-    for (const line of lines) {
-      const parts = line.split('|');
-      const username = nullify(parts[0]);
-      if (!username) {
-        invalid.push(line.slice(0, 80));
-        continue;
-      }
-      if (!unique.has(username)) {
-        const fourthValue = nullify(parts[3]);
-        const fourthIsToken = looksLikeTokenData(fourthValue);
-        unique.set(username, {
-          raw_data: line,
-          username,
-          password: nullify(parts[1]),
-          email: nullify(parts[2]),
-          email_pass: fourthIsToken ? null : fourthValue,
-          refresh_token: fourthIsToken ? fourthValue : nullify(parts[4]),
-          client_id: nullify(parts[5]),
-          reg_at: parseRegAt(parts[6]),
-          owner_username,
-          group_id: groupId,
-          job_type: jobType,
-          status: 'ACCOUNT_CHAY',
-        });
-      }
-    }
-
-    const rows = [...unique.values()];
-    const existing = rows.length
-      ? await JobAccount.findAll({
-          where: { owner_username, username: { [Op.in]: rows.map((row) => row.username) } },
-          attributes: ['username'],
-        })
-      : [];
-    const existingNames = new Set(existing.map((row) => row.username));
-    const toInsert = rows.filter((row) => !existingNames.has(row.username));
-    if (toInsert.length) await JobAccount.bulkCreate(toInsert);
-
-    const data = {
-      imported: toInsert.length,
-      duplicates: rows.length - toInsert.length,
-      invalid: invalid.length,
-      invalid_samples: invalid.slice(0, 10),
-    };
+    const groupId = await resolveImportJobGroupId({ group_id, owner_username, jobType });
+    const data = await importJobAccounts({ text, owner_username, jobType, groupId });
     logger.info('job accounts imported', { ...data, group_id: groupId, job_type: jobType, owner_username });
-    return success(res, data, `Da import ${toInsert.length} account JOB`);
+    return success(res, data, `Da import ${data.imported} account JOB`);
   } catch (err) {
+    if (err.statusCode) return error(res, err.message, err.statusCode);
+    next(err);
+  }
+};
+
+const importAccountsApi = async (req, res, next) => {
+  try {
+    const text = req.body.text || req.body.accounts || req.body.data || req.body.account || req.query.text;
+    const jobType = parseJobType(req.body.job_type ?? req.query.job_type, 'chrome');
+    const owner_username = ownerFromRequest(req);
+    if (!text || typeof text !== 'string') return error(res, 'Thieu du lieu import', 400);
+    if (!jobType) return error(res, 'job_type khong hop le', 400);
+
+    const groupId = await resolveImportJobGroupId({
+      group_id: req.body.group_id ?? req.query.group_id,
+      group_name: req.body.group_name ?? req.query.group_name,
+      owner_username,
+      jobType,
+    });
+    const data = await importJobAccounts({ text, owner_username, jobType, groupId });
+    logger.info('job accounts imported by api', { ...data, group_id: groupId, job_type: jobType, owner_username });
+    return success(res, data, `Da import ${data.imported} account JOB`);
+  } catch (err) {
+    if (err.statusCode) return error(res, err.message, err.statusCode);
     next(err);
   }
 };
