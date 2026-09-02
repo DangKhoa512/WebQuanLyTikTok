@@ -884,6 +884,7 @@ const bulkDelete = async (req, res, next) => {
 
 module.exports = {
   importAccounts,
+  importAccountsApi,
   getForPhone,
   loginSuccess,
   loginFail,
