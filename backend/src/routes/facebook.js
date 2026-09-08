@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post('/import-api', apiKeyAuth, controller.importFromApi);
 router.post('/job/get-account', apiKeyAuth, controller.getJobForPhone);
+router.post('/job/get-login-success-account', apiKeyAuth, controller.getLoginSuccessJobForPhone);
 router.post('/job/report', apiKeyAuth, controller.report);
 
 router.get('/', jwtAuth, controller.list);

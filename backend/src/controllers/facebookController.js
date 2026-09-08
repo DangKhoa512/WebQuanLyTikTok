@@ -144,7 +144,7 @@ const countDeviceFacebookLoginActive = async ({ owner_username, device_id, group
   const where = {
     owner_username,
     kind: 'job',
-    status: { [Op.in]: ['DANG_LOGIN', 'DANG_LAM', 'DA_CHAY_XONG'] },
+    status: { [Op.in]: ['DANG_LOGIN', 'LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
     [Op.and]: [
       { [Op.or]: [{ device_id }, { locked_by: device_id }] },
       { [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }] },
@@ -291,6 +291,20 @@ const importFromApi = async (req, res, next) => {
   }
 };
 
+const releaseStaleFacebookLocks = async ({ owner_username, groupId, status, releaseStatus }) => {
+  const staleWhere = {
+    owner_username,
+    kind: 'job',
+    status,
+    locked_at: { [Op.lt]: new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000) },
+  };
+  if (groupId) staleWhere.group_id = groupId;
+  await FacebookAccount.update(
+    { status: releaseStatus, locked_by: null, locked_at: null },
+    { where: staleWhere }
+  );
+};
+
 const getJobForPhone = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
@@ -300,20 +314,10 @@ const getJobForPhone = async (req, res, next) => {
     const groupId = await resolveJobGroupIdForRequest(req, owner_username);
     if (groupId === false) return error(res, 'Nhom Facebook JOB khong hop le', 400);
 
-    const staleWhere = {
-      owner_username,
-      kind: 'job',
-      status: { [Op.in]: ['DANG_LOGIN', 'DANG_LAM'] },
-      locked_at: { [Op.lt]: new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000) },
-    };
-    if (groupId) staleWhere.group_id = groupId;
-    await FacebookAccount.update(
-      { status: 'LOGIN_THANH_CONG', locked_by: null, locked_at: null },
-      { where: staleWhere }
-    );
+    await releaseStaleFacebookLocks({ owner_username, groupId, status: 'DANG_LOGIN', releaseStatus: 'CHO_LOGIN' });
 
     const account = await sequelize.transaction(async (t) => {
-      const activeWhere = { owner_username, kind: 'job', status: 'DANG_LAM', locked_by: device_id };
+      const activeWhere = { owner_username, kind: 'job', status: 'DANG_LOGIN', locked_by: device_id };
       if (groupId) activeWhere.group_id = groupId;
       const active = await FacebookAccount.findOne({
         where: activeWhere,
@@ -329,7 +333,7 @@ const getJobForPhone = async (req, res, next) => {
         return { __fullLimit: true, limit: loginLimit.limit, used };
       }
 
-      const nextWhere = { owner_username, kind: 'job', status: 'LOGIN_THANH_CONG' };
+      const nextWhere = { owner_username, kind: 'job', status: 'CHO_LOGIN' };
       if (groupId) nextWhere.group_id = groupId;
       const nextAccount = await FacebookAccount.findOne({
         where: nextWhere,
@@ -338,15 +342,62 @@ const getJobForPhone = async (req, res, next) => {
         lock: t.LOCK.UPDATE,
       });
       if (!nextAccount) return null;
-      await nextAccount.update({ status: 'DANG_LAM', locked_by: device_id, locked_at: new Date(), device_id, completed_at: null }, { transaction: t });
+      await nextAccount.update({ status: 'DANG_LOGIN', locked_by: device_id, locked_at: new Date(), device_id, completed_at: null }, { transaction: t });
       return nextAccount;
     });
 
     if (account?.__fullLimit) {
       return success(res, { limit: account.limit, used: account.used }, 'Full limit');
     }
-    if (!account) return success(res, { account: null }, 'Het account Facebook JOB');
+    if (!account) return success(res, { account: null }, 'Het account Facebook JOB cho login');
     return success(res, { account: serialize(account), lock_timeout_min: LOCK_TIMEOUT_MIN }, 'Lay account Facebook JOB thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getLoginSuccessJobForPhone = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+
+    const groupId = await resolveJobGroupIdForRequest(req, owner_username);
+    if (groupId === false) return error(res, 'Nhom Facebook JOB khong hop le', 400);
+
+    await releaseStaleFacebookLocks({ owner_username, groupId, status: 'DANG_LAM', releaseStatus: 'LOGIN_THANH_CONG' });
+
+    const account = await sequelize.transaction(async (t) => {
+      const activeWhere = { owner_username, kind: 'job', status: 'DANG_LAM', locked_by: device_id };
+      if (groupId) activeWhere.group_id = groupId;
+      const active = await FacebookAccount.findOne({
+        where: activeWhere,
+        order: [['locked_at', 'DESC'], ['id', 'DESC']],
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      if (active) return active;
+
+      const nextWhere = {
+        owner_username,
+        kind: 'job',
+        status: 'LOGIN_THANH_CONG',
+        [Op.or]: [{ device_id }, { locked_by: device_id }],
+      };
+      if (groupId) nextWhere.group_id = groupId;
+      const nextAccount = await FacebookAccount.findOne({
+        where: nextWhere,
+        order: [['login_at', 'ASC'], ['id', 'ASC']],
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      if (!nextAccount) return null;
+      await nextAccount.update({ status: 'DANG_LAM', locked_by: device_id, locked_at: new Date(), device_id, completed_at: null }, { transaction: t });
+      return nextAccount;
+    });
+
+    if (!account) return success(res, { account: null }, 'Het account Facebook JOB login thanh cong');
+    return success(res, { account: serialize(account), lock_timeout_min: LOCK_TIMEOUT_MIN }, 'Lay account Facebook JOB login thanh cong');
   } catch (err) {
     next(err);
   }
@@ -376,7 +427,10 @@ const report = async (req, res, next) => {
     };
     if (status === 'LOGIN_THANH_CONG') {
       update.login_at = new Date();
-      update.status = 'DANG_LAM';
+      update.locked_by = null;
+      update.locked_at = null;
+      update.completed_at = null;
+    } else if (status === 'DANG_LAM') {
       update.locked_by = device_id || account.locked_by || account.device_id;
       update.locked_at = account.locked_at || new Date();
       update.completed_at = null;
@@ -384,13 +438,15 @@ const report = async (req, res, next) => {
     if (FINAL_STATUSES.includes(status)) update.completed_at = new Date();
     if (status === 'ACCOUNT_DIE') update.live_status = 'die';
     await account.update(update);
-    const message = update.status === 'DANG_LAM'
-      ? 'Login thanh cong, account chuyen sang DANG_LAM'
-      : update.status === 'DA_CHAY_XONG'
-        ? 'Account da chay xong'
-        : update.status === 'ACCOUNT_DIE'
-          ? 'Account da chuyen sang Die'
-          : 'Bao cao Facebook thanh cong';
+    const message = update.status === 'LOGIN_THANH_CONG'
+      ? 'Login thanh cong, account chuyen sang LOGIN_THANH_CONG'
+      : update.status === 'DANG_LAM'
+        ? 'Account dang lam'
+        : update.status === 'DA_CHAY_XONG'
+          ? 'Account da chay xong'
+          : update.status === 'ACCOUNT_DIE'
+            ? 'Account da chuyen sang Die'
+            : 'Bao cao Facebook thanh cong';
     return success(res, { account: serialize(account) }, message);
   } catch (err) {
     next(err);
@@ -537,6 +593,7 @@ module.exports = {
   importFromDashboard,
   importFromApi,
   getJobForPhone,
+  getLoginSuccessJobForPhone,
   report,
   checkLive,
   bulkGet,
