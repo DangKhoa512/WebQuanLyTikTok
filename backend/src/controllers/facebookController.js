@@ -128,7 +128,9 @@ const formatFacebookPipe = (account) => {
 
 const serialize = (account) => {
   const data = account?.toJSON ? account.toJSON() : { ...account };
-  data.full_data = formatFacebookPipe(data);
+  const converted = formatFacebookPipe(data);
+  data.raw_data = converted;
+  data.full_data = converted;
   return data;
 };
 

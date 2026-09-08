@@ -186,9 +186,20 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const dieCount = statusCounts.ACCOUNT_DIE || 0;
   const rowOffset = (page - 1) * limit;
 
+  const resetSelection = () => {
+    setSelected(new Set());
+    setMoveGroupId('');
+  };
+
   const setFilter = (setter, value) => {
     setter(value);
     setPage(1);
+    resetSelection();
+  };
+
+  const handlePageChange = (nextPage) => {
+    setPage(nextPage);
+    resetSelection();
   };
 
   const toggleAll = () => {
@@ -337,11 +348,11 @@ export default function FacebookAccounts({ kind = 'job' }) {
             </div>
             <div className="filter-group">
               <label>Số dòng</label>
-              <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}>
+              <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); resetSelection(); }}>
                 {[20, 50, 100, 500, 1000, 2000].map((n) => <option key={n} value={n}>{n} dòng</option>)}
               </select>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => { setQ(''); setStatus(''); setLiveStatus(''); setGroupId(''); setPage(1); }}>✕ Xóa bộ lọc</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => { setQ(''); setStatus(''); setLiveStatus(''); setGroupId(''); setPage(1); resetSelection(); }}>✕ Xóa bộ lọc</button>
           </div>
         </div>
       </div>
@@ -391,7 +402,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
         </div>
       </div>
 
-      <Pagination pagination={pagination} onPageChange={setPage} />
+      <Pagination pagination={pagination} onPageChange={handlePageChange} />
       {showImport && <ImportFacebookModal kind={kind} groups={groups} onGroupsChanged={fetchGroups} onClose={() => setShowImport(false)} onImported={fetchData} />}
     </div>
   );
