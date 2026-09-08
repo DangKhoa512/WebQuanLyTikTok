@@ -189,7 +189,15 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
     if (created) result.created += 1;
     else {
       result.duplicated += 1;
-      await account.update({ ...parsed, group_id: groupId ?? account.group_id, status: account.status || status });
+      const duplicateUpdate = { ...parsed, group_id: groupId ?? account.group_id, status };
+      if (status === 'CHO_LOGIN') {
+        duplicateUpdate.device_id = null;
+        duplicateUpdate.locked_by = null;
+        duplicateUpdate.locked_at = null;
+        duplicateUpdate.login_at = null;
+        duplicateUpdate.completed_at = null;
+      }
+      await account.update(duplicateUpdate);
     }
   }
 
