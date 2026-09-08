@@ -928,3 +928,18 @@ select.form-control { cursor: pointer; }
   .toast-wrap { left: .75rem; right: .75rem; top: .75rem; }
   .toast { max-width: none; }
 }
+
+.input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .55rem .75rem;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+.input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+}

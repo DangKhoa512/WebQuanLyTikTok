@@ -22,6 +22,7 @@ router.use('/used-accounts', apiLimiter, jwtAuth, require('./usedAccounts'));
 router.use('/settings', apiLimiter, jwtAuth, require('./settings'));
 router.use('/machine-api-configs', apiLimiter, require('./machineApiConfigs'));
 router.use('/jobs', apiLimiter, require('./jobs'));
+router.use('/facebook', apiLimiter, require('./facebook'));
 
 // Export — JWT required, no strict rate limit (file downloads)
 router.use('/export',   require('./export'));

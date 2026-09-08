@@ -8,6 +8,8 @@ const NAV = [
   { to: '/accounts',        icon: '👥', label: 'Accounts App' },
   { to: '/chrome-accounts', icon: '🖥️', label: 'Chrome Acc' },
   { to: '/jobs',            icon: '⚡', label: 'JOB' },
+  { to: '/facebook-reg',    icon: 'FB', label: 'Facebook Reg' },
+  { to: '/facebook-jobs',   icon: 'FB', label: 'Facebook Job' },
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
   { to: '/chrome-khang-stats', icon: '📊', label: 'Trạng Thái Máy' },
   { to: '/machine-api-configs', icon: '\uD83D\uDD0C', label: 'API M\u00e1y' },

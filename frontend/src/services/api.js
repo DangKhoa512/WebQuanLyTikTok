@@ -140,6 +140,15 @@ export const jobApi = {
   bulkDelete: (ids) => api.post('/jobs/bulk-delete', { ids }),
 };
 
+export const facebookApi = {
+  getAll: (params) => api.get('/facebook', { params }),
+  import: (text, kind = 'job', status = 'CHO_LOGIN', group_id = null) => api.post('/facebook/import', { text, kind, status, group_id }),
+  checkLive: (ids = [], kind = 'job') => api.post('/facebook/check-live', { ids, kind }, { timeout: 600_000 }),
+  bulkGet: (ids) => api.post('/facebook/bulk-get', { ids }),
+  bulkMoveGroup: (ids, group_id, kind = 'job') => api.post('/facebook/bulk-move-group', { ids, group_id, kind }),
+  bulkDelete: (ids) => api.post('/facebook/bulk-delete', { ids }),
+};
+
 export const accountGroupApi = {
   getAll: (account_type, job_type = null) => api.get('/account-groups', { params: { account_type, job_type } }),
   create: (account_type, name, note = '', job_type = null) => api.post('/account-groups', { account_type, name, note, job_type }),

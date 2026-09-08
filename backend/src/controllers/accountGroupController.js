@@ -2,10 +2,11 @@ const AccountGroup = require('../models/AccountGroup');
 const Account = require('../models/Account');
 const ChromeAccount = require('../models/ChromeAccount');
 const JobAccount = require('../models/JobAccount');
+const FacebookAccount = require('../models/FacebookAccount');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin } = require('../utils/owner');
 
-const TYPES = ['app', 'chrome', 'job'];
+const TYPES = ['app', 'chrome', 'job', 'facebook_reg', 'facebook_job'];
 const JOB_TYPES = ['chrome', 'hotmail'];
 const cleanName = (value) => String(value || '').trim();
 
@@ -93,7 +94,7 @@ const deleteGroup = async (req, res, next) => {
     });
     if (!group) return error(res, 'Khong tim thay nhom', 404);
 
-    const Model = group.account_type === 'chrome' ? ChromeAccount : group.account_type === 'job' ? JobAccount : Account;
+    const Model = group.account_type === 'chrome' ? ChromeAccount : group.account_type === 'job' ? JobAccount : group.account_type.startsWith('facebook_') ? FacebookAccount : Account;
     await Model.update(
       { group_id: null },
       { where: { group_id: group.id, owner_username: ownerFromAdmin(req) } }

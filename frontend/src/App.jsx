@@ -15,6 +15,7 @@ import UsedAccounts      from './pages/UsedAccounts';
 import JobAccounts       from './pages/JobAccounts';
 import ChromeKhangStats  from './pages/ChromeKhangStats';
 import MachineApiConfigs from './pages/MachineApiConfigs';
+import FacebookAccounts from './pages/FacebookAccounts';
 
 export default function App() {
   return (
@@ -45,6 +46,8 @@ export default function App() {
             <Route path="chrome-khang-stats" element={<ChromeKhangStats />} />
             <Route path="machine-api-configs" element={<MachineApiConfigs />} />
             <Route path="jobs"             element={<JobAccounts />} />
+            <Route path="facebook-reg"     element={<FacebookAccounts kind="reg" />} />
+            <Route path="facebook-jobs"    element={<FacebookAccounts kind="job" />} />
             <Route path="used-accounts"    element={<UsedAccounts />} />
             <Route path="users"            element={<Users />} />
           </Route>
