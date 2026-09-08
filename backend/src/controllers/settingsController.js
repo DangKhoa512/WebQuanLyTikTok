@@ -8,6 +8,8 @@ const {
   saveChromeKhangLimitSettings,
   getMachineApiKeys,
   saveMachineApiKeys,
+  getFacebookLoginLimitSettings,
+  saveFacebookLoginLimitSettings,
 } = require('../services/settingsService');
 
 const getEligibility = async (req, res, next) => {
@@ -96,6 +98,64 @@ const listChromeKhangLimits = async (req, res, next) => {
 };
 
 
+const getFacebookLoginLimit = async (req, res, next) => {
+  try {
+    const isAdmin = req.admin?.role === 'admin';
+    const targetOwner = isAdmin && req.query.owner_username
+      ? normalizeOwner(req.query.owner_username)
+      : ownerFromAdmin(req);
+    const settings = await getFacebookLoginLimitSettings(targetOwner);
+    settings.owner_username = targetOwner;
+    settings.editable = isAdmin;
+    return success(res, { settings }, 'Lay cai dat limit Facebook login thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateFacebookLoginLimit = async (req, res, next) => {
+  try {
+    if (req.admin?.role !== 'admin') {
+      return error(res, 'Chi admin duoc sua limit Facebook login', 403);
+    }
+
+    const owner = normalizeOwner(req.body.owner_username || ownerFromAdmin(req));
+    const limit = parseInt(req.body.limit, 10);
+    if (!Number.isInteger(limit) || limit <= 0) {
+      return error(res, 'Limit phai lon hon 0', 400);
+    }
+
+    const settings = await saveFacebookLoginLimitSettings(owner, { limit });
+    settings.owner_username = owner;
+    settings.editable = true;
+    return success(res, { settings }, 'Da luu limit Facebook login');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const listFacebookLoginLimits = async (req, res, next) => {
+  try {
+    if (req.admin?.role !== 'admin') {
+      return error(res, 'Chi admin duoc xem limit Facebook login cua user', 403);
+    }
+
+    const users = await User.findAll({
+      attributes: ['id', 'username', 'role', 'is_active'],
+      order: [['username', 'ASC']],
+      raw: true,
+    });
+    const rows = await Promise.all(users.map(async (user) => {
+      const settings = await getFacebookLoginLimitSettings(user.username);
+      return { ...user, limit: settings.limit };
+    }));
+
+    return success(res, { users: rows }, 'OK');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getMachineApiKeysSetting = async (req, res, next) => {
   try {
     const keys = await getMachineApiKeys();
@@ -118,4 +178,4 @@ const updateMachineApiKeysSetting = async (req, res, next) => {
   }
 };
 
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting };
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting };

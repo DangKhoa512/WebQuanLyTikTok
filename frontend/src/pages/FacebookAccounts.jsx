@@ -9,8 +9,10 @@ const STATUS_TABS = [
   { value: '', icon: '📋', label: 'Tất cả', color: '#64748b' },
   { value: 'CHO_LOGIN', icon: '🔐', label: 'Chờ login', color: '#06b6d4' },
   { value: 'DANG_LOGIN', icon: '⚡', label: 'Đang login', color: '#8b5cf6' },
+  { value: 'DANG_LAM', icon: '⚡', label: 'Đang làm', color: '#8b5cf6' },
   { value: 'LOGIN_THANH_CONG', icon: '✅', label: 'Login thành công', color: '#10b981' },
   { value: 'LOGIN_FAIL', icon: '❌', label: 'Login fail', color: '#f97316' },
+  { value: 'DA_CHAY_XONG', icon: '✅', label: 'Đã làm xong', color: '#10b981' },
   { value: 'ACCOUNT_DIE', icon: '💀', label: 'Die', color: '#6b7280' },
 ];
 
@@ -30,8 +32,10 @@ const STATUS_META = Object.fromEntries(STATUS_TABS.filter((tab) => tab.value).ma
 const STATUS_COLOR = {
   CHO_LOGIN: { bg: 'rgba(6,182,212,.15)', color: '#0891b2' },
   DANG_LOGIN: { bg: 'rgba(139,92,246,.15)', color: '#7c3aed' },
+  DANG_LAM: { bg: 'rgba(139,92,246,.15)', color: '#7c3aed' },
   LOGIN_THANH_CONG: { bg: 'rgba(16,185,129,.15)', color: '#059669' },
   LOGIN_FAIL: { bg: 'rgba(249,115,22,.15)', color: '#ea580c' },
+  DA_CHAY_XONG: { bg: 'rgba(16,185,129,.15)', color: '#059669' },
   ACCOUNT_DIE: { bg: 'rgba(107,114,128,.16)', color: '#4b5563' },
 };
 const LIVE_COLOR = { live: '#10b981', die: '#ef4444', unknown: '#94a3b8' };
@@ -55,7 +59,7 @@ function ImportFacebookModal({ kind, groups, onGroupsChanged, onClose, onImporte
     if (!text.trim()) return toast.error('Nhập account trước');
     setImporting(true);
     try {
-      const res = await facebookApi.import(text, kind, kind === 'reg' ? 'LOGIN_THANH_CONG' : 'CHO_LOGIN', groupId || null);
+      const res = await facebookApi.import(text, kind, 'LOGIN_THANH_CONG', groupId || null);
       toast.success(res.message);
       onImported();
       onClose();
@@ -103,7 +107,7 @@ function ImportFacebookModal({ kind, groups, onGroupsChanged, onClose, onImporte
   );
 }
 
-function FacebookToolbar({ selectedCount, groups, moveGroupId, movingGroup, onMoveGroupChange, onMoveGroup, onCheckLive, checking, onCopy, copying, onDelete, onClear }) {
+function FacebookToolbar({ selectedCount, groups, moveGroupId, movingGroup, statusPick, changingStatus, onStatusChange, onSetStatus, onMoveGroupChange, onMoveGroup, onCheckLive, checking, onCopy, copying, onDelete, onClear }) {
   return (
     <div style={{ background: '#0f172a', borderRadius: '12px', padding: '.75rem 1.25rem', marginBottom: '1rem', boxShadow: '0 4px 16px rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.07)', display: 'flex', alignItems: 'center', gap: '.75rem', flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', color: '#94a3b8' }}>
@@ -118,10 +122,14 @@ function FacebookToolbar({ selectedCount, groups, moveGroupId, movingGroup, onMo
             {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
           </select>
           <button onClick={onMoveGroup} disabled={movingGroup || !moveGroupId} className="btn btn-warning btn-sm">📦 {movingGroup ? 'Đang chuyển...' : 'Chuyển nhóm'}</button>
+          <select value={statusPick} onChange={(e) => onStatusChange(e.target.value)} disabled={changingStatus} style={{ minWidth: 170, height: 34, borderRadius: 8, border: '1px solid rgba(148,163,184,.35)', background: '#fff', color: '#0f172a', padding: '0 .6rem', fontSize: '.8rem' }}>
+            {STATUS_TABS.filter((tab) => tab.value).map((tab) => <option key={tab.value} value={tab.value}>{tab.icon} {tab.label}</option>)}
+          </select>
+          <button onClick={onSetStatus} disabled={changingStatus || !statusPick} className="btn btn-secondary btn-sm">🔁 {changingStatus ? 'Đang đổi...' : 'Đổi trạng thái'}</button>
         </>
       )}
-      <button onClick={onCheckLive} disabled={checking || copying || movingGroup} className="btn btn-primary btn-sm">🔍 {checking ? 'Đang check...' : selectedCount ? 'Check live đã chọn' : 'Check live trang này'}</button>
-      {selectedCount > 0 && <button onClick={onCopy} disabled={copying || checking || movingGroup} className="btn btn-success btn-sm">📋 {copying ? 'Đang copy...' : 'Copy account'}</button>}
+      <button onClick={onCheckLive} disabled={checking || copying || movingGroup || changingStatus} className="btn btn-primary btn-sm">🔍 {checking ? 'Đang check...' : selectedCount ? 'Check live đã chọn' : 'Check live trang này'}</button>
+      {selectedCount > 0 && <button onClick={onCopy} disabled={copying || checking || movingGroup || changingStatus} className="btn btn-success btn-sm">📋 {copying ? 'Đang copy...' : 'Copy account'}</button>}
       {selectedCount > 0 && <button onClick={onDelete} className="btn btn-danger btn-sm">🗑️ Xóa</button>}
       {selectedCount > 0 && <button onClick={onClear} className="btn btn-secondary btn-sm">✕ Bỏ chọn</button>}
       <div style={{ fontSize: '.68rem', color: '#475569' }}>Live khi Graph trả data.height</div>
@@ -147,12 +155,17 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const [copying, setCopying] = useState(false);
   const [movingGroup, setMovingGroup] = useState(false);
   const [moveGroupId, setMoveGroupId] = useState('');
+  const [statusPick, setStatusPick] = useState('LOGIN_THANH_CONG');
+  const [changingStatus, setChangingStatus] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [soakDays, setSoakDays] = useState('');
 
   const isReg = kind === 'reg';
   const tabs = isReg ? REG_TABS : STATUS_TABS;
   const title = isReg ? 'Facebook Reg' : 'Facebook Job';
   const subtitle = isReg ? 'Máy push account sau khi reg/login.' : 'Phone job lấy account, khóa lock theo máy và báo cáo trạng thái.';
-  const params = useMemo(() => ({ kind, page, limit, status, live_status: liveStatus, group_id: groupId, q }), [kind, page, limit, status, liveStatus, groupId, q]);
+  const params = useMemo(() => ({ kind, page, limit, status, live_status: liveStatus, group_id: groupId, q, date_from: dateFrom, date_to: dateTo, soak_days: soakDays }), [kind, page, limit, status, liveStatus, groupId, q, dateFrom, dateTo, soakDays]);
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -266,6 +279,21 @@ export default function FacebookAccounts({ kind = 'job' }) {
     }
   };
 
+  const handleSetStatus = async () => {
+    if (!selectedIds.length) return toast.warn('Chọn account cần đổi trạng thái');
+    setChangingStatus(true);
+    try {
+      const res = await facebookApi.bulkAction(selectedIds, 'set_status', { status: statusPick });
+      toast.success(res.message || 'Đã đổi trạng thái account Facebook');
+      setSelected(new Set());
+      fetchData();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setChangingStatus(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!selectedIds.length) return;
     if (!confirm(`Xóa ${selectedIds.length} account Facebook?`)) return;
@@ -346,18 +374,37 @@ export default function FacebookAccounts({ kind = 'job' }) {
                 {LIVE_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
               </select>
             </div>
+            {!isReg && (
+              <>
+                <div className="filter-group">
+                  <label>Từ ngày</label>
+                  <input type="date" value={dateFrom} onChange={(e) => setFilter(setDateFrom, e.target.value)} />
+                </div>
+                <div className="filter-group">
+                  <label>Đến ngày</label>
+                  <input type="date" value={dateTo} onChange={(e) => setFilter(setDateTo, e.target.value)} />
+                </div>
+                <div className="filter-group">
+                  <label>Ngâm</label>
+                  <select value={soakDays} onChange={(e) => setFilter(setSoakDays, e.target.value)}>
+                    <option value="">Tất cả</option>
+                    {[1, 2, 3, 5, 7, 14, 30].map((n) => <option key={n} value={n}>Ngâm ≥ {n} ngày</option>)}
+                  </select>
+                </div>
+              </>
+            )}
             <div className="filter-group">
               <label>Số dòng</label>
               <select value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); resetSelection(); }}>
                 {[20, 50, 100, 500, 1000, 2000].map((n) => <option key={n} value={n}>{n} dòng</option>)}
               </select>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => { setQ(''); setStatus(''); setLiveStatus(''); setGroupId(''); setPage(1); resetSelection(); }}>✕ Xóa bộ lọc</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => { setQ(''); setStatus(''); setLiveStatus(''); setGroupId(''); setDateFrom(''); setDateTo(''); setSoakDays(''); setPage(1); resetSelection(); }}>✕ Xóa bộ lọc</button>
           </div>
         </div>
       </div>
 
-      <FacebookToolbar selectedCount={selectedIds.length} groups={groups} moveGroupId={moveGroupId} movingGroup={movingGroup} onMoveGroupChange={setMoveGroupId} onMoveGroup={handleMoveGroup} onCheckLive={handleCheckLive} checking={checking} onCopy={handleCopy} copying={copying} onDelete={handleDelete} onClear={() => setSelected(new Set())} />
+      <FacebookToolbar selectedCount={selectedIds.length} groups={groups} moveGroupId={moveGroupId} movingGroup={movingGroup} statusPick={statusPick} changingStatus={changingStatus} onStatusChange={setStatusPick} onSetStatus={handleSetStatus} onMoveGroupChange={setMoveGroupId} onMoveGroup={handleMoveGroup} onCheckLive={handleCheckLive} checking={checking} onCopy={handleCopy} copying={copying} onDelete={handleDelete} onClear={() => setSelected(new Set())} />
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="card-header">
@@ -369,12 +416,12 @@ export default function FacebookAccounts({ kind = 'job' }) {
             <thead>
               <tr>
                 <th style={{ width: 40 }}><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
-                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><th>NHÓM</th><th>MÁY</th><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>LOGIN AT</th>
+                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><th>NHÓM</th><th>MÁY</th><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>LOGIN AT</th><th>NGÀY XONG</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan="14" style={{ textAlign: 'center', color: '#94a3b8', padding: 36 }}>Chưa có account Facebook</td></tr>
+                <tr><td colSpan="15" style={{ textAlign: 'center', color: '#94a3b8', padding: 36 }}>Chưa có account Facebook</td></tr>
               ) : rows.map((row, idx) => {
                 const sc = STATUS_COLOR[row.status] || { bg: 'rgba(100,116,139,.1)', color: '#64748b' };
                 const group = groups.find((item) => String(item.id) === String(row.group_id));
@@ -394,6 +441,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
                     <td style={{ color: LIVE_COLOR[row.live_status] || '#94a3b8', fontWeight: 700 }}>• {row.live_status || 'unknown'}</td>
                     <td>{row.locked_by ? `🔒 ${row.locked_by} - ${fmt(row.locked_at)}` : '—'}</td>
                     <td>{fmt(row.login_at)}</td>
+                    <td>{fmt(row.completed_at)}</td>
                   </tr>
                 );
               })}

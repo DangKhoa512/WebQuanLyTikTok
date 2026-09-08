@@ -211,6 +211,25 @@ const startServer = async () => {
       logger.warn('Migration facebook_accounts group_id skipped:', e.message);
     }
     try {
+      await sequelize.query("ALTER TABLE facebook_accounts MODIFY COLUMN status ENUM('CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE') NOT NULL DEFAULT 'CHO_LOGIN'");
+      logger.info('facebook_accounts status enum ready');
+    } catch (e) {
+      logger.warn('Migration facebook_accounts status enum skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE facebook_accounts ADD COLUMN completed_at DATETIME NULL');
+      logger.info('facebook_accounts completed_at column added');
+    } catch (e) {
+      logger.warn('Migration facebook_accounts completed_at skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE facebook_accounts ADD INDEX idx_facebook_completed_at (completed_at)');
+      logger.info('facebook_accounts completed_at index ready');
+    } catch (e) {
+      logger.warn('Migration facebook_accounts completed_at index skipped:', e.message);
+    }
+
+    try {
       await sequelize.query('ALTER TABLE facebook_accounts ADD INDEX idx_facebook_group_id (group_id)');
       logger.info('facebook_accounts group_id index ready');
     } catch (e) {

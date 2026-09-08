@@ -15,6 +15,9 @@ export default function ProxySettings() {
   const [khangDailyLimit, setKhangDailyLimit] = useState(8);
   const [userKhangLimits, setUserKhangLimits] = useState([]);
   const [savingLimitUser, setSavingLimitUser] = useState('');
+  const [facebookLoginLimit, setFacebookLoginLimit] = useState(10);
+  const [userFacebookLoginLimits, setUserFacebookLoginLimits] = useState([]);
+  const [savingFacebookLimitUser, setSavingFacebookLimitUser] = useState('');
   const [machineApiKeys, setMachineApiKeys] = useState([]);
   const [newMachineApiKey, setNewMachineApiKey] = useState('');
   const [savingMachineApiKeys, setSavingMachineApiKeys] = useState(false);
@@ -40,6 +43,13 @@ export default function ProxySettings() {
         setKhangDailyLimit(settings.limit || 8);
       })
       .catch((err) => toast.error(err.message || 'Không tải được limit Chrome kháng'));
+    settingsApi.getFacebookLoginLimit()
+      .then((res) => {
+        if (!mounted) return;
+        const settings = res.data?.settings || {};
+        setFacebookLoginLimit(settings.limit || 10);
+      })
+      .catch((err) => toast.error(err.message || 'Khong tai duoc limit Facebook login'));
     if (isAdminUser) {
       settingsApi.getChromeKhangLimits()
         .then((res) => {
@@ -47,6 +57,12 @@ export default function ProxySettings() {
           setUserKhangLimits(res.data?.users || []);
         })
         .catch((err) => toast.error(err.message || 'Không tải được limit user'));
+      settingsApi.getFacebookLoginLimits()
+        .then((res) => {
+          if (!mounted) return;
+          setUserFacebookLoginLimits(res.data?.users || []);
+        })
+        .catch((err) => toast.error(err.message || 'Khong tai duoc limit Facebook login user'));
     }
     return () => { mounted = false; };
   }, [isAdminUser]);
@@ -76,6 +92,7 @@ export default function ProxySettings() {
     setMinVideos(20);
     setMinAgeDays(4);
     setKhangDailyLimit(8);
+    setFacebookLoginLimit(10);
     saveCheckLiveSettings({ proxies: '', concurrency: 12, delayMs: 200, batchSize: 60 });
     settingsApi.updateEligibility(4, 20)
       .then(() => toast.success('Đã reset cài đặt'))
@@ -110,6 +127,34 @@ export default function ProxySettings() {
     }
   };
 
+
+  const handleSaveFacebookUserLimit = async (username) => {
+    const row = userFacebookLoginLimits.find((item) => item.username === username);
+    if (!row) return;
+
+    const limit = parseInt(row.limit, 10);
+    if (!Number.isInteger(limit) || limit <= 0) {
+      toast.error('Limit phai lon hon 0');
+      return;
+    }
+
+    setSavingFacebookLimitUser(username);
+    try {
+      const res = await settingsApi.updateFacebookLoginLimit(limit, username);
+      const saved = res.data?.settings || {};
+      setUserFacebookLoginLimits((prev) => prev.map((item) =>
+        item.username === username ? { ...item, limit: saved.limit || limit } : item
+      ));
+      if (username === authService.getUsername().toLowerCase()) {
+        setFacebookLoginLimit(saved.limit || limit);
+      }
+      toast.success(`Da luu limit Facebook cho ${username}`);
+    } catch (err) {
+      toast.error(err.message || 'Luu limit Facebook that bai');
+    } finally {
+      setSavingFacebookLimitUser('');
+    }
+  };
 
   const normalizeMachineApiKey = (value) => String(value || '').trim().toUpperCase();
 
@@ -335,6 +380,87 @@ export default function ProxySettings() {
             </h3>
             <div style={{ color: '#94a3b8', fontSize: '.85rem' }}>
               Limit hiện tại của bạn: <b style={{ color: '#e2e8f0' }}>{khangDailyLimit}</b> acc/máy/ngày
+            </div>
+          </div>
+        )}
+
+        {isAdminUser ? (
+          <div className="card">
+            <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
+              📘 Limit Facebook login theo user
+            </h3>
+            <div style={{ color: '#64748b', fontSize: '.78rem', marginBottom: '.85rem' }}>
+              Neu may dang giu du so account login thanh cong thi API lay account Facebook Job se tra Full limit. Chuyen nhom, xoa, hoac check live die se mo slot.
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table" style={{ margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Trang thai</th>
+                    <th>Limit login/may</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userFacebookLoginLimits.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8', padding: '1rem' }}>
+                        Chua tai duoc danh sach user
+                      </td>
+                    </tr>
+                  )}
+                  {userFacebookLoginLimits.map((user) => (
+                    <tr key={user.username}>
+                      <td style={{ fontWeight: 700 }}>{user.username}</td>
+                      <td>{user.role}</td>
+                      <td style={{ color: user.is_active ? '#10b981' : '#ef4444', fontWeight: 700 }}>
+                        {user.is_active ? 'Dang bat' : 'Da tat'}
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min={1}
+                          value={user.limit}
+                          onChange={(e) => setUserFacebookLoginLimits((prev) => prev.map((item) =>
+                            item.username === user.username ? { ...item, limit: e.target.value } : item
+                          ))}
+                          style={{
+                            width: 120, boxSizing: 'border-box',
+                            background: '#1e293b', color: '#e2e8f0',
+                            border: '1px solid #334155', borderRadius: '8px',
+                            padding: '.45rem .6rem', fontWeight: 700,
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => handleSaveFacebookUserLimit(user.username)}
+                          disabled={savingFacebookLimitUser === user.username}
+                          style={{
+                            background: savingFacebookLimitUser === user.username ? '#334155' : '#06b6d4',
+                            border: 'none', color: '#fff', borderRadius: '7px',
+                            padding: '.45rem .85rem', cursor: savingFacebookLimitUser === user.username ? 'not-allowed' : 'pointer',
+                            fontWeight: 700, whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {savingFacebookLimitUser === user.username ? 'Dang luu...' : 'Luu'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="card">
+            <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
+              📘 Limit Facebook login
+            </h3>
+            <div style={{ color: '#94a3b8', fontSize: '.85rem' }}>
+              Limit hien tai cua ban: <b style={{ color: '#e2e8f0' }}>{facebookLoginLimit}</b> acc/may
             </div>
           </div>
         )}

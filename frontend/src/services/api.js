@@ -106,6 +106,10 @@ export const settingsApi = {
   getChromeKhangLimits: () => api.get('/settings/chrome-khang-limits'),
   updateChromeKhangLimit: (limit, owner_username = null) =>
     api.put('/settings/chrome-khang-limit', { limit, owner_username }),
+  getFacebookLoginLimit: () => api.get('/settings/facebook-login-limit'),
+  getFacebookLoginLimits: () => api.get('/settings/facebook-login-limits'),
+  updateFacebookLoginLimit: (limit, owner_username = null) =>
+    api.put('/settings/facebook-login-limit', { limit, owner_username }),
   getMachineApiKeys: () => api.get('/settings/machine-api-keys'),
   updateMachineApiKeys: (keys) => api.put('/settings/machine-api-keys', { keys }),
 };
@@ -146,6 +150,7 @@ export const facebookApi = {
   checkLive: (ids = [], kind = 'job') => api.post('/facebook/check-live', { ids, kind }, { timeout: 600_000 }),
   bulkGet: (ids) => api.post('/facebook/bulk-get', { ids }),
   bulkMoveGroup: (ids, group_id, kind = 'job') => api.post('/facebook/bulk-move-group', { ids, group_id, kind }),
+  bulkAction: (ids, action, opts = {}) => api.post('/facebook/bulk-action', { ids, action, ...opts }),
   bulkDelete: (ids) => api.post('/facebook/bulk-delete', { ids }),
 };
 

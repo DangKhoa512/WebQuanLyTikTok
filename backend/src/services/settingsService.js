@@ -3,6 +3,7 @@ const { defaultOwner, normalizeOwner } = require('../utils/owner');
 
 const ELIGIBILITY_KEY = 'eligibility';
 const CHROME_KHANG_LIMIT_KEY = 'chrome_khang_daily_limit';
+const FACEBOOK_LOGIN_LIMIT_KEY = 'facebook_login_machine_limit';
 const MACHINE_API_KEYS_KEY = 'machine_api_keys';
 const DEFAULT_MACHINE_API_KEYS = [
   'WEB',
@@ -20,6 +21,7 @@ const DEFAULT_ELIGIBILITY = {
   min_videos: 20,
 };
 const DEFAULT_CHROME_KHANG_DAILY_LIMIT = parseInt(process.env.CHROME_KHANG_DAILY_LIMIT, 10) || 8;
+const DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT = parseInt(process.env.FACEBOOK_LOGIN_MACHINE_LIMIT, 10) || 10;
 
 const normalizePositiveInt = (value, fallback) => {
   const parsed = parseInt(value, 10);
@@ -32,6 +34,9 @@ const normalizeEligibility = (data = {}) => ({
 });
 const normalizeChromeKhangLimit = (data = {}) => ({
   limit: normalizePositiveInt(data.limit, DEFAULT_CHROME_KHANG_DAILY_LIMIT),
+});
+const normalizeFacebookLoginLimit = (data = {}) => ({
+  limit: normalizePositiveInt(data.limit, DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT),
 });
 const normalizeMachineApiKeys = (keys = DEFAULT_MACHINE_API_KEYS) => {
   const source = Array.isArray(keys) ? keys : DEFAULT_MACHINE_API_KEYS;
@@ -85,6 +90,19 @@ const saveChromeKhangLimitSettings = async (owner_username = 'admin', data = {})
   return normalized;
 };
 
+const getFacebookLoginLimitSettings = async (owner_username = 'admin') => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, FACEBOOK_LOGIN_LIMIT_KEY);
+  return normalizeFacebookLoginLimit(stored || { limit: DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT });
+};
+
+const saveFacebookLoginLimitSettings = async (owner_username = 'admin', data = {}) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const normalized = normalizeFacebookLoginLimit(data);
+  await saveSetting(owner, FACEBOOK_LOGIN_LIMIT_KEY, normalized);
+  return normalized;
+};
+
 const getMachineApiKeys = async () => {
   const stored = await getSetting(defaultOwner(), MACHINE_API_KEYS_KEY);
   return normalizeMachineApiKeys(stored?.keys || DEFAULT_MACHINE_API_KEYS);
@@ -99,11 +117,14 @@ const saveMachineApiKeys = async (keys = DEFAULT_MACHINE_API_KEYS) => {
 module.exports = {
   DEFAULT_ELIGIBILITY,
   DEFAULT_CHROME_KHANG_DAILY_LIMIT,
+  DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT,
   DEFAULT_MACHINE_API_KEYS,
   getEligibilitySettings,
   saveEligibilitySettings,
   getChromeKhangLimitSettings,
   saveChromeKhangLimitSettings,
+  getFacebookLoginLimitSettings,
+  saveFacebookLoginLimitSettings,
   getMachineApiKeys,
   saveMachineApiKeys,
 };
