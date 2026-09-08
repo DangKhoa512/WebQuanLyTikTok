@@ -281,7 +281,7 @@ const importFromApi = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
     const kind = normalizeKind(req.body.kind || req.query.kind, 'reg');
-    const status = normalizeStatus(req.body.status || req.query.status, 'LOGIN_THANH_CONG');
+    const status = normalizeStatus(req.body.status || req.query.status, kind === 'job' ? 'CHO_LOGIN' : 'LOGIN_THANH_CONG');
     const text = req.body.text || req.body.accounts || req.body.data || req.body.account || '';
     const groupId = await resolveGroupId({ group_id: req.body.group_id || req.query.group_id, group_name: req.body.group_name || req.query.group_name, owner_username, kind });
     const result = await importFacebookAccounts({ text, owner_username, kind, status, groupId });
@@ -531,7 +531,7 @@ const bulkMoveGroup = async (req, res, next) => {
 
     const [affected] = await FacebookAccount.update(
       { group_id: group.id },
-      { where: { id: { [Op.in]: ids }, owner_username, kind } }
+      { where: { id: { [Op.in]: ids }, owner_username } }
     );
     return success(res, { affected, group }, 'Da chuyen ' + affected + ' account sang nhom ' + group.name);
   } catch (err) {

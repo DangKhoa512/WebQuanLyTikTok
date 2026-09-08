@@ -59,7 +59,8 @@ function ImportFacebookModal({ kind, groups, onGroupsChanged, onClose, onImporte
     if (!text.trim()) return toast.error('Nhập account trước');
     setImporting(true);
     try {
-      const res = await facebookApi.import(text, kind, 'LOGIN_THANH_CONG', groupId || null);
+      const defaultStatus = kind === 'job' ? 'CHO_LOGIN' : 'LOGIN_THANH_CONG';
+      const res = await facebookApi.import(text, kind, defaultStatus, groupId || null);
       toast.success(res.message);
       onImported();
       onClose();
