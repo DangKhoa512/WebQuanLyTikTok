@@ -210,6 +210,18 @@ const startServer = async () => {
     } catch (e) {
       logger.warn('Migration facebook_accounts group_id skipped:', e.message);
     }
+    for (const [sql, label] of [
+      ['ALTER TABLE facebook_accounts ADD COLUMN email_pass VARCHAR(500) NULL', 'facebook_accounts email_pass column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN refresh_token LONGTEXT NULL', 'facebook_accounts refresh_token column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN client_id VARCHAR(255) NULL', 'facebook_accounts client_id column added'],
+    ]) {
+      try {
+        await sequelize.query(sql);
+        logger.info(label);
+      } catch (e) {
+        logger.warn('Migration ' + label + ' skipped:', e.message);
+      }
+    }
     try {
       await sequelize.query("ALTER TABLE facebook_accounts MODIFY COLUMN status ENUM('CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE') NOT NULL DEFAULT 'CHO_LOGIN'");
       logger.info('facebook_accounts status enum ready');

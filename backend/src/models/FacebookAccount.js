@@ -42,6 +42,18 @@ const FacebookAccount = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
     },
+    email_pass: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    refresh_token: {
+      type: DataTypes.TEXT('long'),
+      allowNull: true,
+    },
+    client_id: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
     owner_username: {
       type: DataTypes.STRING(100),
       allowNull: false,

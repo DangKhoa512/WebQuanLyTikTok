@@ -1,4 +1,4 @@
-﻿const { Op } = require('sequelize');
+const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const FacebookAccount = require('../models/FacebookAccount');
 const AccountGroup = require('../models/AccountGroup');
@@ -59,9 +59,15 @@ const looksLikeToken = (value) => {
   return /^(EA[A-Za-z0-9]|EAA[A-Za-z0-9]|EAAB|EAAG)/.test(text)
     || /(^|[;\s])(access_token|token|fb_dtsg|lsd)=/i.test(text);
 };
+const looksLikeClientId = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+const looksLikeRefreshToken = (value) => {
+  const text = String(value || '').trim();
+  if (!text || looksLikeEmail(text) || looksLikeCookie(text) || looksLikeToken(text) || looksLikeClientId(text)) return false;
+  return /^M\./i.test(text) || /MsaArtifacts/i.test(text) || (text.length > 120 && /[!*_$.-]/.test(text));
+};
 const looksLikeTwoFa = (value) => {
   const text = String(value || '').replace(/\s+/g, '').trim();
-  if (!text || looksLikeEmail(text) || looksLikeCookie(text) || looksLikeToken(text)) return false;
+  if (!text || looksLikeEmail(text) || looksLikeCookie(text) || looksLikeToken(text) || looksLikeClientId(text) || looksLikeRefreshToken(text)) return false;
   if (text.length < 8 || text.length > 80) return false;
   return /^[A-Z2-7]+$/i.test(text);
 };
@@ -87,9 +93,13 @@ const parseFacebookLine = (line) => {
     cookies: null,
     token: null,
     email: null,
+    email_pass: null,
+    refresh_token: null,
+    client_id: null,
   };
 
   const firstUidIndex = parts.findIndex((part) => part === uid || uidFromCookie(part) === uid);
+  let emailIndex = -1;
   const used = new Set();
   if (firstUidIndex >= 0) used.add(firstUidIndex);
 
@@ -99,7 +109,9 @@ const parseFacebookLine = (line) => {
     if (!value) continue;
     if (!parsed.cookies && looksLikeCookie(value)) { parsed.cookies = value; used.add(i); }
     else if (!parsed.token && looksLikeToken(value)) { parsed.token = value; used.add(i); }
-    else if (!parsed.email && looksLikeEmail(value)) { parsed.email = value; used.add(i); }
+    else if (!parsed.email && looksLikeEmail(value)) { parsed.email = value; emailIndex = i; used.add(i); }
+    else if (!parsed.client_id && looksLikeClientId(value)) { parsed.client_id = value; used.add(i); }
+    else if (!parsed.refresh_token && looksLikeRefreshToken(value)) { parsed.refresh_token = value; used.add(i); }
   }
 
   const passwordIndex = firstUidIndex >= 0 ? firstUidIndex + 1 : 1;
@@ -115,7 +127,17 @@ const parseFacebookLine = (line) => {
     if (used.has(i)) continue;
     const value = nullify(parts[i]);
     if (!value) continue;
+    if (!parsed.email_pass && parsed.email && i === emailIndex + 1 && !looksLikeCookie(value) && !looksLikeToken(value) && !looksLikeEmail(value) && !looksLikeClientId(value) && !looksLikeRefreshToken(value)) {
+      parsed.email_pass = value;
+      used.add(i);
+      continue;
+    }
     if (!parsed.two_fa && looksLikeTwoFa(value)) { parsed.two_fa = value; used.add(i); continue; }
+    if (!parsed.email_pass && parsed.email && !looksLikeCookie(value) && !looksLikeToken(value) && !looksLikeEmail(value) && !looksLikeClientId(value) && !looksLikeRefreshToken(value)) {
+      parsed.email_pass = value;
+      used.add(i);
+      continue;
+    }
     if (!parsed.password && i > firstUidIndex && !looksLikeCookie(value) && !looksLikeToken(value) && !looksLikeEmail(value)) {
       parsed.password = value;
       used.add(i);
@@ -126,14 +148,27 @@ const parseFacebookLine = (line) => {
 };
 
 const formatFacebookPipe = (account) => {
+  const hasMailExtras = account.email_pass || account.refresh_token || account.client_id;
   const values = account.two_fa
     ? [account.uid, account.password, account.two_fa, account.cookies, account.token, account.email]
     : [account.uid, account.password, account.cookies, account.token, account.email];
+  if (hasMailExtras) values.push(account.email_pass, account.refresh_token, account.client_id);
   return values.map(pipeValue).join('|');
 };
 
-const serialize = (account) => {
+const hydrateFacebookData = (account) => {
   const data = account?.toJSON ? account.toJSON() : { ...account };
+  const rawParsed = data.raw_data ? parseFacebookLine(data.raw_data) : null;
+  if (rawParsed && (!data.uid || rawParsed.uid === data.uid)) {
+    for (const field of ['password', 'two_fa', 'cookies', 'token', 'email', 'email_pass', 'refresh_token', 'client_id']) {
+      if (!data[field] && rawParsed[field]) data[field] = rawParsed[field];
+    }
+  }
+  return data;
+};
+
+const serialize = (account) => {
+  const data = hydrateFacebookData(account);
   const converted = formatFacebookPipe(data);
   data.raw_data = converted;
   data.full_data = converted;
@@ -515,7 +550,7 @@ const bulkGet = async (req, res, next) => {
       where: { id: { [Op.in]: ids }, owner_username: ownerFromAdmin(req) },
       order: [['id', 'ASC']],
     });
-    const text = accounts.map((account) => formatFacebookPipe(account)).join('\n');
+    const text = accounts.map((account) => formatFacebookPipe(hydrateFacebookData(account))).join('\n');
     return success(res, { text, count: accounts.length }, `Da lay ${accounts.length} account Facebook`);
   } catch (err) {
     next(err);
