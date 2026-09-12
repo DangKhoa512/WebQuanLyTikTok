@@ -110,6 +110,10 @@ export const settingsApi = {
   getFacebookLoginLimits: () => api.get('/settings/facebook-login-limits'),
   updateFacebookLoginLimit: (limit, owner_username = null) =>
     api.put('/settings/facebook-login-limit', { limit, owner_username }),
+  getJobAccountDailyLimit: () => api.get('/settings/job-account-daily-limit'),
+  getJobAccountDailyLimits: () => api.get('/settings/job-account-daily-limits'),
+  updateJobAccountDailyLimit: (limit, owner_username = null) =>
+    api.put('/settings/job-account-daily-limit', { limit, owner_username }),
   getMachineApiKeys: () => api.get('/settings/machine-api-keys'),
   updateMachineApiKeys: (keys) => api.put('/settings/machine-api-keys', { keys }),
 };
@@ -142,6 +146,14 @@ export const jobApi = {
   bulkGet: (ids, format = 'pipe') =>
     api.post('/jobs/bulk-get', { ids, format }),
   bulkDelete: (ids) => api.post('/jobs/bulk-delete', { ids }),
+};
+
+
+export const hotmailApi = {
+  getAll: (params) => api.get('/hotmails', { params }),
+  import: (text) => api.post('/hotmails/import', { text }),
+  bulkGet: (ids) => api.post('/hotmails/bulk-get', { ids }),
+  bulkDelete: (ids) => api.post('/hotmails/bulk-delete', { ids }),
 };
 
 export const facebookApi = {

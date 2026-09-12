@@ -1,11 +1,13 @@
 const { Op, fn, col } = require('sequelize');
 const JobAccount = require('../models/JobAccount');
+const JobAccountDailyLog = require('../models/JobAccountDailyLog');
 const AccountGroup = require('../models/AccountGroup');
 const logger = require('../config/logger');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { checkOne, parseProxy } = require('../utils/checkLiveUtils');
 const { addDailyJobs } = require('../services/jobDailyStatService');
+const { getJobAccountDailyLimitSettings } = require('../services/settingsService');
 
 const STATUSES = [
   'ACCOUNT_CHAY',
@@ -27,6 +29,38 @@ const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   month: '2-digit',
   day: '2-digit',
 });
+const vietnamTodayDate = () => VN_DATE_FORMATTER.format(new Date());
+const countDeviceJobTakenToday = async ({ owner_username, device_id, jobType = null, transaction = null }) => {
+  const where = {
+    owner_username,
+    device_id,
+    report_date: vietnamTodayDate(),
+  };
+  if (jobType) where.job_type = jobType;
+  return JobAccountDailyLog.count({ where, transaction });
+};
+const recordDeviceJobTakenToday = async ({ owner_username, device_id, account, transaction = null }) => {
+  if (!owner_username || !device_id || !account?.id || !account?.username) return;
+  const reportDate = vietnamTodayDate();
+  await JobAccountDailyLog.findOrCreate({
+    where: {
+      owner_username,
+      device_id,
+      account_id: account.id,
+      report_date: reportDate,
+    },
+    defaults: {
+      owner_username,
+      device_id,
+      account_id: account.id,
+      username: account.username,
+      job_type: account.job_type || 'chrome',
+      report_date: reportDate,
+      taken_at: new Date(),
+    },
+    transaction,
+  });
+};
 const SORT_FIELDS = {
   video_count: 'video_count',
   followers: 'followers',
@@ -426,6 +460,13 @@ const getForPhone = async (req, res, next) => {
       return success(res, { account: serializeJobAccount(activeLockedAccount) }, 'Lay account JOB thanh cong');
     }
 
+    const takenToday = await countDeviceJobTakenToday({ owner_username, device_id, transaction });
+    const jobLimit = await getJobAccountDailyLimitSettings(owner_username);
+    if (takenToday >= jobLimit.limit) {
+      await transaction.commit();
+      return success(res, { limit: jobLimit.limit, used_today: takenToday }, 'Full limit');
+    }
+
     const where = {
       owner_username,
       status: 'ACCOUNT_CHAY',
@@ -448,6 +489,7 @@ const getForPhone = async (req, res, next) => {
     }
 
     await account.update({ locked_by: device_id, locked_at: new Date(), device_id }, { transaction });
+    await recordDeviceJobTakenToday({ owner_username, device_id, account, transaction });
     await transaction.commit();
     return success(res, { account: serializeJobAccount(account) }, 'Lay account JOB thanh cong');
   } catch (err) {

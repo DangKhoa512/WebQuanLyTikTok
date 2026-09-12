@@ -16,6 +16,7 @@ import JobAccounts       from './pages/JobAccounts';
 import ChromeKhangStats  from './pages/ChromeKhangStats';
 import MachineApiConfigs from './pages/MachineApiConfigs';
 import FacebookAccounts from './pages/FacebookAccounts';
+import HotmailAccounts from './pages/HotmailAccounts';
 
 export default function App() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="jobs"             element={<JobAccounts />} />
             <Route path="facebook-reg"     element={<FacebookAccounts kind="reg" />} />
             <Route path="facebook-jobs"    element={<FacebookAccounts kind="job" />} />
+            <Route path="hotmails"         element={<HotmailAccounts />} />
             <Route path="used-accounts"    element={<UsedAccounts />} />
             <Route path="users"            element={<Users />} />
           </Route>

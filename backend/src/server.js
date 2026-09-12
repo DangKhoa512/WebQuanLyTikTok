@@ -311,6 +311,58 @@ const startServer = async () => {
     }
 
     try {
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS hotmail_accounts (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          raw_data LONGTEXT NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          password TEXT NULL,
+          owner_username VARCHAR(100) NOT NULL DEFAULT 'admin',
+          status ENUM('CHUA_SU_DUNG','DANG_SU_DUNG','DA_SU_DUNG') NOT NULL DEFAULT 'CHUA_SU_DUNG',
+          device_id VARCHAR(255) NULL,
+          locked_by VARCHAR(255) NULL,
+          locked_at DATETIME NULL,
+          used_at DATETIME NULL,
+          note TEXT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_hotmail_owner_email (owner_username, email),
+          KEY idx_hotmail_owner_status (owner_username, status),
+          KEY idx_hotmail_locked_by (locked_by),
+          KEY idx_hotmail_device_id (device_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      logger.info('hotmail_accounts table ready');
+    } catch (e) {
+      logger.warn('Migration hotmail_accounts table skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS job_account_daily_logs (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL,
+          device_id VARCHAR(255) NOT NULL,
+          account_id INT UNSIGNED NOT NULL,
+          username VARCHAR(255) NOT NULL,
+          job_type ENUM('chrome','hotmail') NOT NULL DEFAULT 'chrome',
+          report_date DATE NOT NULL,
+          taken_at DATETIME NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_job_account_daily_owner_device_account_date (owner_username, device_id, account_id, report_date),
+          KEY idx_job_account_daily_owner_device_date (owner_username, device_id, report_date),
+          KEY idx_job_account_daily_job_type (job_type)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      logger.info('job_account_daily_logs table ready');
+    } catch (e) {
+      logger.warn('Migration job_account_daily_logs table skipped:', e.message);
+    }
+
+    try {
       await sequelize.query("ALTER TABLE account_groups ADD COLUMN job_type ENUM('chrome','hotmail') NULL");
       logger.info('account_groups job_type column added');
     } catch (e) {
