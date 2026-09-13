@@ -601,7 +601,12 @@ const getLoginSuccessJobForPhone = async (req, res, next) => {
     await releaseStaleFacebookLocks({ owner_username, groupId, status: 'DANG_LAM', releaseStatus: 'LOGIN_THANH_CONG' });
 
     const account = await sequelize.transaction(async (t) => {
-      const activeWhere = { owner_username, kind: 'job', status: 'DANG_LAM', locked_by: device_id };
+      const activeWhere = {
+        owner_username,
+        kind: 'job',
+        status: 'DANG_LAM',
+        [Op.or]: [{ locked_by: device_id }, { device_id }],
+      };
       if (groupId) activeWhere.group_id = groupId;
       const active = await FacebookAccount.findOne({
         where: activeWhere,
@@ -609,7 +614,10 @@ const getLoginSuccessJobForPhone = async (req, res, next) => {
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
-      if (active) return active;
+      if (active) {
+        await active.update({ locked_by: device_id, locked_at: new Date(), device_id }, { transaction: t });
+        return active;
+      }
 
       const nextWhere = {
         owner_username,
@@ -881,6 +889,13 @@ const reportPageJob = async (req, res, next) => {
       device_id: status === 'DA_LAM' ? deviceId : null,
       completed_at: status === 'DA_LAM' ? now : null,
       last_report_at: now,
+    });
+    await account.update({
+      status: 'DANG_LAM',
+      device_id: deviceId,
+      locked_by: deviceId,
+      locked_at: now,
+      completed_at: null,
     });
     return success(res, {
       page: pageJob.toJSON(),
