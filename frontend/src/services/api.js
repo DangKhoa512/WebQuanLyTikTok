@@ -160,6 +160,7 @@ export const facebookApi = {
   getAll: (params) => api.get('/facebook', { params }),
   import: (text, kind = 'job', status = 'CHO_LOGIN', group_id = null) => api.post('/facebook/import', { text, kind, status, group_id }),
   checkLive: (ids = [], kind = 'job') => api.post('/facebook/check-live', { ids, kind }, { timeout: 600_000 }),
+  checkPages: (ids = [], kind = 'reg') => api.post('/facebook/check-pages', { ids, kind }, { timeout: 600_000 }),
   bulkGet: (ids) => api.post('/facebook/bulk-get', { ids }),
   bulkMoveGroup: (ids, group_id, kind = 'job') => api.post('/facebook/bulk-move-group', { ids, group_id, kind }),
   bulkAction: (ids, action, opts = {}) => api.post('/facebook/bulk-action', { ids, action, ...opts }),

@@ -156,6 +156,12 @@ const formatFacebookPipe = (account) => {
   return values.map(pipeValue).join('|');
 };
 
+const safeParseJson = (value, fallback = null) => {
+  if (!value) return fallback;
+  if (Array.isArray(value) || typeof value === 'object') return value;
+  try { return JSON.parse(value); } catch (_) { return fallback; }
+};
+
 const hydrateFacebookData = (account) => {
   const data = account?.toJSON ? account.toJSON() : { ...account };
   const rawParsed = data.raw_data ? parseFacebookLine(data.raw_data) : null;
@@ -164,6 +170,8 @@ const hydrateFacebookData = (account) => {
       if (!data[field] && rawParsed[field]) data[field] = rawParsed[field];
     }
   }
+  data.pages = safeParseJson(data.pages, []);
+  data.page_count = Number(data.page_count || (Array.isArray(data.pages) ? data.pages.length : 0)) || 0;
   return data;
 };
 
@@ -205,7 +213,7 @@ const resolveJobGroupIdForRequest = async (req, owner_username) => {
   return null;
 };
 
-const importFacebookAccounts = async ({ text, owner_username, kind = 'job', status = 'CHO_LOGIN', groupId = null }) => {
+const importFacebookAccounts = async ({ text, owner_username, kind = 'job', status = 'CHO_LOGIN', groupId = null, device_id = null }) => {
   const lines = splitLines(text);
   const result = { total: lines.length, created: 0, duplicated: 0, invalid: 0 };
 
@@ -216,17 +224,21 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
       continue;
     }
 
+    const baseData = { ...parsed, owner_username, kind, status, group_id: groupId };
+    if (device_id) baseData.device_id = device_id;
+
     const [account, created] = await FacebookAccount.findOrCreate({
       where: { owner_username, kind, uid: parsed.uid },
-      defaults: { ...parsed, owner_username, kind, status, group_id: groupId },
+      defaults: baseData,
     });
 
     if (created) result.created += 1;
     else {
       result.duplicated += 1;
       const duplicateUpdate = { ...parsed, group_id: groupId ?? account.group_id, status };
+      if (device_id) duplicateUpdate.device_id = device_id;
       if (status === 'CHO_LOGIN') {
-        duplicateUpdate.device_id = null;
+        if (!device_id) duplicateUpdate.device_id = null;
         duplicateUpdate.locked_by = null;
         duplicateUpdate.locked_at = null;
         duplicateUpdate.login_at = null;
@@ -290,6 +302,33 @@ const list = async (req, res, next) => {
     });
     const status_counts = Object.fromEntries(statusRows.map((row) => [row.status, Number(row.count) || 0]));
 
+    let machine_stats = [];
+    if (kind === 'reg') {
+      const machineRows = await FacebookAccount.findAll({
+        attributes: [
+          'device_id',
+          [FacebookAccount.sequelize.fn('COUNT', FacebookAccount.sequelize.col('id')), 'total'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN live_status = 'live' THEN 1 ELSE 0 END")), 'live'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN live_status = 'die' THEN 1 ELSE 0 END")), 'die'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.col('page_count')), 'pages'],
+          [FacebookAccount.sequelize.fn('MAX', FacebookAccount.sequelize.col('created_at')), 'last_reg_at'],
+        ],
+        where: countWhere,
+        group: ['device_id'],
+        raw: true,
+      });
+      machine_stats = machineRows
+        .map((row) => ({
+          device_id: row.device_id || '-',
+          total: Number(row.total) || 0,
+          live: Number(row.live) || 0,
+          die: Number(row.die) || 0,
+          pages: Number(row.pages) || 0,
+          last_reg_at: row.last_reg_at || null,
+        }))
+        .sort((a, b) => b.total - a.total || String(a.device_id).localeCompare(String(b.device_id)));
+    }
+
     const { rows, count } = await FacebookAccount.findAndCountAll({
       where,
       order: status === 'DA_CHAY_XONG' ? [['completed_at', 'DESC'], ['id', 'DESC']] : [['updated_at', 'DESC'], ['id', 'DESC']],
@@ -300,6 +339,7 @@ const list = async (req, res, next) => {
     return success(res, {
       accounts: rows.map(serialize),
       status_counts,
+      machine_stats,
       pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) || 1 },
     }, 'Lay danh sach Facebook thanh cong');
   } catch (err) {
@@ -326,8 +366,9 @@ const importFromApi = async (req, res, next) => {
     const kind = normalizeKind(req.body.kind || req.query.kind, 'reg');
     const status = normalizeStatus(req.body.status || req.query.status, kind === 'job' ? 'CHO_LOGIN' : 'LOGIN_THANH_CONG');
     const text = req.body.text || req.body.accounts || req.body.data || req.body.account || '';
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
     const groupId = await resolveGroupId({ group_id: req.body.group_id || req.query.group_id, group_name: req.body.group_name || req.query.group_name, owner_username, kind });
-    const result = await importFacebookAccounts({ text, owner_username, kind, status, groupId });
+    const result = await importFacebookAccounts({ text, owner_username, kind, status, groupId, device_id });
     return success(res, result, `Da nhan ${result.created}/${result.total} account Facebook`);
   } catch (err) {
     next(err);
@@ -542,6 +583,96 @@ const checkLive = async (req, res, next) => {
   }
 };
 
+
+const normalizeGraphAccessToken = (value) => {
+  const raw = nullify(value);
+  if (!raw) return null;
+  const match = raw.match(/(?:^|[?&;\s])access_token=([^&;\s]+)/i);
+  if (match) {
+    try { return decodeURIComponent(match[1]); } catch (_) { return match[1]; }
+  }
+  return raw;
+};
+
+const checkFacebookPagesByToken = async (token) => {
+  const accessToken = normalizeGraphAccessToken(token);
+  if (!accessToken) return { ok: false, message: 'NO_TOKEN', pages: [] };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const url = new URL('https://graph.facebook.com/v26.0/me/accounts');
+    url.searchParams.set('fields', 'id,name,access_token,tasks');
+    url.searchParams.set('access_token', accessToken);
+    const response = await fetch(url, { signal: controller.signal });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || json?.error) {
+      return { ok: false, message: json?.error?.message || 'GRAPH_ERROR', pages: [] };
+    }
+    const pages = Array.isArray(json?.data) ? json.data.map((page) => ({
+      id: page.id || null,
+      name: page.name || null,
+      access_token: page.access_token || null,
+      tasks: Array.isArray(page.tasks) ? page.tasks : [],
+    })) : [];
+    return { ok: true, message: 'OK', pages };
+  } catch (err) {
+    return { ok: false, message: err.name === 'AbortError' ? 'TIMEOUT' : 'REQUEST_FAILED', pages: [] };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const checkPageToken = async (req, res, next) => {
+  try {
+    const token = req.body.token || req.body.access_token || req.query.token || req.query.access_token;
+    const result = await checkFacebookPagesByToken(token);
+    return success(res, {
+      ok: result.ok,
+      message: result.message,
+      page_count: result.pages.length,
+      pages: result.pages,
+    }, result.ok ? 'Check page token thanh cong' : 'Check page token that bai');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const checkPages = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean) : [];
+    const where = { owner_username };
+    if (ids.length) where.id = { [Op.in]: ids };
+    if (req.body.kind || req.query.kind) where.kind = normalizeKind(req.body.kind || req.query.kind, 'reg');
+
+    const accounts = await FacebookAccount.findAll({ where, limit: ids.length ? undefined : 300, order: [['id', 'ASC']] });
+    const rows = [];
+    let checked = 0;
+    let successCount = 0;
+    let totalPages = 0;
+
+    for (const account of accounts) {
+      const data = hydrateFacebookData(account);
+      const result = await checkFacebookPagesByToken(data.token);
+      const pageCount = result.pages.length;
+      checked += 1;
+      if (result.ok) successCount += 1;
+      totalPages += pageCount;
+      await account.update({
+        page_count: pageCount,
+        pages: JSON.stringify(result.pages),
+        last_page_check_at: new Date(),
+      });
+      rows.push({ id: account.id, uid: account.uid, ok: result.ok, message: result.message, page_count: pageCount, pages: result.pages });
+    }
+
+    return success(res, { checked, success: successCount, page_count: totalPages, rows }, 'Check page Facebook thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const bulkGet = async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean) : [];
@@ -639,6 +770,8 @@ module.exports = {
   getLoginSuccessJobForPhone,
   report,
   checkLive,
+  checkPageToken,
+  checkPages,
   bulkGet,
   bulkMoveGroup,
   bulkAction,

@@ -54,6 +54,19 @@ const FacebookAccount = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
     },
+    page_count: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    pages: {
+      type: DataTypes.TEXT('long'),
+      allowNull: true,
+    },
+    last_page_check_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     owner_username: {
       type: DataTypes.STRING(100),
       allowNull: false,

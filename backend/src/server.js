@@ -214,6 +214,9 @@ const startServer = async () => {
       ['ALTER TABLE facebook_accounts ADD COLUMN email_pass VARCHAR(500) NULL', 'facebook_accounts email_pass column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN refresh_token LONGTEXT NULL', 'facebook_accounts refresh_token column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN client_id VARCHAR(255) NULL', 'facebook_accounts client_id column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN page_count INT UNSIGNED NOT NULL DEFAULT 0', 'facebook_accounts page_count column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN pages LONGTEXT NULL', 'facebook_accounts pages column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN last_page_check_at DATETIME NULL', 'facebook_accounts last_page_check_at column added'],
     ]) {
       try {
         await sequelize.query(sql);
