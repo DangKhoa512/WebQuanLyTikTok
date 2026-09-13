@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { facebookApi, accountGroupApi } from '../services/api';
 import Pagination from '../components/Pagination';
@@ -40,6 +40,8 @@ const STATUS_COLOR = {
   ACCOUNT_DIE: { bg: 'rgba(107,114,128,.16)', color: '#4b5563' },
 };
 const LIVE_COLOR = { live: '#10b981', die: '#ef4444', unknown: '#94a3b8' };
+const pageJobLabel = (status) => status === 'DA_LAM' ? 'Đã làm' : status === 'DANG_LAM' ? 'Đang làm' : 'Chưa làm';
+const pageJobClass = (status) => status === 'DA_LAM' ? 'done' : status === 'DANG_LAM' ? 'working' : 'pending';
 
 const fmt = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '-';
 const short = (value, len = 22) => {
@@ -242,6 +244,39 @@ function FacebookToolbar({
   );
 }
 
+function FacebookPageTable({ row, pages, resetting, onReset }) {
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table className={'data-table fb-page-table'}>
+        <thead><tr><th>ID PAGE</th><th>TÊN PAGE</th><th>TRẠNG THÁI LÀM</th><th>THAO TÁC</th></tr></thead>
+        <tbody>{pages.map((pageItem) => (
+          <tr key={pageItem.page_id}>
+            <td><strong>{pageItem.page_id}</strong></td>
+            <td>{pageItem.page_name || '-'}</td>
+            <td><span className={`fb-page-status ${pageJobClass(pageItem.job_status)}`}>{pageJobLabel(pageItem.job_status)}</span></td>
+            <td>{pageItem.job_status !== 'CHUA_LAM' ? <button type={'button'} className={'btn btn-warning btn-sm'} disabled={resetting} onClick={() => onReset(row.id, [pageItem.page_id])}>Reset</button> : '-'}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function FacebookPageDetails({ row, details, loading, resetting, onReset }) {
+  return (
+    <tr className={'fb-page-detail-row'}>
+      <td colSpan={16}>
+        <div className={'fb-page-detail-head'}>
+          <strong>Page của UID {row.uid}</strong>
+          {details && <span>Tổng: {details.summary.total} - Đã làm: {details.summary.completed} - Đang làm: {details.summary.working || 0} - Chưa làm: {details.summary.pending}</span>}
+          <button type={'button'} className={'btn btn-warning btn-sm'} disabled={resetting || !details?.pages?.length} onClick={() => onReset(row.id)}>Reset tất cả</button>
+        </div>
+        {loading ? <div>Đang tải danh sách Page...</div> : !details?.pages?.length ? <div>Account chưa có Page.</div> : <FacebookPageTable row={row} pages={details.pages} resetting={resetting} onReset={onReset} />}
+      </td>
+    </tr>
+  );
+}
+
 export default function FacebookAccounts({ kind = 'job' }) {
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState(null);
@@ -266,6 +301,10 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [soakDays, setSoakDays] = useState('');
+  const [expandedAccountId, setExpandedAccountId] = useState(null);
+  const [pageDetails, setPageDetails] = useState({});
+  const [loadingPageAccountId, setLoadingPageAccountId] = useState(null);
+  const [resettingPages, setResettingPages] = useState(false);
 
   const isReg = kind === 'reg';
   const tabs = isReg ? REG_TABS : STATUS_TABS;
@@ -363,11 +402,57 @@ export default function FacebookAccounts({ kind = 'job' }) {
     try {
       const res = await facebookApi.checkPages(ids, kind);
       toast.success(`Đã check ${res.data?.checked || 0} acc - ${res.data?.page_count || 0} page`);
+      setPageDetails({});
       fetchData();
     } catch (err) {
       toast.error(err.message);
     } finally {
       setCheckingPages(false);
+    }
+  };
+
+  const loadAccountPages = async (accountId) => {
+    setLoadingPageAccountId(accountId);
+    try {
+      const res = await facebookApi.getAccountPages(accountId);
+      setPageDetails((current) => ({
+        ...current,
+        [accountId]: {
+          pages: res.data?.pages || [],
+          summary: res.data?.summary || { total: 0, completed: 0, working: 0, pending: 0 },
+        },
+      }));
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoadingPageAccountId(null);
+    }
+  };
+
+  const togglePageDetails = (accountId) => {
+    if (expandedAccountId === accountId) {
+      setExpandedAccountId(null);
+      return;
+    }
+    setExpandedAccountId(accountId);
+    if (!pageDetails[accountId]) loadAccountPages(accountId);
+  };
+
+  const handleResetPages = async (accountId, pageIds = null) => {
+    const resetAll = !pageIds;
+    if (!confirm(resetAll ? 'Reset tất cả Page của account này về Chưa làm?' : 'Reset Page này về Chưa làm?')) return;
+    setResettingPages(true);
+    try {
+      const res = await facebookApi.resetPageJobs(resetAll
+        ? { account_id: accountId, reset_all: true }
+        : { page_ids: pageIds });
+      toast.success(res.message);
+      await loadAccountPages(accountId);
+      fetchData();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setResettingPages(false);
     }
   };
 
@@ -436,6 +521,15 @@ export default function FacebookAccounts({ kind = 'job' }) {
         .fb-row.row-selected { background: rgba(6,182,212,.08) !important; }
         .fb-status-tabs { display:flex; gap:.4rem; margin-bottom:1rem; flex-wrap:wrap; }
         .fb-stat-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(185px, 220px)); gap:1rem; margin-bottom:1rem; }
+        .fb-page-detail-row > td { padding:1rem 1.25rem !important; background:rgba(15,23,42,.035); border-top:2px solid rgba(14,165,233,.2); border-bottom:2px solid rgba(14,165,233,.2); }
+        .fb-page-detail-head { display:flex; align-items:center; gap:.75rem; margin-bottom:.75rem; flex-wrap:wrap; }
+        .fb-page-detail-head span { color:#64748b; font-size:.8rem; }
+        .fb-page-detail-head button { margin-left:auto; }
+        .fb-page-table { background:#fff; }
+        .fb-page-status { display:inline-flex; padding:.2rem .55rem; border-radius:6px; font-weight:800; font-size:.75rem; }
+        .fb-page-status.done { background:rgba(16,185,129,.15); color:#059669; }
+        .fb-page-status.working { background:rgba(139,92,246,.15); color:#7c3aed; }
+        .fb-page-status.pending { background:rgba(245,158,11,.15); color:#d97706; }
       `}</style>
 
       <div className="page-header">
@@ -568,8 +662,18 @@ export default function FacebookAccounts({ kind = 'job' }) {
               ) : rows.map((row, idx) => {
                 const sc = STATUS_COLOR[row.status] || { bg: 'rgba(100,116,139,.1)', color: '#64748b' };
                 const group = groups.find((item) => String(item.id) === String(row.group_id));
+                const pageSummary = row.page_job_summary || { total: row.page_count || 0, completed: 0, working: 0, pending: row.page_count || 0 };
+                const pageTotal = Number(pageSummary.total) || 0;
+                const pageCompleted = Number(pageSummary.completed) || 0;
+                const pageColor = pageTotal > 0 && pageCompleted === pageTotal
+                  ? { background: 'rgba(16,185,129,.15)', color: '#059669' }
+                  : pageCompleted > 0
+                    ? { background: 'rgba(245,158,11,.15)', color: '#d97706' }
+                    : { background: 'rgba(14,165,233,.14)', color: '#0284c7' };
+                const details = pageDetails[row.id];
                 return (
-                  <tr key={row.id} className={`fb-row${selected.has(row.id) ? ' row-selected' : ''}`}>
+                  <Fragment key={row.id}>
+                  <tr className={`fb-row${selected.has(row.id) ? ' row-selected' : ''}`}>
                     <td><input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleOne(row.id)} /></td>
                     <td style={{ color: '#94a3b8' }}>{rowOffset + idx + 1}</td>
                     <td><strong>{row.uid}</strong></td>
@@ -579,9 +683,15 @@ export default function FacebookAccounts({ kind = 'job' }) {
                     <td title={row.token || ''}>{short(row.token, 26)}</td>
                     <td>{short(row.email, 24)}</td>
                     <td title={pageTitle(row)}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 58, padding: '.18rem .45rem', borderRadius: 6, background: row.last_page_check_at ? ((row.page_count || 0) > 0 ? 'rgba(14,165,233,.14)' : 'rgba(148,163,184,.14)') : 'transparent', color: row.last_page_check_at ? ((row.page_count || 0) > 0 ? '#0284c7' : '#64748b') : '#94a3b8', fontWeight: 800, fontSize: '.78rem' }}>
-                        {row.last_page_check_at ? (row.page_count || 0) + ' page' : '-'}
-                      </span>
+                      {!isReg && row.last_page_check_at ? (
+                        <button type={'button'} onClick={() => togglePageDetails(row.id)} aria-expanded={expandedAccountId === row.id} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 82, padding: '.22rem .5rem', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: '.78rem', ...pageColor }}>
+                          {pageCompleted}/{pageTotal} đã làm
+                        </button>
+                      ) : (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 58, padding: '.18rem .45rem', borderRadius: 6, background: row.last_page_check_at ? ((row.page_count || 0) > 0 ? 'rgba(14,165,233,.14)' : 'rgba(148,163,184,.14)') : 'transparent', color: row.last_page_check_at ? ((row.page_count || 0) > 0 ? '#0284c7' : '#64748b') : '#94a3b8', fontWeight: 800, fontSize: '.78rem' }}>
+                          {row.last_page_check_at ? (row.page_count || 0) + ' page' : '-'}
+                        </span>
+                      )}
                     </td>
                     <td>{group?.name || '-'}</td>
                     <td>{row.device_id || '-'}</td>
@@ -591,6 +701,8 @@ export default function FacebookAccounts({ kind = 'job' }) {
                     <td>{fmt(row.login_at)}</td>
                     <td>{fmt(row.completed_at)}</td>
                   </tr>
+                  {!isReg && expandedAccountId === row.id && <FacebookPageDetails row={row} details={details} loading={loadingPageAccountId === row.id} resetting={resettingPages} onReset={handleResetPages} />}
+                  </Fragment>
                 );
               })}
             </tbody>

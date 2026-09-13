@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const FacebookAccount = require('../models/FacebookAccount');
+const FacebookPageJob = require('../models/FacebookPageJob');
 const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
@@ -183,6 +184,125 @@ const serialize = (account) => {
   return data;
 };
 
+const summarizePageJobs = (rows = []) => {
+  const activeRows = rows.filter((row) => row.is_active !== false);
+  const completed = activeRows.filter((row) => row.job_status === 'DA_LAM').length;
+  const working = activeRows.filter((row) => row.job_status === 'DANG_LAM').length;
+  return { total: activeRows.length, completed, working, pending: activeRows.length - completed - working };
+};
+
+const syncFacebookPageJobs = async (account, pages, transaction = null) => {
+  if (!account || account.kind !== 'job' || !Array.isArray(pages)) return;
+  const normalizedPages = pages
+    .map((page) => ({ page_id: nullify(page?.id), page_name: nullify(page?.name) }))
+    .filter((page) => page.page_id);
+  const pageIds = [...new Set(normalizedPages.map((page) => page.page_id))];
+  const inactiveWhere = { owner_username: account.owner_username, facebook_account_id: account.id };
+  if (pageIds.length) inactiveWhere.page_id = { [Op.notIn]: pageIds };
+  await FacebookPageJob.update({ is_active: false }, { where: inactiveWhere, transaction });
+
+  for (const page of normalizedPages) {
+    const [pageJob, created] = await FacebookPageJob.findOrCreate({
+      where: { owner_username: account.owner_username, page_id: page.page_id },
+      defaults: {
+        owner_username: account.owner_username,
+        facebook_account_id: account.id,
+        page_id: page.page_id,
+        page_name: page.page_name,
+        job_status: 'CHUA_LAM',
+        is_active: true,
+      },
+      transaction,
+    });
+    if (!created) {
+      await pageJob.update({
+        facebook_account_id: account.id,
+        page_name: page.page_name || pageJob.page_name,
+        is_active: true,
+      }, { transaction });
+    }
+  }
+};
+
+const getActivePageJobs = async (account) => {
+  const data = hydrateFacebookData(account);
+  if (account.kind === 'job' && account.last_page_check_at) {
+    await syncFacebookPageJobs(account, data.pages);
+  }
+  return FacebookPageJob.findAll({
+    where: { owner_username: account.owner_username, facebook_account_id: account.id, is_active: true },
+    order: [['id', 'ASC']],
+  });
+};
+
+const serializeForPhone = async (account, currentPageJob = null) => {
+  const data = serialize(account);
+  const pageJobs = await getActivePageJobs(account);
+  const graphPages = new Map(data.pages.map((page) => [String(page.id), page]));
+  data.job_pages = pageJobs.map((row) => {
+    const page = row.toJSON();
+    const graphPage = graphPages.get(String(page.page_id));
+    return {
+      page_id: page.page_id,
+      page_name: page.page_name,
+      status: page.job_status,
+      access_token: graphPage?.access_token || null,
+      tasks: Array.isArray(graphPage?.tasks) ? graphPage.tasks : [],
+    };
+  });
+  data.page_job_summary = summarizePageJobs(pageJobs.map((row) => row.toJSON()));
+  data.current_page = currentPageJob
+    ? data.job_pages.find((page) => page.page_id === currentPageJob.page_id) || null
+    : null;
+  return data;
+};
+
+const claimPageForPhone = async ({ account, device_id }) => {
+  const data = hydrateFacebookData(account);
+  if (account.last_page_check_at) await syncFacebookPageJobs(account, data.pages);
+
+  return sequelize.transaction(async (transaction) => {
+    const lockedAccount = await FacebookAccount.findOne({
+      where: { id: account.id, owner_username: account.owner_username, kind: 'job' },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!lockedAccount) return null;
+
+    let pageJob = await FacebookPageJob.findOne({
+      where: {
+        owner_username: account.owner_username,
+        facebook_account_id: account.id,
+        is_active: true,
+        job_status: 'DANG_LAM',
+      },
+      order: [['id', 'ASC']],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (pageJob) {
+      if (pageJob.device_id !== device_id) await pageJob.update({ device_id }, { transaction });
+      return pageJob;
+    }
+
+    pageJob = await FacebookPageJob.findOne({
+      where: {
+        owner_username: account.owner_username,
+        facebook_account_id: account.id,
+        is_active: true,
+        job_status: 'CHUA_LAM',
+      },
+      order: [['id', 'ASC']],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+      skipLocked: true,
+    });
+    if (!pageJob) return null;
+    await pageJob.update({ job_status: 'DANG_LAM', device_id }, { transaction });
+    return pageJob;
+  });
+};
+
 const countDeviceFacebookLoginActive = async ({ owner_username, device_id, groupId = null, transaction = null }) => {
   const where = {
     owner_username,
@@ -336,8 +456,37 @@ const list = async (req, res, next) => {
       offset: (page - 1) * limit,
     });
 
+    const pageSummaryByAccount = new Map();
+    if (kind === 'job' && rows.length) {
+      const pageJobs = await FacebookPageJob.findAll({
+        where: {
+          owner_username,
+          facebook_account_id: { [Op.in]: rows.map((row) => row.id) },
+          is_active: true,
+        },
+      });
+      for (const pageJob of pageJobs) {
+        const current = pageSummaryByAccount.get(pageJob.facebook_account_id) || [];
+        current.push(pageJob.toJSON());
+        pageSummaryByAccount.set(pageJob.facebook_account_id, current);
+      }
+    }
+
     return success(res, {
-      accounts: rows.map(serialize),
+      accounts: rows.map((account) => {
+        const data = serialize(account);
+        if (kind === 'job') {
+          const tracked = summarizePageJobs(pageSummaryByAccount.get(account.id) || []);
+          const total = Math.max(tracked.total, data.page_count || 0);
+          data.page_job_summary = {
+            total,
+            completed: tracked.completed,
+            working: tracked.working,
+            pending: Math.max(total - tracked.completed - tracked.working, 0),
+          };
+        }
+        return data;
+      }),
       status_counts,
       machine_stats,
       pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) || 1 },
@@ -434,7 +583,7 @@ const getJobForPhone = async (req, res, next) => {
       return success(res, { limit: account.limit, used: account.used }, 'Full limit');
     }
     if (!account) return success(res, { account: null }, 'Het account Facebook JOB cho login');
-    return success(res, { account: serialize(account), lock_timeout_min: LOCK_TIMEOUT_MIN }, 'Lay account Facebook JOB thanh cong');
+    return success(res, { account: await serializeForPhone(account), lock_timeout_min: LOCK_TIMEOUT_MIN }, 'Lay account Facebook JOB thanh cong');
   } catch (err) {
     next(err);
   }
@@ -481,7 +630,8 @@ const getLoginSuccessJobForPhone = async (req, res, next) => {
     });
 
     if (!account) return success(res, { account: null }, 'Het account Facebook JOB login thanh cong');
-    return success(res, { account: serialize(account), lock_timeout_min: LOCK_TIMEOUT_MIN }, 'Lay account Facebook JOB login thanh cong');
+    const currentPage = await claimPageForPhone({ account, device_id });
+    return success(res, { account: await serializeForPhone(account, currentPage), lock_timeout_min: LOCK_TIMEOUT_MIN }, 'Lay account Facebook JOB login thanh cong');
   } catch (err) {
     next(err);
   }
@@ -659,15 +809,113 @@ const checkPages = async (req, res, next) => {
       checked += 1;
       if (result.ok) successCount += 1;
       totalPages += pageCount;
-      await account.update({
-        page_count: pageCount,
-        pages: JSON.stringify(result.pages),
-        last_page_check_at: new Date(),
-      });
+      if (result.ok) {
+        await account.update({
+          page_count: pageCount,
+          pages: JSON.stringify(result.pages),
+          last_page_check_at: new Date(),
+        });
+        await syncFacebookPageJobs(account, result.pages);
+      } else {
+        await account.update({ last_page_check_at: new Date() });
+      }
       rows.push({ id: account.id, uid: account.uid, ok: result.ok, message: result.message, page_count: pageCount, pages: result.pages });
     }
 
     return success(res, { checked, success: successCount, page_count: totalPages, rows }, 'Check page Facebook thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getAccountPages = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const accountId = parseInt(req.params.accountId, 10);
+    if (!Number.isInteger(accountId) || accountId <= 0) return error(res, 'account_id khong hop le', 400);
+    const account = await FacebookAccount.findOne({ where: { id: accountId, owner_username, kind: 'job' } });
+    if (!account) return error(res, 'Khong tim thay account Facebook JOB', 404);
+
+    const pageJobs = await getActivePageJobs(account);
+    const pages = pageJobs.map((row) => {
+      const page = row.toJSON();
+      return {
+        page_id: page.page_id,
+        page_name: page.page_name,
+        job_status: page.job_status,
+        device_id: page.device_id,
+        completed_at: page.completed_at,
+        last_report_at: page.last_report_at,
+      };
+    });
+    return success(res, { pages, summary: summarizePageJobs(pages.map((page) => ({ ...page, is_active: true }))) }, 'Lay danh sach Page thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const reportPageJob = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const pageId = nullify(req.body.page_id || req.query.page_id);
+    const deviceId = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
+    const status = String(req.body.status || req.query.status || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+    if (!pageId) return error(res, 'Can truyen page_id', 400);
+    if (!deviceId) return error(res, 'Can truyen device_id', 400);
+    if (!['CHUA_LAM', 'DA_LAM'].includes(status)) return error(res, 'status Page khong hop le', 400);
+
+    const pageJob = await FacebookPageJob.findOne({ where: { owner_username, page_id: pageId, is_active: true } });
+    if (!pageJob) return error(res, 'Khong tim thay Page Facebook JOB', 404);
+    const account = await FacebookAccount.findOne({ where: { id: pageJob.facebook_account_id, owner_username, kind: 'job' } });
+    if (!account) return error(res, 'Khong tim thay account Facebook JOB', 404);
+    if (account.locked_by && account.locked_by !== deviceId) {
+      return error(res, 'Account dang duoc khoa boi may ' + account.locked_by, 409);
+    }
+    if (!account.locked_by && account.device_id && account.device_id !== deviceId) {
+      return error(res, 'Account dang thuoc may ' + account.device_id, 409);
+    }
+
+    const now = new Date();
+    await pageJob.update({
+      job_status: status,
+      device_id: status === 'DA_LAM' ? deviceId : null,
+      completed_at: status === 'DA_LAM' ? now : null,
+      last_report_at: now,
+    });
+    return success(res, {
+      page: pageJob.toJSON(),
+    }, status === 'DA_LAM' ? 'Da bao cao Page da lam' : 'Da bao cao Page chua lam');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const resetPageJobs = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const accountId = parseInt(req.body.account_id, 10);
+    const pageIds = Array.isArray(req.body.page_ids)
+      ? [...new Set(req.body.page_ids.map((value) => nullify(value)).filter(Boolean))]
+      : [];
+    const where = { owner_username, is_active: true };
+
+    if (req.body.reset_all === true) {
+      if (!Number.isInteger(accountId) || accountId <= 0) return error(res, 'account_id khong hop le', 400);
+      const account = await FacebookAccount.findOne({ where: { id: accountId, owner_username, kind: 'job' } });
+      if (!account) return error(res, 'Khong tim thay account Facebook JOB', 404);
+      where.facebook_account_id = account.id;
+    } else {
+      if (!pageIds.length) return error(res, 'Can truyen danh sach page_ids', 400);
+      where.page_id = { [Op.in]: pageIds };
+    }
+
+    const [affected] = await FacebookPageJob.update({
+      job_status: 'CHUA_LAM',
+      device_id: null,
+      completed_at: null,
+      last_report_at: null,
+    }, { where });
+    return success(res, { affected }, 'Da reset ' + affected + ' Page ve chua lam');
   } catch (err) {
     next(err);
   }
@@ -755,7 +1003,17 @@ const bulkDelete = async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean) : [];
     if (!ids.length) return error(res, 'Can truyen danh sach ids', 400);
-    const deleted = await FacebookAccount.destroy({ where: { id: { [Op.in]: ids }, owner_username: ownerFromAdmin(req) } });
+    const owner_username = ownerFromAdmin(req);
+    const transaction = await sequelize.transaction();
+    let deleted;
+    try {
+      await FacebookPageJob.destroy({ where: { facebook_account_id: { [Op.in]: ids }, owner_username }, transaction });
+      deleted = await FacebookAccount.destroy({ where: { id: { [Op.in]: ids }, owner_username }, transaction });
+      await transaction.commit();
+    } catch (err) {
+      if (!transaction.finished) await transaction.rollback();
+      throw err;
+    }
     return success(res, { deleted }, `Da xoa ${deleted} account Facebook`);
   } catch (err) {
     next(err);
@@ -772,6 +1030,9 @@ module.exports = {
   checkLive,
   checkPageToken,
   checkPages,
+  getAccountPages,
+  reportPageJob,
+  resetPageJobs,
   bulkGet,
   bulkMoveGroup,
   bulkAction,

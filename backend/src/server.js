@@ -253,6 +253,38 @@ const startServer = async () => {
 
     try {
       await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS facebook_page_jobs (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL,
+          facebook_account_id INT UNSIGNED NOT NULL,
+          page_id VARCHAR(255) NOT NULL,
+          page_name VARCHAR(500) NULL,
+          job_status ENUM('CHUA_LAM','DANG_LAM','DA_LAM') NOT NULL DEFAULT 'CHUA_LAM',
+          device_id VARCHAR(255) NULL,
+          completed_at DATETIME NULL,
+          last_report_at DATETIME NULL,
+          is_active TINYINT(1) NOT NULL DEFAULT 1,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_facebook_page_job_owner_page (owner_username, page_id),
+          KEY idx_facebook_page_job_account_status (facebook_account_id, job_status),
+          KEY idx_facebook_page_job_owner_active (owner_username, is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      logger.info('facebook_page_jobs table ready');
+    } catch (e) {
+      logger.warn('Migration facebook_page_jobs table skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`ALTER TABLE facebook_page_jobs MODIFY COLUMN job_status ENUM('CHUA_LAM','DANG_LAM','DA_LAM') NOT NULL DEFAULT 'CHUA_LAM'`);
+      logger.info('facebook_page_jobs status enum ready');
+    } catch (e) {
+      logger.warn('Migration facebook_page_jobs status enum skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query(`
         CREATE TABLE IF NOT EXISTS chrome_khang_daily_logs (
           id INT UNSIGNED NOT NULL AUTO_INCREMENT,
           owner_username VARCHAR(100) NOT NULL,
