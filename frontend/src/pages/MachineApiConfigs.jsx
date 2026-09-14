@@ -150,6 +150,8 @@ export default function MachineApiConfigs() {
   const [savingCommon, setSavingCommon] = useState(false);
   const [addingMachine, setAddingMachine] = useState(false);
   const [savingKeys, setSavingKeys] = useState(false);
+  const [selectedMachines, setSelectedMachines] = useState(new Set());
+  const [deletingMachines, setDeletingMachines] = useState(false);
 
   const filteredMachines = useMemo(() => {
     const keyword = machineSearch.trim().toLowerCase();
@@ -167,6 +169,7 @@ export default function MachineApiConfigs() {
       setKeys(nextKeys);
       setCommon(toConfigState(nextKeys, data.common || {}));
       setMachines(nextMachines);
+      setSelectedMachines((current) => new Set([...current].filter((deviceId) => nextMachines.some((machine) => machine.device_id === deviceId))));
       if (!selectedDevice && nextMachines.length) {
         setSelectedDevice(nextMachines[0].device_id);
         setMachineConfigs(toConfigState(nextKeys, nextMachines[0].configs || {}));
@@ -336,6 +339,47 @@ export default function MachineApiConfigs() {
     }
   };
 
+  const allFilteredSelected = filteredMachines.length > 0 && filteredMachines.every((machine) => selectedMachines.has(machine.device_id));
+
+  const toggleMachine = (deviceId) => {
+    setSelectedMachines((current) => {
+      const next = new Set(current);
+      if (next.has(deviceId)) next.delete(deviceId);
+      else next.add(deviceId);
+      return next;
+    });
+  };
+
+  const toggleAllMachines = () => {
+    setSelectedMachines((current) => {
+      const next = new Set(current);
+      if (allFilteredSelected) filteredMachines.forEach((machine) => next.delete(machine.device_id));
+      else filteredMachines.forEach((machine) => next.add(machine.device_id));
+      return next;
+    });
+  };
+
+  const deleteSelectedMachines = async () => {
+    const deviceIds = [...selectedMachines];
+    if (!deviceIds.length) return toast.error('Chon may can xoa');
+    if (!confirm('Xoa ' + deviceIds.length + ' may da chon?')) return;
+    setDeletingMachines(true);
+    try {
+      const res = await machineApiConfigsApi.bulkDeleteMachines(deviceIds);
+      toast.success(res.message || 'Da xoa cac may da chon');
+      if (deviceIds.includes(selectedDevice)) {
+        setSelectedDevice('');
+        setMachineConfigs(toConfigState(keys));
+      }
+      setSelectedMachines(new Set());
+      await fetchConfigs();
+    } catch (err) {
+      toast.error(err.message || 'Xoa cac may da chon that bai');
+    } finally {
+      setDeletingMachines(false);
+    }
+  };
+
   const configuredCount = (configs = {}) => keys.reduce((sum, key) => sum + (String(configs[key] || '').trim() ? 1 : 0), 0);
   const mergedPreview = keys.reduce((acc, key) => {
     acc[key] = machineConfigs[key] || common[key] || '';
@@ -455,6 +499,11 @@ export default function MachineApiConfigs() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {selectedMachines.size > 0 && (
+                  <PrimaryButton onClick={deleteSelectedMachines} disabled={deletingMachines} color={'#ef4444'}>
+                    {deletingMachines ? 'Đang xóa...' : `Xóa ${selectedMachines.size} máy đã chọn`}
+                  </PrimaryButton>
+                )}
                 <input
                   value={machineSearch}
                   onChange={(event) => setMachineSearch(event.target.value)}
@@ -470,6 +519,7 @@ export default function MachineApiConfigs() {
                 <table className="table" style={{ margin: 0 }}>
                   <thead>
                     <tr>
+                      <th style={{ width: 42 }}><input type={'checkbox'} checked={allFilteredSelected} onChange={toggleAllMachines} /></th>
                       <th style={{ width: '34%' }}>Ten may</th>
                       <th>Da set</th>
                       <th>Cap nhat</th>
@@ -479,13 +529,14 @@ export default function MachineApiConfigs() {
                   <tbody>
                     {filteredMachines.length === 0 && (
                       <tr>
-                        <td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8', padding: '1rem' }}>
+                        <td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8', padding: '1rem' }}>
                           Chua co may nao - hay them may o ben tren
                         </td>
                       </tr>
                     )}
                     {filteredMachines.map((machine) => (
                       <tr key={machine.device_id} style={{ background: selectedDevice === machine.device_id ? 'rgba(16,185,129,.08)' : undefined }}>
+                        <td><input type={'checkbox'} checked={selectedMachines.has(machine.device_id)} onChange={() => toggleMachine(machine.device_id)} /></td>
                         <td style={{ fontWeight: 900, color: '#0f172a' }}>{machine.device_id}</td>
                         <td style={{ color: '#7c3aed', fontWeight: 900 }}>{configuredCount(machine.configs)}/{keys.length}</td>
                         <td style={{ color: '#64748b', fontSize: '.78rem' }}>{fmt(machine.updated_at)}</td>

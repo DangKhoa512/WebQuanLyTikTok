@@ -78,8 +78,7 @@ const bulkCreateMachines = async (req, res, next) => {
     if (from > to) return error(res, 'May bat dau phai nho hon hoac bang may ket thuc', 400);
     if (to - from + 1 > 1000) return error(res, 'Moi lan chi duoc them toi da 1000 may', 400);
 
-    const width = Math.max(startMatch[2].length, endMatch[2].length);
-    const deviceIds = Array.from({ length: to - from + 1 }, (_, index) => startMatch[1] + String(from + index).padStart(width, '0'));
+    const deviceIds = Array.from({ length: to - from + 1 }, (_, index) => startMatch[1] + String(from + index));
     const existingRows = await MachineApiConfig.findAll({
       attributes: ['device_id'],
       where: { owner_username, device_id: { [Op.in]: deviceIds }, config_key: MACHINE_MARKER_KEY },
@@ -157,6 +156,18 @@ const deleteMachine = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const bulkDeleteMachines = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const deviceIds = Array.isArray(req.body.device_ids)
+      ? [...new Set(req.body.device_ids.map(normalizeDeviceId).filter((value) => value && value !== COMMON_DEVICE_ID))]
+      : [];
+    if (!deviceIds.length) return error(res, 'Can truyen danh sach device_ids', 400);
+    const deleted = await MachineApiConfig.destroy({ where: { owner_username, device_id: { [Op.in]: deviceIds } } });
+    return success(res, { machines: deviceIds.length, deleted }, 'Da xoa cac may da chon');
+  } catch (err) { next(err); }
+};
+
 const addConfigKey = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
@@ -219,13 +230,18 @@ const getForDevice = async (req, res, next) => {
     });
 
     const common = rowToMap(rows.filter((row) => row.device_id === COMMON_DEVICE_ID));
-    const overrides = rowToMap(rows.filter((row) => row.device_id === device_id));
+    const deviceRows = rows.filter((row) => row.device_id === device_id);
+    const overrides = rowToMap(deviceRows);
     const configuredKeys = await getMachineApiKeys(owner_username);
     const keys = [...new Set([...configuredKeys, ...Object.keys(common), ...Object.keys(overrides)])];
     const configs = keys.reduce((acc, key) => {
       acc[key] = overrides[key] ?? common[key] ?? '';
       return acc;
     }, {});
+
+    if (!Object.values(configs).some((value) => String(value || '').trim())) {
+      return res.json({ status: false, value: {}, message: 'May chua duoc config' });
+    }
 
     return res.json({ status: true, value: configs });
   } catch (err) { next(err); }
@@ -238,6 +254,7 @@ module.exports = {
   saveConfigs,
   bulkCreateMachines,
   deleteMachine,
+  bulkDeleteMachines,
   addConfigKey,
   renameConfigKey,
   deleteConfigKey,

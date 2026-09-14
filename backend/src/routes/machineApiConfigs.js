@@ -10,6 +10,7 @@ router.use(jwtAuth);
 router.get('/', ctrl.listConfigs);
 router.put('/', ctrl.saveConfigs);
 router.post('/bulk-machines', ctrl.bulkCreateMachines);
+router.post('/bulk-delete-machines', ctrl.bulkDeleteMachines);
 router.post('/keys', ctrl.addConfigKey);
 router.patch('/keys/:config_key', ctrl.renameConfigKey);
 router.delete('/keys/:config_key', ctrl.deleteConfigKey);
