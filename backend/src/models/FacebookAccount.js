@@ -110,6 +110,18 @@ const FacebookAccount = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    reg_page_locked_by: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    reg_page_locked_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    last_reg_page_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     fail_reason: {
       type: DataTypes.STRING(500),
       allowNull: true,
@@ -134,6 +146,8 @@ const FacebookAccount = sequelize.define(
       { fields: ['locked_by'] },
       { fields: ['device_id'] },
       { fields: ['live_status'] },
+      { fields: ['owner_username', 'device_id', 'last_reg_page_at'] },
+      { fields: ['reg_page_locked_by'] },
     ],
   }
 );

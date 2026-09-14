@@ -11,6 +11,8 @@ const STATUSES = ['CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LO
 const FINAL_STATUSES = ['LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
 const KINDS = ['reg', 'job'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.FACEBOOK_LOCK_TIMEOUT_MIN, 10) || 120;
+const REG_PAGE_MAX_PAGES = 15;
+const REG_PAGE_COOLDOWN_HOURS = 24;
 const parseNonNegativeInt = (value) => {
   if (value === undefined || value === null || value === '') return null;
   const parsed = parseInt(value, 10);
@@ -783,6 +785,138 @@ const checkFacebookPagesByToken = async (token) => {
   }
 };
 
+const regPageBaseWhere = ({ owner_username, device_id }) => ({
+  owner_username,
+  device_id,
+  page_count: { [Op.lt]: REG_PAGE_MAX_PAGES },
+  status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
+  [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }],
+});
+
+const getRegPageAccount = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+
+    // Neu tool dung giua chung, lan goi tiep theo phai tra lai dung account dang lock.
+    let account = await FacebookAccount.findOne({
+      where: { ...regPageBaseWhere({ owner_username, device_id }), reg_page_locked_by: device_id },
+      order: [['reg_page_locked_at', 'DESC'], ['id', 'ASC']],
+    });
+
+    if (!account) {
+      account = await sequelize.transaction(async (transaction) => {
+        const commonWhere = {
+          ...regPageBaseWhere({ owner_username, device_id }),
+          reg_page_locked_by: null,
+        };
+
+        // Duyet het account chua tung reg Page truoc khi quay vong 24 gio.
+        let candidate = await FacebookAccount.findOne({
+          where: { ...commonWhere, last_reg_page_at: null },
+          order: [['id', 'ASC']],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+          skipLocked: true,
+        });
+
+        if (!candidate) {
+          const cooldownAt = new Date(Date.now() - REG_PAGE_COOLDOWN_HOURS * 60 * 60 * 1000);
+          candidate = await FacebookAccount.findOne({
+            where: { ...commonWhere, last_reg_page_at: { [Op.lte]: cooldownAt } },
+            order: [['last_reg_page_at', 'ASC'], ['id', 'ASC']],
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+            skipLocked: true,
+          });
+        }
+
+        if (!candidate) return null;
+        await candidate.update({ reg_page_locked_by: device_id, reg_page_locked_at: new Date() }, { transaction });
+        return candidate;
+      });
+    } else {
+      await account.update({ reg_page_locked_at: new Date() });
+    }
+
+    if (!account) {
+      return error(res, 'Het account co the reg Page luc nay', 404, {
+        account: null,
+        max_pages: REG_PAGE_MAX_PAGES,
+        cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
+      });
+    }
+
+    const data = hydrateFacebookData(account);
+    const pageResult = await checkFacebookPagesByToken(data.token);
+    if (!pageResult.ok) {
+      return error(res, `Khong check duoc Page cua UID ${account.uid}: ${pageResult.message}`, 422);
+    }
+
+    const page_count = pageResult.pages.length;
+    await account.update({
+      page_count,
+      pages: JSON.stringify(pageResult.pages),
+      last_page_check_at: new Date(),
+    });
+
+    if (page_count >= REG_PAGE_MAX_PAGES) {
+      await account.update({ reg_page_locked_by: null, reg_page_locked_at: null });
+      return getRegPageAccount(req, res, next);
+    }
+
+    return success(res, {
+      account: serialize(account),
+      page_check: { ok: true, page_count, max_pages: REG_PAGE_MAX_PAGES },
+      cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
+    }, 'Lay account reg Page thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const reportRegPage = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
+    const id = parseInt(req.body.id || req.body.account_id || req.query.id || req.query.account_id, 10);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    if (!Number.isInteger(id) || id <= 0) return error(res, 'Can truyen id account', 400);
+
+    const reportStatus = String(req.body.status || req.query.status || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+    if (!['REG_XONG', 'REG_FAIL'].includes(reportStatus)) {
+      return error(res, 'status chi nhan REG_XONG hoac REG_FAIL', 400);
+    }
+
+    const account = await FacebookAccount.findOne({ where: { id, owner_username } });
+    if (!account) return error(res, 'Khong tim thay account Facebook', 404);
+    if (account.device_id !== device_id) return error(res, 'Account khong thuoc may ' + device_id, 409);
+    if (account.reg_page_locked_by !== device_id) {
+      return error(res, account.reg_page_locked_by
+        ? 'Account dang duoc khoa reg Page boi may ' + account.reg_page_locked_by
+        : 'Account chua duoc may nay lay de reg Page', 409);
+    }
+
+    const pageCount = parseNonNegativeInt(req.body.page_count ?? req.query.page_count);
+    const update = { reg_page_locked_by: null, reg_page_locked_at: null };
+    if (reportStatus === 'REG_XONG') update.last_reg_page_at = new Date();
+    if (pageCount !== null) {
+      update.page_count = pageCount;
+      update.last_page_check_at = new Date();
+    }
+    await account.update(update);
+
+    return success(res, {
+      account: serialize(account),
+      reg_page_status: reportStatus,
+      cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
+    }, reportStatus === 'REG_XONG' ? 'Da bao cao reg Page xong' : 'Da bao cao reg Page that bai');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const checkPageToken = async (req, res, next) => {
   try {
     const token = req.body.token || req.body.access_token || req.query.token || req.query.access_token;
@@ -1049,6 +1183,8 @@ module.exports = {
   checkPages,
   getAccountPages,
   reportPageJob,
+  getRegPageAccount,
+  reportRegPage,
   resetPageJobs,
   bulkGet,
   bulkMoveGroup,

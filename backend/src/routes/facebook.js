@@ -10,6 +10,8 @@ router.post('/job/get-account', apiKeyAuth, controller.getJobForPhone);
 router.post('/job/get-login-success-account', apiKeyAuth, controller.getLoginSuccessJobForPhone);
 router.post('/job/report', apiKeyAuth, controller.report);
 router.post('/job/page-report', apiKeyAuth, controller.reportPageJob);
+router.post('/reg-page/get-account', apiKeyAuth, controller.getRegPageAccount);
+router.post('/reg-page/report', apiKeyAuth, controller.reportRegPage);
 router.post('/check-page-token', apiKeyAuth, controller.checkPageToken);
 
 router.get('/', jwtAuth, controller.list);
