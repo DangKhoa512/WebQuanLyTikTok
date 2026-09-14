@@ -265,7 +265,7 @@ function FacebookPageTable({ row, pages, resetting, onReset }) {
 function FacebookPageDetails({ row, details, loading, resetting, onReset }) {
   return (
     <tr className={'fb-page-detail-row'}>
-      <td colSpan={16}>
+      <td colSpan={17}>
         <div className={'fb-page-detail-head'}>
           <strong>Page của UID {row.uid}</strong>
           {details && <span>Tổng: {details.summary.total} - Đã làm: {details.summary.completed} - Đang làm: {details.summary.working || 0} - Chưa làm: {details.summary.pending}</span>}
@@ -653,12 +653,12 @@ export default function FacebookAccounts({ kind = 'job' }) {
             <thead>
               <tr>
                 <th style={{ width: 40 }}><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
-                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><th>PAGE</th><th>NHÓM</th><th>MÁY</th><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>{isReg ? 'NGÀY PUSH' : 'LOGIN AT'}</th><th>NGÀY XONG</th>
+                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><th>PAGE</th><th>NHÓM</th><th>MÁY</th><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>REGPAGE LOCK</th><th>{isReg ? 'NGÀY PUSH' : 'LOGIN AT'}</th><th>NGÀY XONG</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan="16" style={{ textAlign: 'center', color: '#94a3b8', padding: 36 }}>Chưa có account Facebook</td></tr>
+                <tr><td colSpan={17} style={{ textAlign: 'center', color: '#94a3b8', padding: 36 }}>Chưa có account Facebook</td></tr>
               ) : rows.map((row, idx) => {
                 const sc = STATUS_COLOR[row.status] || { bg: 'rgba(100,116,139,.1)', color: '#64748b' };
                 const group = groups.find((item) => String(item.id) === String(row.group_id));
@@ -702,6 +702,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
                     <td><span style={{ background: sc.bg, color: sc.color, borderRadius: '6px', padding: '.2rem .5rem', fontSize: '.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{statusLabel(row.status)}</span></td>
                     <td style={{ color: LIVE_COLOR[row.live_status] || '#94a3b8', fontWeight: 700 }}>{row.live_status || 'unknown'}</td>
                     <td>{row.locked_by ? `${row.locked_by} - ${fmt(row.locked_at)}` : '-'}</td>
+                    <td>{row.reg_page_locked_by ? `${row.reg_page_locked_by} - ${fmt(row.reg_page_locked_at)}` : '-'}</td>
                     <td>{fmt(row.login_at)}</td>
                     <td>{fmt(row.completed_at)}</td>
                   </tr>
