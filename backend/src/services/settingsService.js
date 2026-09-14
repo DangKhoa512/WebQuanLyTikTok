@@ -48,7 +48,7 @@ const normalizeMachineApiKeys = (keys = DEFAULT_MACHINE_API_KEYS) => {
   const normalized = source
     .map((key) => String(key || '').trim().toUpperCase())
     .filter((key) => key && key.length <= 100);
-  return [...new Set(normalized)].length ? [...new Set(normalized)] : DEFAULT_MACHINE_API_KEYS;
+  return [...new Set(normalized)];
 };
 
 const getSetting = async (owner_username, setting_key) => {
@@ -121,14 +121,18 @@ const saveJobAccountDailyLimitSettings = async (owner_username = 'admin', data =
   return normalized;
 };
 
-const getMachineApiKeys = async () => {
-  const stored = await getSetting(defaultOwner(), MACHINE_API_KEYS_KEY);
-  return normalizeMachineApiKeys(stored?.keys || DEFAULT_MACHINE_API_KEYS);
+const getMachineApiKeys = async (owner_username = defaultOwner()) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, MACHINE_API_KEYS_KEY);
+  return stored && Array.isArray(stored.keys)
+    ? normalizeMachineApiKeys(stored.keys)
+    : [...DEFAULT_MACHINE_API_KEYS];
 };
 
-const saveMachineApiKeys = async (keys = DEFAULT_MACHINE_API_KEYS) => {
+const saveMachineApiKeys = async (keys = DEFAULT_MACHINE_API_KEYS, owner_username = defaultOwner()) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
   const normalized = normalizeMachineApiKeys(keys);
-  await saveSetting(defaultOwner(), MACHINE_API_KEYS_KEY, { keys: normalized });
+  await saveSetting(owner, MACHINE_API_KEYS_KEY, { keys: normalized });
   return normalized;
 };
 

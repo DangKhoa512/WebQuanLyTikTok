@@ -9,6 +9,10 @@ router.get('/device/:device_id', apiKeyAuth, ctrl.getForDevice);
 router.use(jwtAuth);
 router.get('/', ctrl.listConfigs);
 router.put('/', ctrl.saveConfigs);
+router.post('/bulk-machines', ctrl.bulkCreateMachines);
+router.post('/keys', ctrl.addConfigKey);
+router.patch('/keys/:config_key', ctrl.renameConfigKey);
+router.delete('/keys/:config_key', ctrl.deleteConfigKey);
 router.delete('/:device_id', ctrl.deleteMachine);
 
 module.exports = router;

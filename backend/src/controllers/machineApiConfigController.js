@@ -2,7 +2,7 @@ const { Op } = require('sequelize');
 const MachineApiConfig = require('../models/MachineApiConfig');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
-const { DEFAULT_MACHINE_API_KEYS, getMachineApiKeys } = require('../services/settingsService');
+const { DEFAULT_MACHINE_API_KEYS, getMachineApiKeys, saveMachineApiKeys } = require('../services/settingsService');
 
 const COMMON_DEVICE_ID = '__COMMON__';
 const MACHINE_MARKER_KEY = '__MACHINE__';
@@ -28,7 +28,7 @@ const listConfigs = async (req, res, next) => {
       raw: true,
     });
 
-    const configuredKeys = await getMachineApiKeys();
+    const configuredKeys = await getMachineApiKeys(owner_username);
     const keys = [...new Set([...configuredKeys, ...rows.map((row) => row.config_key).filter((key) => !INTERNAL_KEYS.has(key))])];
     const common = rowToMap(rows.filter((row) => row.device_id === COMMON_DEVICE_ID));
     const machinesById = new Map();
@@ -60,6 +60,42 @@ const listConfigs = async (req, res, next) => {
       common,
       machines,
     }, 'OK');
+  } catch (err) { next(err); }
+};
+
+const bulkCreateMachines = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const startDevice = normalizeDeviceId(req.body.start_device);
+    const endDevice = normalizeDeviceId(req.body.end_device);
+    const startMatch = startDevice.match(/^(.*?)(\d+)$/);
+    const endMatch = endDevice.match(/^(.*?)(\d+)$/);
+    if (!startMatch || !endMatch || startMatch[1] !== endMatch[1]) {
+      return error(res, 'Ten may phai cung tien to, vi du May1 den May100', 400);
+    }
+    const from = parseInt(startMatch[2], 10);
+    const to = parseInt(endMatch[2], 10);
+    if (from > to) return error(res, 'May bat dau phai nho hon hoac bang may ket thuc', 400);
+    if (to - from + 1 > 1000) return error(res, 'Moi lan chi duoc them toi da 1000 may', 400);
+
+    const width = Math.max(startMatch[2].length, endMatch[2].length);
+    const deviceIds = Array.from({ length: to - from + 1 }, (_, index) => startMatch[1] + String(from + index).padStart(width, '0'));
+    const existingRows = await MachineApiConfig.findAll({
+      attributes: ['device_id'],
+      where: { owner_username, device_id: { [Op.in]: deviceIds }, config_key: MACHINE_MARKER_KEY },
+      raw: true,
+    });
+    const existing = new Set(existingRows.map((row) => row.device_id));
+    const newIds = deviceIds.filter((deviceId) => !existing.has(deviceId));
+    if (newIds.length) {
+      await MachineApiConfig.bulkCreate(newIds.map((device_id) => ({
+        owner_username,
+        device_id,
+        config_key: MACHINE_MARKER_KEY,
+        config_value: '1',
+      })), { ignoreDuplicates: true });
+    }
+    return success(res, { total: deviceIds.length, created: newIds.length, duplicated: deviceIds.length - newIds.length }, 'Da them nhanh danh sach may');
   } catch (err) { next(err); }
 };
 
@@ -121,6 +157,53 @@ const deleteMachine = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const addConfigKey = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const configKey = normalizeKey(req.body.key);
+    if (!configKey || INTERNAL_KEYS.has(configKey) || configKey.length > 100) return error(res, 'Key API khong hop le', 400);
+    const keys = await getMachineApiKeys(owner_username);
+    const saved = await saveMachineApiKeys([...keys, configKey], owner_username);
+    return success(res, { keys: saved }, keys.includes(configKey) ? 'Key API da ton tai' : 'Da them key API');
+  } catch (err) { next(err); }
+};
+
+const renameConfigKey = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const oldKey = normalizeKey(req.params.config_key);
+    const newKey = normalizeKey(req.body.key || req.body.new_key);
+    if (!oldKey || !newKey || INTERNAL_KEYS.has(oldKey) || INTERNAL_KEYS.has(newKey) || newKey.length > 100) {
+      return error(res, 'Key API khong hop le', 400);
+    }
+    if (oldKey !== newKey) {
+      const rows = await MachineApiConfig.findAll({ where: { owner_username, config_key: oldKey } });
+      for (const row of rows) {
+        const target = await MachineApiConfig.findOne({ where: { owner_username, device_id: row.device_id, config_key: newKey } });
+        if (target) await row.destroy();
+        else await row.update({ config_key: newKey });
+      }
+    }
+    const keys = await getMachineApiKeys(owner_username);
+    const nextKeys = keys.map((key) => key === oldKey ? newKey : key);
+    if (!nextKeys.includes(newKey)) nextKeys.push(newKey);
+    const saved = await saveMachineApiKeys(nextKeys, owner_username);
+    return success(res, { keys: saved }, 'Da sua key API');
+  } catch (err) { next(err); }
+};
+
+const deleteConfigKey = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const configKey = normalizeKey(req.params.config_key);
+    if (!configKey || INTERNAL_KEYS.has(configKey)) return error(res, 'Key API khong hop le', 400);
+    const deleted = await MachineApiConfig.destroy({ where: { owner_username, config_key: configKey } });
+    const keys = await getMachineApiKeys(owner_username);
+    const saved = await saveMachineApiKeys(keys.filter((key) => key !== configKey), owner_username);
+    return success(res, { keys: saved, deleted }, 'Da xoa key API');
+  } catch (err) { next(err); }
+};
+
 const getForDevice = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
@@ -137,14 +220,14 @@ const getForDevice = async (req, res, next) => {
 
     const common = rowToMap(rows.filter((row) => row.device_id === COMMON_DEVICE_ID));
     const overrides = rowToMap(rows.filter((row) => row.device_id === device_id));
-    const configs = { ...common, ...overrides };
+    const configuredKeys = await getMachineApiKeys(owner_username);
+    const keys = [...new Set([...configuredKeys, ...Object.keys(common), ...Object.keys(overrides)])];
+    const configs = keys.reduce((acc, key) => {
+      acc[key] = overrides[key] ?? common[key] ?? '';
+      return acc;
+    }, {});
 
-    return success(res, {
-      device_id,
-      common,
-      overrides,
-      configs,
-    }, 'OK');
+    return res.json({ status: true, value: configs });
   } catch (err) { next(err); }
 };
 
@@ -153,6 +236,10 @@ module.exports = {
   DEFAULT_KEYS,
   listConfigs,
   saveConfigs,
+  bulkCreateMachines,
   deleteMachine,
+  addConfigKey,
+  renameConfigKey,
+  deleteConfigKey,
   getForDevice,
 };

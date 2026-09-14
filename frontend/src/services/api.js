@@ -122,6 +122,10 @@ export const settingsApi = {
 export const machineApiConfigsApi = {
   getAll: () => api.get('/machine-api-configs'),
   save: (device_id, configs) => api.put('/machine-api-configs', { device_id, configs }),
+  bulkCreateMachines: (start_device, end_device) => api.post('/machine-api-configs/bulk-machines', { start_device, end_device }),
+  addKey: (key) => api.post('/machine-api-configs/keys', { key }),
+  renameKey: (key, new_key) => api.patch('/machine-api-configs/keys/' + encodeURIComponent(key), { new_key }),
+  deleteKey: (key) => api.delete('/machine-api-configs/keys/' + encodeURIComponent(key)),
   deleteMachine: (device_id) => api.delete('/machine-api-configs/' + encodeURIComponent(device_id)),
 };
 

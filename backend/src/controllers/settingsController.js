@@ -216,8 +216,9 @@ const listJobAccountDailyLimits = async (req, res, next) => {
 
 const getMachineApiKeysSetting = async (req, res, next) => {
   try {
-    const keys = await getMachineApiKeys();
-    return success(res, { keys, editable: req.admin?.role === 'admin' }, 'Lay danh sach key API may thanh cong');
+    const owner_username = ownerFromAdmin(req);
+    const keys = await getMachineApiKeys(owner_username);
+    return success(res, { keys, editable: true }, 'Lay danh sach key API may thanh cong');
   } catch (err) {
     next(err);
   }
@@ -225,11 +226,9 @@ const getMachineApiKeysSetting = async (req, res, next) => {
 
 const updateMachineApiKeysSetting = async (req, res, next) => {
   try {
-    if (req.admin?.role !== 'admin') {
-      return error(res, 'Chi admin duoc sua key API may', 403);
-    }
+    const owner_username = ownerFromAdmin(req);
     const keys = Array.isArray(req.body.keys) ? req.body.keys : [];
-    const saved = await saveMachineApiKeys(keys);
+    const saved = await saveMachineApiKeys(keys, owner_username);
     return success(res, { keys: saved, editable: true }, 'Da luu danh sach key API may');
   } catch (err) {
     next(err);

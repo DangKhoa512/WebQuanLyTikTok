@@ -137,6 +137,9 @@ export default function MachineApiConfigs() {
   const [selectedDevice, setSelectedDevice] = useState('');
   const [machineConfigs, setMachineConfigs] = useState({});
   const [newDevice, setNewDevice] = useState('');
+  const [rangeStart, setRangeStart] = useState('May1');
+  const [rangeEnd, setRangeEnd] = useState('May100');
+  const [newKey, setNewKey] = useState('');
   const [activeTab, setActiveTab] = useState('common');
   const [machineSearch, setMachineSearch] = useState('');
   const [editDevice, setEditDevice] = useState('');
@@ -146,6 +149,7 @@ export default function MachineApiConfigs() {
   const [loading, setLoading] = useState(false);
   const [savingCommon, setSavingCommon] = useState(false);
   const [addingMachine, setAddingMachine] = useState(false);
+  const [savingKeys, setSavingKeys] = useState(false);
 
   const filteredMachines = useMemo(() => {
     const keyword = machineSearch.trim().toLowerCase();
@@ -207,6 +211,65 @@ export default function MachineApiConfigs() {
       toast.error(err.message || 'Them may that bai');
     } finally {
       setAddingMachine(false);
+    }
+  };
+
+  const handleAddMachineRange = async () => {
+    if (!rangeStart.trim() || !rangeEnd.trim()) return toast.error('Nhap may bat dau va may ket thuc');
+    setAddingMachine(true);
+    try {
+      const res = await machineApiConfigsApi.bulkCreateMachines(rangeStart.trim(), rangeEnd.trim());
+      toast.success(`Da them ${res.data?.created || 0}/${res.data?.total || 0} may`);
+      setActiveTab('private');
+      await fetchConfigs();
+    } catch (err) {
+      toast.error(err.message || 'Them nhanh may that bai');
+    } finally {
+      setAddingMachine(false);
+    }
+  };
+
+  const handleAddKey = async () => {
+    if (!newKey.trim()) return toast.error('Nhap ten key API');
+    setSavingKeys(true);
+    try {
+      await machineApiConfigsApi.addKey(newKey);
+      setNewKey('');
+      await fetchConfigs();
+      toast.success('Da them key API');
+    } catch (err) {
+      toast.error(err.message || 'Them key API that bai');
+    } finally {
+      setSavingKeys(false);
+    }
+  };
+
+  const handleRenameKey = async (key) => {
+    const newName = prompt('Nhap ten moi cho key ' + key, key);
+    if (!newName || newName.trim().toUpperCase() === key) return;
+    setSavingKeys(true);
+    try {
+      await machineApiConfigsApi.renameKey(key, newName.trim());
+      await fetchConfigs();
+      toast.success('Da sua key API');
+    } catch (err) {
+      toast.error(err.message || 'Sua key API that bai');
+    } finally {
+      setSavingKeys(false);
+    }
+  };
+
+  const handleDeleteKey = async (key) => {
+    if (!confirm('Xoa key ' + key + ' va toan bo gia tri cua key nay?')) return;
+    setSavingKeys(true);
+    try {
+      await machineApiConfigsApi.deleteKey(key);
+      await fetchConfigs();
+      toast.success('Da xoa key API');
+    } catch (err) {
+      toast.error(err.message || 'Xoa key API that bai');
+    } finally {
+      setSavingKeys(false);
     }
   };
 
@@ -310,6 +373,41 @@ export default function MachineApiConfigs() {
               {addingMachine ? text.saving : text.addMachine}
             </PrimaryButton>
           </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 1fr) minmax(160px, 1fr) auto', gap: '.75rem', alignItems: 'end', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+          <div>
+            <label style={{ ...styles.label, display: 'block', marginBottom: '.35rem' }}>Máy bắt đầu</label>
+            <input value={rangeStart} onChange={(event) => setRangeStart(event.target.value)} placeholder={'May1'} style={styles.input} />
+          </div>
+          <div>
+            <label style={{ ...styles.label, display: 'block', marginBottom: '.35rem' }}>Máy kết thúc</label>
+            <input value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} placeholder={'May100'} style={styles.input} />
+          </div>
+          <PrimaryButton onClick={handleAddMachineRange} disabled={addingMachine} color={'#8b5cf6'}>
+            {addingMachine ? text.saving : 'Thêm nhanh dải máy'}
+          </PrimaryButton>
+        </div>
+      </div>
+
+      <div className={'card'} style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'end', flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1rem' }}>Key API tùy chỉnh</h3>
+            <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.25rem' }}>Thêm, đổi tên hoặc xóa key API cho tài khoản hiện tại.</div>
+          </div>
+          <div style={{ display: 'flex', gap: '.5rem', minWidth: 320 }}>
+            <input value={newKey} onChange={(event) => setNewKey(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && handleAddKey()} placeholder={'TEN_API'} style={styles.input} />
+            <PrimaryButton onClick={handleAddKey} disabled={savingKeys} color={'#10b981'}>Thêm key</PrimaryButton>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+          {keys.length === 0 ? <span style={{ color: '#94a3b8' }}>Chưa có key API</span> : keys.map((key) => (
+            <div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', padding: '.35rem .45rem .35rem .7rem', background: '#f1f5f9', border: '1px solid #dbe3ef', borderRadius: 8 }}>
+              <strong style={{ color: '#0f172a', fontSize: '.82rem' }}>{key}</strong>
+              <button type={'button'} disabled={savingKeys} onClick={() => handleRenameKey(key)} title={'Đổi tên'} style={{ border: 0, background: '#dbeafe', color: '#1d4ed8', borderRadius: 5, cursor: 'pointer' }}>Sửa</button>
+              <button type={'button'} disabled={savingKeys} onClick={() => handleDeleteKey(key)} title={'Xóa'} style={{ border: 0, background: '#fee2e2', color: '#dc2626', borderRadius: 5, cursor: 'pointer' }}>Xóa</button>
+            </div>
+          ))}
         </div>
       </div>
 
