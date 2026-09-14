@@ -653,7 +653,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
             <thead>
               <tr>
                 <th style={{ width: 40 }}><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
-                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><th>PAGE</th><th>NHÓM</th><th>MÁY</th><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>LOGIN AT</th><th>NGÀY XONG</th>
+                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><th>PAGE</th><th>NHÓM</th><th>MÁY</th><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>{isReg ? 'NGÀY PUSH' : 'LOGIN AT'}</th><th>NGÀY XONG</th>
               </tr>
             </thead>
             <tbody>

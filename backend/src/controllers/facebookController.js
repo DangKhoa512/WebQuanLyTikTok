@@ -346,6 +346,7 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
 
     const baseData = { ...parsed, owner_username, kind, status, group_id: groupId };
     if (device_id) baseData.device_id = device_id;
+    if (kind === 'reg') baseData.login_at = new Date();
 
     const [account, created] = await FacebookAccount.findOrCreate({
       where: { owner_username, kind, uid: parsed.uid },
@@ -357,6 +358,7 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
       result.duplicated += 1;
       const duplicateUpdate = { ...parsed, group_id: groupId ?? account.group_id, status };
       if (device_id) duplicateUpdate.device_id = device_id;
+      if (kind === 'reg') duplicateUpdate.login_at = new Date();
       if (status === 'CHO_LOGIN') {
         if (!device_id) duplicateUpdate.device_id = null;
         duplicateUpdate.locked_by = null;
