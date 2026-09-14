@@ -262,6 +262,13 @@ const startServer = async () => {
     }
 
     try {
+      await sequelize.query('ALTER TABLE facebook_accounts ADD INDEX idx_facebook_reg_page_lock (owner_username, reg_page_locked_by)');
+      logger.info('facebook_accounts reg page lock index ready');
+    } catch (e) {
+      logger.warn('Migration facebook_accounts reg page lock index skipped:', e.message);
+    }
+
+    try {
       await sequelize.query(`
         CREATE TABLE IF NOT EXISTS facebook_page_jobs (
           id INT UNSIGNED NOT NULL AUTO_INCREMENT,

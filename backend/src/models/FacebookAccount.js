@@ -146,8 +146,6 @@ const FacebookAccount = sequelize.define(
       { fields: ['locked_by'] },
       { fields: ['device_id'] },
       { fields: ['live_status'] },
-      { fields: ['owner_username', 'device_id', 'last_reg_page_at'] },
-      { fields: ['reg_page_locked_by'] },
     ],
   }
 );
