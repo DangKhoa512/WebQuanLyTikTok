@@ -349,6 +349,10 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
     const baseData = { ...parsed, owner_username, kind, status, group_id: groupId };
     if (device_id) baseData.device_id = device_id;
     if (kind === 'reg') baseData.login_at = new Date();
+    if (parsed.token) {
+      baseData.page_token_status = 'unknown';
+      baseData.page_token_error = null;
+    }
 
     const [account, created] = await FacebookAccount.findOrCreate({
       where: { owner_username, kind, uid: parsed.uid },
@@ -361,6 +365,10 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
       const duplicateUpdate = { ...parsed, group_id: groupId ?? account.group_id, status };
       if (device_id) duplicateUpdate.device_id = device_id;
       if (kind === 'reg') duplicateUpdate.login_at = new Date();
+      if (parsed.token) {
+        duplicateUpdate.page_token_status = 'unknown';
+        duplicateUpdate.page_token_error = null;
+      }
       if (status === 'CHO_LOGIN') {
         if (!device_id) duplicateUpdate.device_id = null;
         duplicateUpdate.locked_by = null;
@@ -758,7 +766,7 @@ const normalizeGraphAccessToken = (value) => {
 
 const checkFacebookPagesByToken = async (token) => {
   const accessToken = normalizeGraphAccessToken(token);
-  if (!accessToken) return { ok: false, message: 'NO_TOKEN', pages: [] };
+  if (!accessToken) return { ok: false, message: 'NO_TOKEN', pages: [], token_status: 'die', error_code: null };
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -769,7 +777,10 @@ const checkFacebookPagesByToken = async (token) => {
     const response = await fetch(url, { signal: controller.signal });
     const json = await response.json().catch(() => null);
     if (!response.ok || json?.error) {
-      return { ok: false, message: json?.error?.message || 'GRAPH_ERROR', pages: [] };
+      const message = json?.error?.message || 'GRAPH_ERROR';
+      const errorCode = Number(json?.error?.code) || null;
+      const tokenDie = errorCode === 190 || /validating access token|session has been invalidated/i.test(message);
+      return { ok: false, message, pages: [], token_status: tokenDie ? 'die' : 'unknown', error_code: errorCode };
     }
     const pages = Array.isArray(json?.data) ? json.data.map((page) => ({
       id: page.id || null,
@@ -777,9 +788,9 @@ const checkFacebookPagesByToken = async (token) => {
       access_token: page.access_token || null,
       tasks: Array.isArray(page.tasks) ? page.tasks : [],
     })) : [];
-    return { ok: true, message: 'OK', pages };
+    return { ok: true, message: 'OK', pages, token_status: 'live', error_code: null };
   } catch (err) {
-    return { ok: false, message: err.name === 'AbortError' ? 'TIMEOUT' : 'REQUEST_FAILED', pages: [] };
+    return { ok: false, message: err.name === 'AbortError' ? 'TIMEOUT' : 'REQUEST_FAILED', pages: [], token_status: 'unknown', error_code: null };
   } finally {
     clearTimeout(timeout);
   }
@@ -789,6 +800,7 @@ const regPageBaseWhere = ({ owner_username, device_id }) => ({
   owner_username,
   device_id,
   page_count: { [Op.lt]: REG_PAGE_MAX_PAGES },
+  page_token_status: { [Op.ne]: 'die' },
   status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
   [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }],
 });
@@ -851,6 +863,14 @@ const getRegPageAccount = async (req, res, next) => {
     const data = hydrateFacebookData(account);
     const pageResult = await checkFacebookPagesByToken(data.token);
     if (!pageResult.ok) {
+      const tokenDie = pageResult.token_status === 'die';
+      await account.update({
+        page_token_status: pageResult.token_status,
+        page_token_error: pageResult.message,
+        last_page_check_at: new Date(),
+        ...(tokenDie ? { reg_page_locked_by: null, reg_page_locked_at: null } : {}),
+      });
+      if (tokenDie) return getRegPageAccount(req, res, next);
       return error(res, `Khong check duoc Page cua UID ${account.uid}: ${pageResult.message}`, 422);
     }
 
@@ -859,6 +879,8 @@ const getRegPageAccount = async (req, res, next) => {
       page_count,
       pages: JSON.stringify(pageResult.pages),
       last_page_check_at: new Date(),
+      page_token_status: 'live',
+      page_token_error: null,
     });
 
     if (page_count >= REG_PAGE_MAX_PAGES) {
@@ -880,31 +902,23 @@ const reportRegPage = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
     const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
-    const id = parseInt(req.body.id || req.body.account_id || req.query.id || req.query.account_id, 10);
+    const uid = nullify(req.body.uid || req.body.username || req.query.uid || req.query.username);
     if (!device_id) return error(res, 'Can truyen device_id', 400);
-    if (!Number.isInteger(id) || id <= 0) return error(res, 'Can truyen id account', 400);
+    if (!uid) return error(res, 'Can truyen uid account', 400);
 
-    const reportStatus = String(req.body.status || req.query.status || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+    const reportStatus = String(req.body.status || req.query.status || 'REG_XONG').trim().toUpperCase().replace(/[\s-]+/g, '_');
     if (!['REG_XONG', 'REG_FAIL'].includes(reportStatus)) {
       return error(res, 'status chi nhan REG_XONG hoac REG_FAIL', 400);
     }
 
-    const account = await FacebookAccount.findOne({ where: { id, owner_username } });
-    if (!account) return error(res, 'Khong tim thay account Facebook', 404);
-    if (account.device_id !== device_id) return error(res, 'Account khong thuoc may ' + device_id, 409);
-    if (account.reg_page_locked_by !== device_id) {
-      return error(res, account.reg_page_locked_by
-        ? 'Account dang duoc khoa reg Page boi may ' + account.reg_page_locked_by
-        : 'Account chua duoc may nay lay de reg Page', 409);
-    }
+    const account = await FacebookAccount.findOne({
+      where: { owner_username, uid, device_id, reg_page_locked_by: device_id },
+      order: [['reg_page_locked_at', 'DESC'], ['id', 'DESC']],
+    });
+    if (!account) return error(res, 'Khong tim thay account dang lock reg Page cua may ' + device_id + ' voi UID ' + uid, 404);
 
-    const pageCount = parseNonNegativeInt(req.body.page_count ?? req.query.page_count);
     const update = { reg_page_locked_by: null, reg_page_locked_at: null };
     if (reportStatus === 'REG_XONG') update.last_reg_page_at = new Date();
-    if (pageCount !== null) {
-      update.page_count = pageCount;
-      update.last_page_check_at = new Date();
-    }
     await account.update(update);
 
     return success(res, {
@@ -924,7 +938,9 @@ const checkPageToken = async (req, res, next) => {
     return success(res, {
       ok: result.ok,
       message: result.message,
-      page_count: result.pages.length,
+      token_status: result.token_status,
+      error_code: result.error_code,
+      page_count: result.ok ? result.pages.length : null,
       pages: result.pages,
     }, result.ok ? 'Check page token thanh cong' : 'Check page token that bai');
   } catch (err) {
@@ -944,6 +960,7 @@ const checkPages = async (req, res, next) => {
     const rows = [];
     let checked = 0;
     let successCount = 0;
+    let tokenDieCount = 0;
     let totalPages = 0;
 
     for (const account of accounts) {
@@ -952,21 +969,36 @@ const checkPages = async (req, res, next) => {
       const pageCount = result.pages.length;
       checked += 1;
       if (result.ok) successCount += 1;
-      totalPages += pageCount;
+      if (result.ok) totalPages += pageCount;
       if (result.ok) {
         await account.update({
           page_count: pageCount,
           pages: JSON.stringify(result.pages),
           last_page_check_at: new Date(),
+          page_token_status: 'live',
+          page_token_error: null,
         });
         await syncFacebookPageJobs(account, result.pages);
       } else {
-        await account.update({ last_page_check_at: new Date() });
+        if (result.token_status === 'die') tokenDieCount += 1;
+        await account.update({
+          last_page_check_at: new Date(),
+          page_token_status: result.token_status,
+          page_token_error: result.message,
+        });
       }
-      rows.push({ id: account.id, uid: account.uid, ok: result.ok, message: result.message, page_count: pageCount, pages: result.pages });
+      rows.push({
+        id: account.id,
+        uid: account.uid,
+        ok: result.ok,
+        message: result.message,
+        token_status: result.token_status,
+        page_count: result.ok ? pageCount : null,
+        pages: result.pages,
+      });
     }
 
-    return success(res, { checked, success: successCount, page_count: totalPages, rows }, 'Check page Facebook thanh cong');
+    return success(res, { checked, success: successCount, token_die: tokenDieCount, page_count: totalPages, rows }, 'Check page Facebook thanh cong');
   } catch (err) {
     next(err);
   }

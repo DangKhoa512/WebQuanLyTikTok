@@ -67,6 +67,15 @@ const FacebookAccount = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    page_token_status: {
+      type: DataTypes.ENUM('unknown', 'live', 'die'),
+      allowNull: false,
+      defaultValue: 'unknown',
+    },
+    page_token_error: {
+      type: DataTypes.STRING(1000),
+      allowNull: true,
+    },
     owner_username: {
       type: DataTypes.STRING(100),
       allowNull: false,

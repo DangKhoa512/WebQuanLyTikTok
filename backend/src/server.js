@@ -217,6 +217,8 @@ const startServer = async () => {
       ['ALTER TABLE facebook_accounts ADD COLUMN page_count INT UNSIGNED NOT NULL DEFAULT 0', 'facebook_accounts page_count column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN pages LONGTEXT NULL', 'facebook_accounts pages column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN last_page_check_at DATETIME NULL', 'facebook_accounts last_page_check_at column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN page_token_status ENUM(\'unknown\',\'live\',\'die\') NOT NULL DEFAULT \'unknown\'', 'facebook_accounts page_token_status column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN page_token_error VARCHAR(1000) NULL', 'facebook_accounts page_token_error column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN reg_page_locked_by VARCHAR(255) NULL', 'facebook_accounts reg_page_locked_by column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN reg_page_locked_at DATETIME NULL', 'facebook_accounts reg_page_locked_at column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN last_reg_page_at DATETIME NULL', 'facebook_accounts last_reg_page_at column added'],
@@ -266,6 +268,13 @@ const startServer = async () => {
       logger.info('facebook_accounts reg page lock index ready');
     } catch (e) {
       logger.warn('Migration facebook_accounts reg page lock index skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query('ALTER TABLE facebook_accounts ADD INDEX idx_facebook_page_token_status (owner_username, page_token_status)');
+      logger.info('facebook_accounts page token status index ready');
+    } catch (e) {
+      logger.warn('Migration facebook_accounts page token status index skipped:', e.message);
     }
 
     try {

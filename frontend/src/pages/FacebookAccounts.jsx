@@ -401,7 +401,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
     setCheckingPages(true);
     try {
       const res = await facebookApi.checkPages(ids, kind);
-      toast.success(`Đã check ${res.data?.checked || 0} acc - ${res.data?.page_count || 0} page`);
+      toast.success(`Đã check ${res.data?.checked || 0} acc - ${res.data?.page_count || 0} page - ${res.data?.token_die || 0} token die`);
       setPageDetails({});
       fetchData();
     } catch (err) {
@@ -683,7 +683,11 @@ export default function FacebookAccounts({ kind = 'job' }) {
                     <td title={row.token || ''}>{short(row.token, 26)}</td>
                     <td>{short(row.email, 24)}</td>
                     <td title={pageTitle(row)}>
-                      {!isReg && row.last_page_check_at ? (
+                      {row.page_token_status === 'die' ? (
+                        <span title={row.page_token_error || 'Token die'} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 68, padding: '.18rem .45rem', borderRadius: 6, background: 'rgba(239,68,68,.14)', color: '#dc2626', fontWeight: 800, fontSize: '.78rem' }}>
+                          token die
+                        </span>
+                      ) : !isReg && row.last_page_check_at ? (
                         <button type={'button'} onClick={() => togglePageDetails(row.id)} aria-expanded={expandedAccountId === row.id} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 82, padding: '.22rem .5rem', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: '.78rem', ...pageColor }}>
                           {pageCompleted}/{pageTotal} đã làm
                         </button>
