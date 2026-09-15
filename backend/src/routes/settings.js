@@ -20,5 +20,7 @@ router.get('/facebook-check-proxies', ctrl.getFacebookCheckProxies);
 router.put('/facebook-check-proxies', ctrl.updateFacebookCheckProxies);
 router.get('/facebook-reg-page-wait', ctrl.getFacebookRegPageWait);
 router.put('/facebook-reg-page-wait', ctrl.updateFacebookRegPageWait);
+router.get('/facebook-nurture', ctrl.getFacebookNurture);
+router.put('/facebook-nurture', ctrl.updateFacebookNurture);
 
 module.exports = router;

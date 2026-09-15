@@ -16,6 +16,8 @@ const {
   saveFacebookCheckProxySettings,
   getFacebookRegPageWaitSettings,
   saveFacebookRegPageWaitSettings,
+  getFacebookNurtureSettings,
+  saveFacebookNurtureSettings,
 } = require('../services/settingsService');
 
 const getEligibility = async (req, res, next) => {
@@ -282,4 +284,25 @@ const updateFacebookRegPageWait = async (req, res, next) => {
   }
 };
 
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait };
+const getFacebookNurture = async (req, res, next) => {
+  try {
+    const settings = await getFacebookNurtureSettings(ownerFromAdmin(req));
+    return success(res, { settings }, 'Lay cau hinh nuoi Facebook thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateFacebookNurture = async (req, res, next) => {
+  try {
+    if (!Array.isArray(req.body.scenarios)) {
+      return error(res, 'scenarios phai la danh sach', 400);
+    }
+    const settings = await saveFacebookNurtureSettings(ownerFromAdmin(req), req.body);
+    return success(res, { settings }, 'Da luu cau hinh nuoi Facebook');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookNurture, updateFacebookNurture };

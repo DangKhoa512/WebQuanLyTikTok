@@ -4,6 +4,7 @@ const ctrl = require('../controllers/machineApiConfigController');
 const jwtAuth = require('../middleware/jwtAuth');
 const apiKeyAuth = require('../middleware/apiKeyAuth');
 
+router.get('/device/:device_id/facebook-nurture/random', apiKeyAuth, ctrl.getRandomNurtureScenario);
 router.get('/device/:device_id', apiKeyAuth, ctrl.getForDevice);
 
 router.use(jwtAuth);

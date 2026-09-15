@@ -108,7 +108,7 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
   const selectedWeb = WEBS.find((item) => item.key === web) || WEBS[0];
 
   return (
-    <div className={'page'}>
+    <div className={'page facebook-job-stats-page'}>
       <div className={'page-header'}>
         <div>
           <h1>📊 Thống kê Facebook JOB</h1>
@@ -116,9 +116,9 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+      <div className={'facebook-stats-toolbar'}>
         <StatsPlatformSwitch active="facebook" onChange={onSwitchPlatform} />
-        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', marginLeft: 'auto' }}>
+        <div className={'facebook-stats-filters'}>
         {WEBS.map((item) => (
           <button
             key={item.key}
@@ -138,7 +138,7 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
             {item.key}
           </button>
         ))}
-        <span style={{ width: 1, height: 28, background: '#cbd5e1', margin: '0 .15rem' }} />
+        <span className={'facebook-stats-separator'} />
         {RANGES.map((item) => (
           <button
             key={item.key}
@@ -157,7 +157,7 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
             {item.label}
           </button>
         ))}
-        <span style={{ width: 1, height: 28, background: '#cbd5e1', margin: '0 .15rem' }} />
+        <span className={'facebook-stats-separator'} />
         <button onClick={() => setMetric('xu')} className={metric === 'xu' ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'}>Số xu</button>
         <button onClick={() => setMetric('jobs')} className={metric === 'jobs' ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'}>Số job</button>
           <button className={'btn btn-secondary btn-sm'} onClick={fetchData}>🔄 Làm mới</button>
@@ -170,8 +170,8 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
         <div className={'loading-wrap'}><div className={'spinner'} /> Đang tải thống kê Facebook JOB...</div>
       ) : (
         <>
-          <div style={{ overflowX: 'auto', paddingBottom: '.25rem', marginBottom: '1.25rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(180px, 1fr))', gap: '1rem', minWidth: 1120 }}>
+          <div className={'facebook-summary-wrap'}>
+            <div className={'facebook-summary-grid'}>
               <StatCard title={`${web} ${metric === 'xu' ? 'xu' : 'job'} / ${selectedRange.label}`} value={summaryValue} color={selectedWeb.color} icon={metric === 'xu' ? '💎' : '📋'} />
               <StatCard title={'Account Job'} value={stats?.accounts?.total} color={'#06b6d4'} icon={'👥'} />
               <StatCard title={'Sẵn sàng'} value={stats?.accounts?.ready} color={'#10b981'} icon={'🚀'} />

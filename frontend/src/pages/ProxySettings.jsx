@@ -3,6 +3,7 @@ import { loadCheckLiveSettings, saveCheckLiveSettings } from '../services/checkL
 import { settingsApi } from '../services/api';
 import { toast } from '../components/Toast';
 import { authService } from '../services/authService';
+import FacebookNurtureSettings from '../components/FacebookNurtureSettings';
 
 export default function ProxySettings() {
   const init = loadCheckLiveSettings();
@@ -290,7 +291,8 @@ export default function ProxySettings() {
         </div>
       </div>
 
-      <div style={{ maxWidth: '680px', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div className={'settings-columns'}>
+        <div className={'settings-left-column'} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', minWidth: 0 }}>
 
         <div className="card">
           <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
@@ -788,6 +790,8 @@ export default function ProxySettings() {
             ↺ Reset
           </button>
         </div>
+        </div>
+        <FacebookNurtureSettings />
       </div>
     </div>
   );

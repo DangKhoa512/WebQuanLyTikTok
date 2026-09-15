@@ -123,6 +123,8 @@ export const settingsApi = {
   updateFacebookCheckProxies: (proxies, concurrency) => api.put('/settings/facebook-check-proxies', { proxies, concurrency }),
   getFacebookRegPageWait: () => api.get('/settings/facebook-reg-page-wait'),
   updateFacebookRegPageWait: (hours) => api.put('/settings/facebook-reg-page-wait', { hours }),
+  getFacebookNurture: () => api.get('/settings/facebook-nurture'),
+  updateFacebookNurture: (settings) => api.put('/settings/facebook-nurture', settings),
 };
 
 
@@ -181,6 +183,8 @@ export const facebookApi = {
   bulkMoveGroup: (ids, group_id, kind = 'job') => api.post('/facebook/bulk-move-group', { ids, group_id, kind }),
   bulkAction: (ids, action, opts = {}) => api.post('/facebook/bulk-action', { ids, action, ...opts }),
   bulkDelete: (ids) => api.post('/facebook/bulk-delete', { ids }),
+  getTrash: (params) => api.get('/facebook/trash', { params }),
+  restoreTrash: (ids) => api.post('/facebook/trash/restore', { ids }),
 };
 
 export const accountGroupApi = {

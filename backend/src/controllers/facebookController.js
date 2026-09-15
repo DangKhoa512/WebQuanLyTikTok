@@ -380,7 +380,7 @@ const syncRegAccountToJob = async (regAccount) => {
     note: 'Tu dong dong bo tu Facebook Reg',
   };
 
-  const [jobAccount, created] = await FacebookAccount.findOrCreate({
+  const [jobAccount, created] = await FacebookAccount.unscoped().findOrCreate({
     where: { owner_username: source.owner_username, kind: 'job', uid: source.uid },
     defaults,
   });
@@ -424,7 +424,7 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
       baseData.page_token_error = null;
     }
 
-    const [account, created] = await FacebookAccount.findOrCreate({
+    const [account, created] = await FacebookAccount.unscoped().findOrCreate({
       where: { owner_username, kind, uid: parsed.uid },
       defaults: baseData,
     });
@@ -512,6 +512,11 @@ const list = async (req, res, next) => {
       raw: true,
     });
     const status_counts = Object.fromEntries(statusRows.map((row) => [row.status, Number(row.count) || 0]));
+    const trash_count = kind === 'job'
+      ? await FacebookAccount.unscoped().count({
+        where: { owner_username, kind: 'job', trashed_at: { [Op.ne]: null } },
+      })
+      : 0;
 
     let machine_stats = [];
     if (kind === 'reg') {
@@ -591,6 +596,7 @@ const list = async (req, res, next) => {
         return data;
       }),
       status_counts,
+      trash_count,
       machine_stats,
       pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) || 1 },
     }, 'Lay danh sach Facebook thanh cong');
@@ -1675,17 +1681,141 @@ const bulkDelete = async (req, res, next) => {
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean) : [];
     if (!ids.length) return error(res, 'Can truyen danh sach ids', 400);
     const owner_username = ownerFromAdmin(req);
+    const accounts = await FacebookAccount.findAll({
+      attributes: ['id', 'kind'],
+      where: { id: { [Op.in]: ids }, owner_username },
+    });
+    const jobIds = accounts.filter((account) => account.kind === 'job').map((account) => account.id);
+    const regIds = accounts.filter((account) => account.kind === 'reg').map((account) => account.id);
     const transaction = await sequelize.transaction();
-    let deleted;
+    let trashed = 0;
+    let deleted = 0;
     try {
-      await FacebookPageJob.destroy({ where: { facebook_account_id: { [Op.in]: ids }, owner_username }, transaction });
-      deleted = await FacebookAccount.destroy({ where: { id: { [Op.in]: ids }, owner_username }, transaction });
+      if (jobIds.length) {
+        [trashed] = await FacebookAccount.update({
+          trashed_at: new Date(),
+          locked_by: null,
+          locked_at: null,
+          reg_page_locked_by: null,
+          reg_page_locked_at: null,
+        }, {
+          where: { id: { [Op.in]: jobIds }, owner_username, kind: 'job' },
+          transaction,
+        });
+      }
+      if (regIds.length) {
+        await FacebookPageJob.destroy({ where: { facebook_account_id: { [Op.in]: regIds }, owner_username }, transaction });
+        deleted = await FacebookAccount.destroy({
+          where: { id: { [Op.in]: regIds }, owner_username, kind: 'reg' },
+          transaction,
+        });
+      }
       await transaction.commit();
     } catch (err) {
       if (!transaction.finished) await transaction.rollback();
       throw err;
     }
-    return success(res, { deleted }, `Da xoa ${deleted} account Facebook`);
+    return success(res, { trashed, deleted }, 'Da chuyen ' + trashed + ' account Job vao Thung rac' + (deleted ? ' va xoa ' + deleted + ' account Reg' : ''));
+  } catch (err) {
+    next(err);
+  }
+};
+
+const listTrash = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 2000);
+    const where = {
+      owner_username,
+      kind: 'job',
+      trashed_at: { [Op.ne]: null },
+    };
+    const groupId = parseInt(req.query.group_id, 10);
+    if (Number.isInteger(groupId) && groupId > 0) where.group_id = groupId;
+    const liveStatus = String(req.query.live_status || '').trim().toLowerCase();
+    if (['unknown', 'live', 'die'].includes(liveStatus)) where.live_status = liveStatus;
+    const q = nullify(req.query.q || req.query.uid);
+    if (q) {
+      where[Op.or] = [
+        { uid: { [Op.like]: '%' + q + '%' } },
+        { email: { [Op.like]: '%' + q + '%' } },
+        { device_id: { [Op.like]: '%' + q + '%' } },
+      ];
+    }
+    const { rows, count } = await FacebookAccount.unscoped().findAndCountAll({
+      where,
+      order: [['trashed_at', 'DESC'], ['id', 'DESC']],
+      limit,
+      offset: (page - 1) * limit,
+    });
+    return success(res, {
+      accounts: rows.map(serialize),
+      pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) || 1 },
+    }, 'Lay Thung rac Facebook Job thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const restoreTrash = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? [...new Set(req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean))] : [];
+    if (!ids.length) return error(res, 'Can truyen danh sach ids', 400);
+    const owner_username = ownerFromAdmin(req);
+    const transaction = await sequelize.transaction();
+    let restored = 0;
+    try {
+      await FacebookAccount.unscoped().update({
+        status: 'CHO_LOGIN',
+        login_get_count: 0,
+        locked_by: null,
+        locked_at: null,
+        completed_at: null,
+      }, {
+        where: {
+          id: { [Op.in]: ids },
+          owner_username,
+          kind: 'job',
+          trashed_at: { [Op.ne]: null },
+          status: 'DANG_LOGIN',
+        },
+        transaction,
+      });
+      await FacebookAccount.unscoped().update({
+        status: 'LOGIN_THANH_CONG',
+        locked_by: null,
+        locked_at: null,
+        completed_at: null,
+      }, {
+        where: {
+          id: { [Op.in]: ids },
+          owner_username,
+          kind: 'job',
+          trashed_at: { [Op.ne]: null },
+          status: 'DANG_LAM',
+        },
+        transaction,
+      });
+      [restored] = await FacebookAccount.unscoped().update({
+        trashed_at: null,
+        reg_page_locked_by: null,
+        reg_page_locked_at: null,
+      }, {
+        where: {
+          id: { [Op.in]: ids },
+          owner_username,
+          kind: 'job',
+          trashed_at: { [Op.ne]: null },
+        },
+        transaction,
+      });
+      await transaction.commit();
+    } catch (err) {
+      if (!transaction.finished) await transaction.rollback();
+      throw err;
+    }
+    return success(res, { restored }, 'Da khoi phuc ' + restored + ' account Facebook Job');
   } catch (err) {
     next(err);
   }
@@ -1713,4 +1843,6 @@ module.exports = {
   bulkMoveGroup,
   bulkAction,
   bulkDelete,
+  listTrash,
+  restoreTrash,
 };

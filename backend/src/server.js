@@ -223,6 +223,7 @@ const startServer = async () => {
       ['ALTER TABLE facebook_accounts ADD COLUMN reg_page_locked_at DATETIME NULL', 'facebook_accounts reg_page_locked_at column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN last_reg_page_at DATETIME NULL', 'facebook_accounts last_reg_page_at column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN login_get_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER locked_at', 'facebook_accounts login_get_count column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN trashed_at DATETIME NULL AFTER note', 'facebook_accounts trashed_at column added'],
     ]) {
       try {
         await sequelize.query(sql);
@@ -230,6 +231,12 @@ const startServer = async () => {
       } catch (e) {
         logger.warn('Migration ' + label + ' skipped:', e.message);
       }
+    }
+    try {
+      await sequelize.query('ALTER TABLE facebook_accounts ADD INDEX idx_facebook_trash (owner_username, kind, trashed_at)');
+      logger.info('facebook_accounts trash index ready');
+    } catch (e) {
+      logger.warn('Migration facebook_accounts trash index skipped:', e.message);
     }
     try {
       await sequelize.query('ALTER TABLE facebook_job_daily_stats ADD COLUMN xu_count BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER job_count');

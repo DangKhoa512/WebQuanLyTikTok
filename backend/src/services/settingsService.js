@@ -8,6 +8,7 @@ const JOB_ACCOUNT_DAILY_LIMIT_KEY = 'job_account_daily_limit';
 const MACHINE_API_KEYS_KEY = 'machine_api_keys';
 const FACEBOOK_CHECK_PROXIES_KEY = 'facebook_check_proxies';
 const FACEBOOK_REG_PAGE_WAIT_KEY = 'facebook_reg_page_wait_hours';
+const FACEBOOK_NURTURE_KEY = 'facebook_nurture';
 const DEFAULT_MACHINE_API_KEYS = [
   'WEB',
   'CAPTCHA_TDS',
@@ -28,6 +29,10 @@ const DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT = parseInt(process.env.FACEBOOK_LOGIN
 const DEFAULT_JOB_ACCOUNT_DAILY_LIMIT = parseInt(process.env.JOB_ACCOUNT_DAILY_LIMIT, 10) || 20;
 const DEFAULT_FACEBOOK_CHECK_CONCURRENCY = 20;
 const DEFAULT_FACEBOOK_REG_PAGE_WAIT_HOURS = 8;
+const DEFAULT_FACEBOOK_NURTURE = {
+  active_scenario_id: null,
+  scenarios: [],
+};
 
 const normalizePositiveInt = (value, fallback) => {
   const parsed = parseInt(value, 10);
@@ -71,6 +76,56 @@ const normalizeFacebookRegPageWait = (data = {}) => {
     ? Math.min(Math.max(parsedHours, 0), 720)
     : DEFAULT_FACEBOOK_REG_PAGE_WAIT_HOURS;
   return { hours };
+};
+
+const normalizeNurtureRange = (data = {}) => {
+  const parsedMin = parseInt(data.min, 10);
+  const parsedMax = parseInt(data.max, 10);
+  const min = Number.isInteger(parsedMin) ? Math.min(Math.max(parsedMin, 0), 86400) : 0;
+  const maxValue = Number.isInteger(parsedMax) ? Math.min(Math.max(parsedMax, 0), 86400) : min;
+  return {
+    enabled: data.enabled === true,
+    min,
+    max: Math.max(min, maxValue),
+  };
+};
+
+const normalizeFacebookNurture = (data = {}) => {
+  const source = Array.isArray(data.scenarios) ? data.scenarios.slice(0, 50) : [];
+  const usedIds = new Set();
+  const scenarios = source.map((scenario, index) => {
+    const rawId = String(scenario?.id || `scenario-${index + 1}`).trim().slice(0, 100);
+    let id = rawId || `scenario-${index + 1}`;
+    let duplicateSuffix = index + 1;
+    while (usedIds.has(id)) {
+      id = `${(rawId || 'scenario').slice(0, 90)}-${duplicateSuffix}`;
+      duplicateSuffix += 1;
+    }
+    usedIds.add(id);
+    const actions = {
+      newfeed: normalizeNurtureRange(scenario?.actions?.newfeed),
+      reels: normalizeNurtureRange(scenario?.actions?.reels),
+      like_newfeed: normalizeNurtureRange(scenario?.actions?.like_newfeed),
+    };
+    return {
+      id,
+      name: String(scenario?.name || `Kich ban ${index + 1}`).trim().slice(0, 100) || `Kich ban ${index + 1}`,
+      total_duration_seconds: {
+        min: (actions.newfeed.enabled ? actions.newfeed.min : 0)
+          + (actions.reels.enabled ? actions.reels.min : 0),
+        max: (actions.newfeed.enabled ? actions.newfeed.max : 0)
+          + (actions.reels.enabled ? actions.reels.max : 0),
+      },
+      actions,
+    };
+  });
+  const requestedActiveId = String(data.active_scenario_id || '').trim();
+  return {
+    active_scenario_id: scenarios.some((scenario) => scenario.id === requestedActiveId)
+      ? requestedActiveId
+      : null,
+    scenarios,
+  };
 };
 
 const getSetting = async (owner_username, setting_key) => {
@@ -184,12 +239,26 @@ const saveFacebookRegPageWaitSettings = async (owner_username = 'admin', data = 
   return normalized;
 };
 
+const getFacebookNurtureSettings = async (owner_username = 'admin') => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, FACEBOOK_NURTURE_KEY);
+  return normalizeFacebookNurture(stored || DEFAULT_FACEBOOK_NURTURE);
+};
+
+const saveFacebookNurtureSettings = async (owner_username = 'admin', data = {}) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const normalized = normalizeFacebookNurture(data);
+  await saveSetting(owner, FACEBOOK_NURTURE_KEY, normalized);
+  return normalized;
+};
+
 module.exports = {
   DEFAULT_ELIGIBILITY,
   DEFAULT_CHROME_KHANG_DAILY_LIMIT,
   DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT,
   DEFAULT_JOB_ACCOUNT_DAILY_LIMIT,
   DEFAULT_MACHINE_API_KEYS,
+  DEFAULT_FACEBOOK_NURTURE,
   getEligibilitySettings,
   saveEligibilitySettings,
   getChromeKhangLimitSettings,
@@ -204,4 +273,6 @@ module.exports = {
   saveFacebookCheckProxySettings,
   getFacebookRegPageWaitSettings,
   saveFacebookRegPageWaitSettings,
+  getFacebookNurtureSettings,
+  saveFacebookNurtureSettings,
 };

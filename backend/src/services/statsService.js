@@ -513,7 +513,9 @@ const getFacebookJobStats = async (ownerFilter = null) => {
   const replacements = {};
   if (ownerFilter) replacements.owner = ownerFilter;
   const dailyWhere = ownerFilter ? 'WHERE owner_username = :owner' : '';
-  const accountWhere = ownerFilter ? "WHERE owner_username = :owner AND kind = 'job'" : "WHERE kind = 'job'";
+  const accountWhere = ownerFilter
+    ? "WHERE owner_username = :owner AND kind = 'job' AND trashed_at IS NULL"
+    : "WHERE kind = 'job' AND trashed_at IS NULL";
 
   const webRows = await sequelize.query(
     `SELECT

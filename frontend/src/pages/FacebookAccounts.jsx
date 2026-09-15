@@ -323,6 +323,9 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const [loadingPageAccountId, setLoadingPageAccountId] = useState(null);
   const [resettingPages, setResettingPages] = useState(false);
   const [sort, setSort] = useState({ field: null, direction: 'asc' });
+  const [trashMode, setTrashMode] = useState(false);
+  const [trashCount, setTrashCount] = useState(0);
+  const [restoring, setRestoring] = useState(false);
 
   const isReg = kind === 'reg';
   const tabs = isReg ? REG_TABS : STATUS_TABS;
@@ -344,19 +347,29 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await facebookApi.getAll(params);
+      const res = trashMode
+        ? await facebookApi.getTrash(params)
+        : await facebookApi.getAll(params);
       setRows(res.data?.accounts || []);
-      setStatusCounts(res.data?.status_counts || {});
+      if (!trashMode) {
+        setStatusCounts(res.data?.status_counts || {});
+        setTrashCount(res.data?.trash_count || 0);
+      } else {
+        setTrashCount(res.data?.pagination?.total || 0);
+      }
       setPagination(res.data?.pagination || null);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setLoading(false);
     }
-  }, [params]);
+  }, [params, trashMode, page, limit, q]);
 
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (isReg && trashMode) setTrashMode(false);
+  }, [isReg, trashMode]);
 
   const selectedIds = [...selected];
   const allChecked = rows.length > 0 && rows.every((row) => selected.has(row.id));
@@ -547,7 +560,10 @@ export default function FacebookAccounts({ kind = 'job' }) {
 
   const handleDelete = async () => {
     if (!selectedIds.length) return;
-    if (!confirm(`Xóa ${selectedIds.length} account Facebook?`)) return;
+    const question = isReg
+      ? 'Xóa vĩnh viễn ' + selectedIds.length + ' account Facebook Reg?'
+      : 'Chuyển ' + selectedIds.length + ' account Facebook Job vào Thùng rác?';
+    if (!confirm(question)) return;
     try {
       const res = await facebookApi.bulkDelete(selectedIds);
       toast.success(res.message);
@@ -556,6 +572,36 @@ export default function FacebookAccounts({ kind = 'job' }) {
     } catch (err) {
       toast.error(err.message);
     }
+  };
+
+  const handleRestore = async () => {
+    if (!selectedIds.length) return;
+    if (!confirm('Khôi phục ' + selectedIds.length + ' account Facebook Job?')) return;
+    setRestoring(true);
+    try {
+      const res = await facebookApi.restoreTrash(selectedIds);
+      toast.success(res.message);
+      setSelected(new Set());
+      fetchData();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const toggleTrashMode = () => {
+    setTrashMode((current) => !current);
+    setPage(1);
+    setQ('');
+    setStatus('');
+    setLiveStatus('');
+    setGroupId('');
+    setDateFrom('');
+    setDateTo('');
+    setSoakDays('');
+    setSelected(new Set());
+    setExpandedAccountId(null);
   };
 
   return (
@@ -581,12 +627,13 @@ export default function FacebookAccounts({ kind = 'job' }) {
 
       <div className="page-header">
         <div>
-          <h1>{title} <span style={{ fontSize: '.75rem', color: '#94a3b8', fontWeight: 400 }}>{isReg ? 'Account reg' : 'Phone job'}</span></h1>
+          <h1>{trashMode ? 'Facebook Job - Thùng rác' : title} <span style={{ fontSize: '.75rem', color: '#94a3b8', fontWeight: 400 }}>{isReg ? 'Account reg' : trashMode ? 'Dữ liệu đã xóa' : 'Phone job'}</span></h1>
           <div className="subtitle">{subtitle}</div>
         </div>
         <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
           {isReg && <Link to="/facebook-reg-stats" className="btn btn-secondary btn-sm">Thống kê</Link>}
-          <button onClick={() => setShowImport(true)} className="btn btn-primary btn-sm">Import</button>
+          {!isReg && <button onClick={toggleTrashMode} className="btn btn-secondary btn-sm">{trashMode ? 'Quay lại Facebook Job' : 'Thùng rác (' + trashCount + ')'}</button>}
+          {!trashMode && <button onClick={() => setShowImport(true)} className="btn btn-primary btn-sm">Import</button>}
           <button onClick={fetchData} disabled={loading} className="btn btn-secondary btn-sm">{loading ? 'Đang tải...' : 'Làm mới'}</button>
         </div>
       </div>
@@ -604,7 +651,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
         </div>
       )}
 
-      <div className="fb-status-tabs">
+      {!trashMode && <div className="fb-status-tabs">
         {tabs.map((tab) => (
           <button key={tab.value || 'ALL'} onClick={() => setFilter(setStatus, tab.value)} style={{
             background: status === tab.value ? tab.color : 'rgba(255,255,255,.06)',
@@ -616,7 +663,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
             {tab.icon} {tab.label} {tab.value ? `(${statusCounts[tab.value] || 0})` : `(${totalCount})`}
           </button>
         ))}
-      </div>
+      </div>}
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="filter-bar">
@@ -638,7 +685,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
                 {LIVE_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
               </select>
             </div>
-            {!isReg && (
+            {!isReg && !trashMode && (
               <>
                 <div className="filter-group">
                   <label>Từ ngày</label>
@@ -668,7 +715,15 @@ export default function FacebookAccounts({ kind = 'job' }) {
         </div>
       </div>
 
-      <FacebookToolbar
+      {trashMode ? (
+        <div style={{ background: '#0f172a', borderRadius: '12px', padding: '.75rem 1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '.75rem', flexWrap: 'wrap' }}>
+          <strong style={{ color: '#e2e8f0' }}>{selectedIds.length} account đã chọn</strong>
+          <button className="btn btn-success btn-sm" disabled={!selectedIds.length || restoring} onClick={handleRestore}>
+            {restoring ? 'Đang khôi phục...' : 'Khôi phục đã chọn'}
+          </button>
+          {selectedIds.length > 0 && <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set())}>Bỏ chọn</button>}
+        </div>
+      ) : <FacebookToolbar
         isReg={isReg}
         selectedCount={selectedIds.length}
         statusOptions={tabs.filter((tab) => tab.value)}
@@ -691,11 +746,11 @@ export default function FacebookAccounts({ kind = 'job' }) {
         syncingJob={syncingJob}
         onDelete={handleDelete}
         onClear={() => setSelected(new Set())}
-      />
+      />}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="card-header">
-          <h3>Danh sách account</h3>
+          <h3>{trashMode ? 'Thùng rác Facebook Job' : 'Danh sách account'}</h3>
           <span style={{ color: '#64748b', fontSize: '.8rem' }}>{pagination?.total || 0} account {loading ? '- đang tải...' : ''}</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -703,12 +758,12 @@ export default function FacebookAccounts({ kind = 'job' }) {
             <thead>
               <tr>
                 <th style={{ width: 40 }}><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
-                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><SortableTh field={'page_count'} label={'PAGE'} sort={sort} onSort={handleSort} /><th>NHÓM</th><SortableTh field={'device_id'} label={'MÁY'} sort={sort} onSort={handleSort} /><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>REGPAGE LOCK</th><th>{isReg ? 'NGÀY PUSH' : 'LOGIN AT'}</th><th>NGÀY XONG</th>
+                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><SortableTh field={'page_count'} label={'PAGE'} sort={sort} onSort={handleSort} /><th>NHÓM</th><SortableTh field={'device_id'} label={'MÁY'} sort={sort} onSort={handleSort} /><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>REGPAGE LOCK</th><th>{isReg ? 'NGÀY PUSH' : 'LOGIN AT'}</th><th>{trashMode ? 'NGÀY XÓA' : 'NGÀY XONG'}</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={17} style={{ textAlign: 'center', color: '#94a3b8', padding: 36 }}>Chưa có account Facebook</td></tr>
+                <tr><td colSpan={17} style={{ textAlign: 'center', color: '#94a3b8', padding: 36 }}>{trashMode ? 'Thùng rác đang trống' : 'Chưa có account Facebook'}</td></tr>
               ) : rows.map((row, idx) => {
                 const sc = STATUS_COLOR[row.status] || { bg: 'rgba(100,116,139,.1)', color: '#64748b' };
                 const group = groups.find((item) => String(item.id) === String(row.group_id));
@@ -737,7 +792,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
                         <span title={row.page_token_error || 'Token die'} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 68, padding: '.18rem .45rem', borderRadius: 6, background: 'rgba(239,68,68,.14)', color: '#dc2626', fontWeight: 800, fontSize: '.78rem' }}>
                           token die
                         </span>
-                      ) : !isReg && row.last_page_check_at ? (
+                      ) : !trashMode && !isReg && row.last_page_check_at ? (
                         <button type={'button'} onClick={() => togglePageDetails(row.id)} aria-expanded={expandedAccountId === row.id} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 82, padding: '.22rem .5rem', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: '.78rem', ...pageColor }}>
                           {pageCompleted}/{pageTotal} đã làm
                         </button>
@@ -754,9 +809,9 @@ export default function FacebookAccounts({ kind = 'job' }) {
                     <td>{row.locked_by ? `${row.locked_by} - ${fmt(row.locked_at)}` : '-'}</td>
                     <td>{row.reg_page_locked_by ? `${row.reg_page_locked_by} - ${fmt(row.reg_page_locked_at)}` : '-'}</td>
                     <td>{fmt(row.login_at)}</td>
-                    <td>{fmt(row.completed_at)}</td>
+                    <td>{fmt(trashMode ? row.trashed_at : row.completed_at)}</td>
                   </tr>
-                  {!isReg && expandedAccountId === row.id && <FacebookPageDetails row={row} details={details} loading={loadingPageAccountId === row.id} resetting={resettingPages} onReset={handleResetPages} />}
+                  {!trashMode && !isReg && expandedAccountId === row.id && <FacebookPageDetails row={row} details={details} loading={loadingPageAccountId === row.id} resetting={resettingPages} onReset={handleResetPages} />}
                   </Fragment>
                 );
               })}

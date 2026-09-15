@@ -144,9 +144,16 @@ const FacebookAccount = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    trashed_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: 'facebook_accounts',
+    defaultScope: {
+      where: { trashed_at: null },
+    },
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: 'updated_at',

@@ -15,6 +15,8 @@ router.post('/reg-page/get-account', apiKeyAuth, controller.getRegPageAccount);
 router.post('/reg-page/report', apiKeyAuth, controller.reportRegPage);
 router.post('/check-page-token', apiKeyAuth, controller.checkPageToken);
 router.get('/reg-page/stats', jwtAuth, controller.getRegPageStats);
+router.get('/trash', jwtAuth, controller.listTrash);
+router.post('/trash/restore', jwtAuth, controller.restoreTrash);
 
 router.get('/', jwtAuth, controller.list);
 router.get('/:accountId/pages', jwtAuth, controller.getAccountPages);
