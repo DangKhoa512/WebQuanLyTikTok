@@ -509,6 +509,171 @@ const getJobDeviceStats = async (ownerFilter = null, webFilter = 'TDS') => {
   );
 };
 
+const getFacebookJobStats = async (ownerFilter = null) => {
+  const replacements = {};
+  if (ownerFilter) replacements.owner = ownerFilter;
+  const dailyWhere = ownerFilter ? 'WHERE owner_username = :owner' : '';
+  const accountWhere = ownerFilter ? "WHERE owner_username = :owner AND kind = 'job'" : "WHERE kind = 'job'";
+
+  const webRows = await sequelize.query(
+    `SELECT
+       web,
+       COALESCE(SUM(CASE WHEN stat_date = CURDATE() THEN job_count ELSE 0 END), 0) AS today_jobs,
+       COALESCE(SUM(CASE WHEN YEAR(stat_date) = YEAR(CURDATE()) AND MONTH(stat_date) = MONTH(CURDATE()) THEN job_count ELSE 0 END), 0) AS month_jobs,
+       COALESCE(SUM(CASE WHEN YEAR(stat_date) = YEAR(CURDATE()) THEN job_count ELSE 0 END), 0) AS year_jobs,
+       COALESCE(SUM(job_count), 0) AS total_jobs,
+       COALESCE(SUM(CASE WHEN stat_date = CURDATE() THEN xu_count ELSE 0 END), 0) AS today_xu,
+       COALESCE(SUM(CASE WHEN YEAR(stat_date) = YEAR(CURDATE()) AND MONTH(stat_date) = MONTH(CURDATE()) THEN xu_count ELSE 0 END), 0) AS month_xu,
+       COALESCE(SUM(CASE WHEN YEAR(stat_date) = YEAR(CURDATE()) THEN xu_count ELSE 0 END), 0) AS year_xu,
+       COALESCE(SUM(xu_count), 0) AS total_xu
+     FROM facebook_job_daily_stats
+     ${dailyWhere}
+     GROUP BY web`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+
+  const [accounts = {}] = await sequelize.query(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(status = 'LOGIN_THANH_CONG') AS ready,
+       SUM(status = 'DANG_LAM') AS working,
+       SUM(status = 'DA_CHAY_XONG') AS done,
+       SUM(status IN ('LOGIN_FAIL', 'ACCOUNT_DIE')) AS failed
+     FROM facebook_accounts
+     ${accountWhere}`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+
+  const web_summary = Object.fromEntries(['TTC', 'XSMM', 'NVC'].map((web) => [web, {
+    today_jobs: 0,
+    month_jobs: 0,
+    year_jobs: 0,
+    total_jobs: 0,
+    today_xu: 0,
+    month_xu: 0,
+    year_xu: 0,
+    total_xu: 0,
+  }]));
+  for (const row of webRows) {
+    web_summary[row.web] = {
+      today_jobs: numeric(row, 'today_jobs'),
+      month_jobs: numeric(row, 'month_jobs'),
+      year_jobs: numeric(row, 'year_jobs'),
+      total_jobs: numeric(row, 'total_jobs'),
+      today_xu: numeric(row, 'today_xu'),
+      month_xu: numeric(row, 'month_xu'),
+      year_xu: numeric(row, 'year_xu'),
+      total_xu: numeric(row, 'total_xu'),
+    };
+  }
+
+  return {
+    accounts: {
+      total: numeric(accounts, 'total'),
+      ready: numeric(accounts, 'ready'),
+      working: numeric(accounts, 'working'),
+      done: numeric(accounts, 'done'),
+      failed: numeric(accounts, 'failed'),
+    },
+    web_summary,
+  };
+};
+
+const getFacebookJobDailyStats = async (days = 30, ownerFilter = null) => {
+  const daysInt = Math.min(365, Math.max(1, parseInt(days, 10) || 30));
+  const replacements = { days: Math.max(0, daysInt - 1) };
+  if (ownerFilter) replacements.owner = ownerFilter;
+  const ownerAnd = ownerFilter ? 'AND owner_username = :owner' : '';
+  const dateWhere = daysInt === 1
+    ? 'stat_date = CURDATE()'
+    : 'stat_date >= DATE_SUB(CURDATE(), INTERVAL :days DAY)';
+
+  const daily = await sequelize.query(
+    `SELECT
+       stat_date AS date,
+       COALESCE(SUM(CASE WHEN web = 'TTC' THEN job_count ELSE 0 END), 0) AS TTC,
+       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN job_count ELSE 0 END), 0) AS XSMM,
+       COALESCE(SUM(CASE WHEN web = 'NVC' THEN job_count ELSE 0 END), 0) AS NVC,
+       COALESCE(SUM(job_count), 0) AS total_jobs,
+       COALESCE(SUM(CASE WHEN web = 'TTC' THEN xu_count ELSE 0 END), 0) AS TTC_xu,
+       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN xu_count ELSE 0 END), 0) AS XSMM_xu,
+       COALESCE(SUM(CASE WHEN web = 'NVC' THEN xu_count ELSE 0 END), 0) AS NVC_xu,
+       COALESCE(SUM(xu_count), 0) AS total_xu
+     FROM facebook_job_daily_stats
+     WHERE ${dateWhere}
+       ${ownerAnd}
+     GROUP BY stat_date
+     ORDER BY stat_date ASC`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+
+  const monthly = await sequelize.query(
+    `SELECT
+       DATE_FORMAT(stat_date, '%Y-%m') AS month,
+       COALESCE(SUM(CASE WHEN web = 'TTC' THEN job_count ELSE 0 END), 0) AS TTC,
+       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN job_count ELSE 0 END), 0) AS XSMM,
+       COALESCE(SUM(CASE WHEN web = 'NVC' THEN job_count ELSE 0 END), 0) AS NVC,
+       COALESCE(SUM(job_count), 0) AS total_jobs,
+       COALESCE(SUM(CASE WHEN web = 'TTC' THEN xu_count ELSE 0 END), 0) AS TTC_xu,
+       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN xu_count ELSE 0 END), 0) AS XSMM_xu,
+       COALESCE(SUM(CASE WHEN web = 'NVC' THEN xu_count ELSE 0 END), 0) AS NVC_xu,
+       COALESCE(SUM(xu_count), 0) AS total_xu
+     FROM facebook_job_daily_stats
+     WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+       ${ownerAnd}
+     GROUP BY DATE_FORMAT(stat_date, '%Y-%m')
+     ORDER BY month ASC`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+
+  const yearly = await sequelize.query(
+    `SELECT
+       YEAR(stat_date) AS year,
+       COALESCE(SUM(CASE WHEN web = 'TTC' THEN job_count ELSE 0 END), 0) AS TTC,
+       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN job_count ELSE 0 END), 0) AS XSMM,
+       COALESCE(SUM(CASE WHEN web = 'NVC' THEN job_count ELSE 0 END), 0) AS NVC,
+       COALESCE(SUM(job_count), 0) AS total_jobs,
+       COALESCE(SUM(CASE WHEN web = 'TTC' THEN xu_count ELSE 0 END), 0) AS TTC_xu,
+       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN xu_count ELSE 0 END), 0) AS XSMM_xu,
+       COALESCE(SUM(CASE WHEN web = 'NVC' THEN xu_count ELSE 0 END), 0) AS NVC_xu,
+       COALESCE(SUM(xu_count), 0) AS total_xu
+     FROM facebook_job_daily_stats
+     ${ownerFilter ? 'WHERE owner_username = :owner' : ''}
+     GROUP BY YEAR(stat_date)
+     ORDER BY year ASC`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+
+  return { daily_job: daily, monthly_job: monthly, yearly_job: yearly };
+};
+
+const getFacebookJobDeviceStats = async (days = 1, ownerFilter = null) => {
+  const daysInt = Math.min(365, Math.max(1, parseInt(days, 10) || 1));
+  const replacements = { days: Math.max(0, daysInt - 1) };
+  if (ownerFilter) replacements.owner = ownerFilter;
+  const dateWhere = daysInt === 1
+    ? 'stat_date = CURDATE()'
+    : 'stat_date >= DATE_SUB(CURDATE(), INTERVAL :days DAY)';
+  const ownerAnd = ownerFilter ? 'AND owner_username = :owner' : '';
+  return sequelize.query(
+    `SELECT
+       device_id,
+       COALESCE(SUM(CASE WHEN web = 'TTC' THEN job_count ELSE 0 END), 0) AS range_TTC,
+       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN job_count ELSE 0 END), 0) AS range_XSMM,
+       COALESCE(SUM(CASE WHEN web = 'NVC' THEN job_count ELSE 0 END), 0) AS range_NVC,
+       COALESCE(SUM(CASE WHEN web = 'TTC' THEN xu_count ELSE 0 END), 0) AS range_TTC_xu,
+       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN xu_count ELSE 0 END), 0) AS range_XSMM_xu,
+       COALESCE(SUM(CASE WHEN web = 'NVC' THEN xu_count ELSE 0 END), 0) AS range_NVC_xu,
+       MAX(updated_at) AS last_seen
+     FROM facebook_job_daily_stats
+     WHERE ${dateWhere}
+       ${ownerAnd}
+     GROUP BY device_id
+     ORDER BY device_id ASC`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+};
+
 module.exports = {
   getStats,
   getDailyStats,
@@ -516,4 +681,7 @@ module.exports = {
   getJobStats,
   getJobDailyStats,
   getJobDeviceStats,
+  getFacebookJobStats,
+  getFacebookJobDailyStats,
+  getFacebookJobDeviceStats,
 };

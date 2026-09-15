@@ -15,6 +15,8 @@ import {
   YAxis,
 } from 'recharts';
 import { statsApi } from '../services/api';
+import FacebookJobStats from './FacebookJobStats';
+import StatsPlatformSwitch from '../components/StatsPlatformSwitch';
 
 const RANGE_OPTIONS = [
   { label: 'Hôm nay', value: 'today', days: 1 },
@@ -75,7 +77,7 @@ function SummaryCard({ title, value, color, icon, suffix = '' }) {
   );
 }
 
-export default function Stats() {
+function TikTokJobStats({ onSwitchPlatform }) {
   const [range, setRange] = useState('today');
   const [web, setWeb] = useState('TDS');
   const [stats, setStats] = useState(null);
@@ -248,7 +250,11 @@ export default function Stats() {
           <h1>📊 Thống kê JOB</h1>
           <div className="subtitle">Theo dõi account chạy job, lỗi và tổng xu theo máy/ngày/tháng.</div>
         </div>
-        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <StatsPlatformSwitch active="tiktok" onChange={onSwitchPlatform} />
+        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', marginLeft: 'auto' }}>
           <div style={{ display: 'flex', gap: '.35rem', alignItems: 'center', marginRight: '.35rem' }}>
             {WEB_OPTIONS.map((option) => (
               <button
@@ -289,7 +295,7 @@ export default function Stats() {
               {option.label}
             </button>
           ))}
-          <button className="btn btn-secondary btn-sm" onClick={fetchData}>🔄 Làm mới</button>
+            <button className="btn btn-secondary btn-sm" onClick={fetchData}>🔄 Làm mới</button>
         </div>
       </div>
 
@@ -485,4 +491,11 @@ export default function Stats() {
       )}
     </div>
   );
+}
+
+export default function Stats() {
+  const [platform, setPlatform] = useState('tiktok');
+  return platform === 'facebook'
+    ? <FacebookJobStats onSwitchPlatform={setPlatform} />
+    : <TikTokJobStats onSwitchPlatform={setPlatform} />;
 }

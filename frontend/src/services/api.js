@@ -96,6 +96,9 @@ export const statsApi = {
   getJobStats:      (web = 'TDS')     => api.get('/stats/job', { params: { web }, timeout: 60_000 }),
   getJobDailyStats: (days, web = 'TDS') => api.get('/stats/job/daily', { params: { days, web }, timeout: 60_000 }),
   getJobDeviceStats: (web = 'TDS')    => api.get('/stats/job/devices', { params: { web }, timeout: 60_000 }),
+  getFacebookJobStats: () => api.get('/stats/facebook-job', { timeout: 60_000 }),
+  getFacebookJobDailyStats: (days = 30) => api.get('/stats/facebook-job/daily', { params: { days }, timeout: 60_000 }),
+  getFacebookJobDeviceStats: (days = 1) => api.get('/stats/facebook-job/devices', { params: { days }, timeout: 60_000 }),
 };
 
 export const settingsApi = {

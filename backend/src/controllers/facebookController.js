@@ -6,6 +6,7 @@ const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { getFacebookLoginLimitSettings } = require('../services/settingsService');
+const { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs } = require('../services/facebookJobStatService');
 
 const STATUSES = ['CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
 const FINAL_STATUSES = ['LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
@@ -13,6 +14,13 @@ const KINDS = ['reg', 'job'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.FACEBOOK_LOCK_TIMEOUT_MIN, 10) || 120;
 const REG_PAGE_MAX_PAGES = 15;
 const REG_PAGE_COOLDOWN_HOURS = 24;
+const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const vietnamToday = () => VN_DATE_FORMATTER.format(new Date());
 const parseNonNegativeInt = (value) => {
   if (value === undefined || value === null || value === '') return null;
   const parsed = parseInt(value, 10);
@@ -991,6 +999,30 @@ const reportRegPage = async (req, res, next) => {
   }
 };
 
+const addFacebookJobCount = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
+    const web = normalizeFacebookJobWeb(req.body.web || req.body.label || req.body.nhan || req.query.web || req.query.label || req.query.nhan);
+    const rawCount = req.body.jobs ?? req.body.job_count ?? req.body.count ?? req.body.so_luong ?? req.query.jobs ?? req.query.job_count ?? req.query.count;
+    const rawXu = req.body.xu ?? req.body.xu_count ?? req.body.coins ?? req.query.xu ?? req.query.xu_count ?? req.query.coins;
+    const xu = rawXu === undefined || rawXu === null || rawXu === '' ? 0 : parseInt(rawXu, 10);
+    const defaultJobs = xu > 0 ? 0 : 1;
+    const jobs = rawCount === undefined || rawCount === null || rawCount === '' ? defaultJobs : parseInt(rawCount, 10);
+
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    if (!web) return error(res, `Nhan web khong hop le. Dung: ${FACEBOOK_JOB_WEBS.join(', ')}`, 400);
+    if (!Number.isInteger(jobs) || jobs < 0) return error(res, 'jobs phai la so nguyen >= 0', 400);
+    if (!Number.isInteger(xu) || xu < 0) return error(res, 'xu phai la so nguyen >= 0', 400);
+    if (jobs === 0 && xu === 0) return error(res, 'Can truyen jobs hoac xu lon hon 0', 400);
+
+    await addFacebookDailyJobs({ owner_username, device_id, stat_date: vietnamToday(), web, jobs, xu });
+    return success(res, { device_id, web, added_jobs: jobs, added_xu: xu, stat_date: vietnamToday() }, `Da ghi them ${jobs} job va ${xu} xu Facebook ${web}`);
+  } catch (err) {
+    next(err);
+  }
+};
+
 const checkPageToken = async (req, res, next) => {
   try {
     const token = req.body.token || req.body.access_token || req.query.token || req.query.access_token;
@@ -1319,6 +1351,7 @@ module.exports = {
   reportPageJob,
   getRegPageAccount,
   reportRegPage,
+  addFacebookJobCount,
   resetPageJobs,
   bulkGet,
   bulkSyncRegToJob,

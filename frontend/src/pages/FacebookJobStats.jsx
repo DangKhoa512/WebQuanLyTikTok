@@ -1,0 +1,211 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { statsApi } from '../services/api';
+import StatsPlatformSwitch from '../components/StatsPlatformSwitch';
+
+const WEBS = [
+  { key: 'TTC', color: '#10b981' },
+  { key: 'XSMM', color: '#3b82f6' },
+  { key: 'NVC', color: '#8b5cf6' },
+];
+
+const RANGES = [
+  { key: 'today', label: 'Hôm nay', days: 1 },
+  { key: '7', label: '7 ngày', days: 7 },
+  { key: '30', label: '30 ngày', days: 30 },
+  { key: '90', label: '90 ngày', days: 90 },
+];
+
+const fmtNum = (value) => Number(value || 0).toLocaleString('vi-VN');
+const fmtDateTime = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '—';
+const naturalCollator = new Intl.Collator('vi-VN', { numeric: true, sensitivity: 'base' });
+
+function StatCard({ title, value, color, icon }) {
+  return (
+    <div style={{ background: '#fff', borderRadius: 10, padding: '1rem 1.1rem', boxShadow: '0 1px 3px rgba(15,23,42,.12)', borderLeft: `4px solid ${color}`, minHeight: 96 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.65rem' }}>
+        <div style={{ width: 38, height: 38, borderRadius: 9, background: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.05rem', flexShrink: 0 }}>{icon}</div>
+        <div>
+          <div style={{ fontSize: '1.45rem', fontWeight: 850, color: '#0f172a', lineHeight: 1 }}>{fmtNum(value)}</div>
+          <div style={{ fontSize: '.72rem', color: '#64748b', fontWeight: 700, marginTop: '.3rem', textTransform: 'uppercase', letterSpacing: '.04em' }}>{title}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function FacebookJobStats({ onSwitchPlatform }) {
+  const [range, setRange] = useState('today');
+  const [web, setWeb] = useState('TTC');
+  const [metric, setMetric] = useState('xu');
+  const [stats, setStats] = useState(null);
+  const [daily, setDaily] = useState(null);
+  const [devices, setDevices] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const selectedRange = RANGES.find((item) => item.key === range) || RANGES[0];
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [statsRes, dailyRes, deviceRes] = await Promise.all([
+        statsApi.getFacebookJobStats(),
+        statsApi.getFacebookJobDailyStats(selectedRange.days),
+        statsApi.getFacebookJobDeviceStats(selectedRange.days),
+      ]);
+      setStats(statsRes.data || {});
+      setDaily(dailyRes.data || {});
+      setDevices(deviceRes.data?.devices || []);
+    } catch (err) {
+      setError(err.message || 'Không tải được thống kê Facebook JOB');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedRange.days]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const summaryValue = useMemo(() => (daily?.daily_job || []).reduce(
+    (sum, row) => sum + Number(row[metric === 'xu' ? `${web}_xu` : web] || 0),
+    0
+  ), [daily, metric, web]);
+
+  const chartData = useMemo(() => {
+    return (daily?.daily_job || []).map((row) => ({
+      label: new Date(row.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+      value: Number(row[metric === 'xu' ? `${web}_xu` : web] || 0),
+    }));
+  }, [daily, metric, web]);
+
+  const filteredDevices = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return [...devices]
+      .filter((item) => String(item.device_id || '').toLowerCase().includes(query))
+      .sort((a, b) => naturalCollator.compare(String(a.device_id || ''), String(b.device_id || '')));
+  }, [devices, search]);
+
+  const deviceValue = (device) => Number(device?.[`range_${web}${metric === 'xu' ? '_xu' : ''}`] || 0);
+  const selectedWeb = WEBS.find((item) => item.key === web) || WEBS[0];
+
+  return (
+    <div className={'page'}>
+      <div className={'page-header'}>
+        <div>
+          <h1>📊 Thống kê Facebook JOB</h1>
+          <div className={'subtitle'}>Thống kê TTC, XSMM và NVC theo máy và khoảng ngày.</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <StatsPlatformSwitch active="facebook" onChange={onSwitchPlatform} />
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', marginLeft: 'auto' }}>
+        {WEBS.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setWeb(item.key)}
+            style={{
+              padding: '.5rem .95rem',
+              borderRadius: 8,
+              border: `1px solid ${web === item.key ? '#10b981' : '#cbd5e1'}`,
+              background: web === item.key ? '#10b981' : '#fff',
+              color: web === item.key ? '#fff' : '#0f172a',
+              cursor: 'pointer',
+              fontSize: '.84rem',
+              fontWeight: 850,
+              boxShadow: web === item.key ? '0 6px 14px rgba(16,185,129,.18)' : 'none',
+            }}
+          >
+            {item.key}
+          </button>
+        ))}
+        <span style={{ width: 1, height: 28, background: '#cbd5e1', margin: '0 .15rem' }} />
+        {RANGES.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setRange(item.key)}
+            style={{
+              border: `1px solid ${range === item.key ? '#06b6d4' : '#e2e8f0'}`,
+              background: range === item.key ? '#06b6d4' : '#fff',
+              color: range === item.key ? '#fff' : '#475569',
+              borderRadius: 8,
+              padding: '.42rem .85rem',
+              cursor: 'pointer',
+              fontSize: '.82rem',
+              fontWeight: 700,
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+        <span style={{ width: 1, height: 28, background: '#cbd5e1', margin: '0 .15rem' }} />
+        <button onClick={() => setMetric('xu')} className={metric === 'xu' ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'}>Số xu</button>
+        <button onClick={() => setMetric('jobs')} className={metric === 'jobs' ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'}>Số job</button>
+          <button className={'btn btn-secondary btn-sm'} onClick={fetchData}>🔄 Làm mới</button>
+        </div>
+      </div>
+
+      {error && <div className={'error-bar'}>⚠️ {error}</div>}
+
+      {loading ? (
+        <div className={'loading-wrap'}><div className={'spinner'} /> Đang tải thống kê Facebook JOB...</div>
+      ) : (
+        <>
+          <div style={{ overflowX: 'auto', paddingBottom: '.25rem', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(180px, 1fr))', gap: '1rem', minWidth: 1120 }}>
+              <StatCard title={`${web} ${metric === 'xu' ? 'xu' : 'job'} / ${selectedRange.label}`} value={summaryValue} color={selectedWeb.color} icon={metric === 'xu' ? '💎' : '📋'} />
+              <StatCard title={'Account Job'} value={stats?.accounts?.total} color={'#06b6d4'} icon={'👥'} />
+              <StatCard title={'Sẵn sàng'} value={stats?.accounts?.ready} color={'#10b981'} icon={'🚀'} />
+              <StatCard title={'Đang làm'} value={stats?.accounts?.working} color={'#8b5cf6'} icon={'⚡'} />
+              <StatCard title={'Đã xong'} value={stats?.accounts?.done} color={'#2563eb'} icon={'✅'} />
+              <StatCard title={'Fail / Die'} value={stats?.accounts?.failed} color={'#ef4444'} icon={'❌'} />
+            </div>
+          </div>
+
+          <div className={'card'} style={{ marginTop: '1.25rem', marginBottom: '1.25rem' }}>
+            <div className={'card-header'}>
+              <div>
+                <h3>🖥️ {web} theo máy / {selectedRange.label}</h3>
+                <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.2rem' }}>{filteredDevices.length} máy có gửi nhãn Facebook</div>
+              </div>
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={'Tìm tên máy...'} style={{ width: 240, maxWidth: '100%', border: '1px solid #cbd5e1', borderRadius: 8, padding: '.45rem .75rem' }} />
+            </div>
+            <div className={'table-container'} style={{ maxHeight: 520, overflowY: 'auto' }}>
+              <table>
+                <thead><tr><th>Tên máy</th><th>{`${web} ${metric === 'xu' ? 'xu' : 'job'}`}</th><th>Hoạt động cuối</th></tr></thead>
+                <tbody>
+                  {filteredDevices.length === 0 ? (
+                    <tr><td colSpan={3} className={'empty-cell'}>Chưa có dữ liệu Facebook JOB</td></tr>
+                  ) : filteredDevices.map((device) => (
+                      <tr key={device.device_id}>
+                        <td><strong>{device.device_id}</strong></td>
+                        <td style={{ color: selectedWeb.color, fontWeight: 850 }}>{fmtNum(deviceValue(device))}</td>
+                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDateTime(device.last_seen)}</td>
+                      </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className={'chart-card'}>
+            <div className={'chart-title'}>📈 {metric === 'xu' ? 'Xu' : 'Job'} {web} theo ngày / {selectedRange.label}</div>
+            {chartData.length ? (
+              <ResponsiveContainer width={'100%'} height={300}>
+                <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray={'3 3'} stroke={'#f1f5f9'} />
+                  <XAxis dataKey={'label'} tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip formatter={(value) => fmtNum(value)} />
+                  <Legend />
+                  <Bar dataKey={'value'} name={`${web} ${metric === 'xu' ? 'xu' : 'job'}`} fill={selectedWeb.color} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <div className={'empty-state'} style={{ padding: '2rem' }}><p>Chưa có dữ liệu nhãn Facebook</p></div>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

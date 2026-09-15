@@ -231,6 +231,12 @@ const startServer = async () => {
       }
     }
     try {
+      await sequelize.query('ALTER TABLE facebook_job_daily_stats ADD COLUMN xu_count BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER job_count');
+      logger.info('facebook_job_daily_stats xu_count column added');
+    } catch (e) {
+      logger.warn('Migration facebook_job_daily_stats xu_count skipped:', e.message);
+    }
+    try {
       await sequelize.query("ALTER TABLE facebook_accounts MODIFY COLUMN status ENUM('CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE') NOT NULL DEFAULT 'CHO_LOGIN'");
       logger.info('facebook_accounts status enum ready');
     } catch (e) {
