@@ -21,6 +21,7 @@ router.post('/check-live', jwtAuth, controller.checkLive);
 router.post('/check-pages', jwtAuth, controller.checkPages);
 router.post('/pages/reset', jwtAuth, controller.resetPageJobs);
 router.post('/bulk-get', jwtAuth, controller.bulkGet);
+router.post('/bulk-sync-to-job', jwtAuth, controller.bulkSyncRegToJob);
 router.post('/bulk-move-group', jwtAuth, controller.bulkMoveGroup);
 router.post('/bulk-action', jwtAuth, controller.bulkAction);
 router.post('/bulk-delete', jwtAuth, controller.bulkDelete);

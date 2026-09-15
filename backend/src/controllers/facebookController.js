@@ -1178,6 +1178,48 @@ const bulkGet = async (req, res, next) => {
   }
 };
 
+const bulkSyncRegToJob = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? [...new Set(req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean))] : [];
+    if (!ids.length) return error(res, 'Can truyen danh sach ids', 400);
+
+    const owner_username = ownerFromAdmin(req);
+    const accounts = await FacebookAccount.findAll({
+      where: { id: { [Op.in]: ids }, owner_username, kind: 'reg' },
+      order: [['id', 'ASC']],
+    });
+    const result = { selected: ids.length, created: 0, updated: 0, skipped: ids.length - accounts.length, rows: [] };
+
+    for (const account of accounts) {
+      if (!account.device_id) {
+        result.skipped += 1;
+        result.rows.push({ id: account.id, uid: account.uid, result: 'skipped', reason: 'CHUA_CO_MAY' });
+        continue;
+      }
+      if (!['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'].includes(account.status) || account.live_status === 'die') {
+        result.skipped += 1;
+        result.rows.push({ id: account.id, uid: account.uid, device_id: account.device_id, result: 'skipped', reason: 'ACCOUNT_CHUA_SAN_SANG' });
+        continue;
+      }
+
+      const synced = await syncRegAccountToJob(account);
+      if (synced.created) result.created += 1;
+      else result.updated += 1;
+      result.rows.push({
+        id: account.id,
+        uid: account.uid,
+        device_id: account.device_id,
+        job_account_id: synced.account.id,
+        result: synced.created ? 'created' : 'updated',
+      });
+    }
+
+    return success(res, result, `Da chuyen ${result.created + result.updated}/${result.selected} account Reg sang Facebook Job`);
+  } catch (err) {
+    next(err);
+  }
+};
+
 const bulkMoveGroup = async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean) : [];
@@ -1278,6 +1320,7 @@ module.exports = {
   reportRegPage,
   resetPageJobs,
   bulkGet,
+  bulkSyncRegToJob,
   bulkMoveGroup,
   bulkAction,
   bulkDelete,

@@ -169,6 +169,7 @@ export const facebookApi = {
   getAccountPages: (accountId) => api.get(`/facebook/${accountId}/pages`),
   resetPageJobs: (data) => api.post('/facebook/pages/reset', data),
   bulkGet: (ids) => api.post('/facebook/bulk-get', { ids }),
+  bulkSyncToJob: (ids) => api.post('/facebook/bulk-sync-to-job', { ids }),
   bulkMoveGroup: (ids, group_id, kind = 'job') => api.post('/facebook/bulk-move-group', { ids, group_id, kind }),
   bulkAction: (ids, action, opts = {}) => api.post('/facebook/bulk-action', { ids, action, ...opts }),
   bulkDelete: (ids) => api.post('/facebook/bulk-delete', { ids }),

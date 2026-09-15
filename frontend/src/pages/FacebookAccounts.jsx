@@ -117,6 +117,7 @@ function ImportFacebookModal({ kind, groups, onGroupsChanged, onClose, onImporte
 }
 
 function FacebookToolbar({
+  isReg,
   selectedCount,
   groups,
   statusOptions,
@@ -134,12 +135,14 @@ function FacebookToolbar({
   checkingPages,
   onCopy,
   copying,
+  onSyncToJob,
+  syncingJob,
   onDelete,
   onClear,
 }) {
   const [showGroupDlg, setShowGroupDlg] = useState(false);
   const [showStatusDlg, setShowStatusDlg] = useState(false);
-  const busy = checking || checkingPages || copying || movingGroup || changingStatus;
+  const busy = checking || checkingPages || copying || syncingJob || movingGroup || changingStatus;
   const popupStyle = {
     position: 'absolute',
     top: 'calc(100% + 8px)',
@@ -201,6 +204,7 @@ function FacebookToolbar({
           <span style={{ background: '#06b6d4', borderRadius: '20px', color: '#fff', padding: '.25rem .75rem', fontWeight: 800, fontSize: '.82rem' }}>
             {selectedCount} đã chọn
           </span>
+          {isReg && <BB onClick={onSyncToJob} color={'#8b5cf6'}>{syncingJob ? 'Đang chuyển sang Job...' : 'Chuyển sang Facebook Job'}</BB>}
           <div style={{ position: 'relative' }}>
             <BB onClick={() => { setShowGroupDlg((value) => !value); setShowStatusDlg(false); }} color="#f59e0b">Chuyển nhóm</BB>
             {showGroupDlg && (
@@ -294,6 +298,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const [checking, setChecking] = useState(false);
   const [checkingPages, setCheckingPages] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [syncingJob, setSyncingJob] = useState(false);
   const [movingGroup, setMovingGroup] = useState(false);
   const [moveGroupId, setMoveGroupId] = useState('');
   const [statusPick, setStatusPick] = useState('LOGIN_THANH_CONG');
@@ -470,6 +475,23 @@ export default function FacebookAccounts({ kind = 'job' }) {
     }
   };
 
+  const handleSyncToJob = async () => {
+    if (!selectedIds.length) return toast.warn('Chọn account Reg cần chuyển sang Job');
+    if (!confirm(`Chuyển ${selectedIds.length} account đã chọn sang Facebook Job theo máy?`)) return;
+    setSyncingJob(true);
+    try {
+      const res = await facebookApi.bulkSyncToJob(selectedIds);
+      const data = res.data || {};
+      toast.success(`Đã chuyển ${data.created || 0} mới, cập nhật ${data.updated || 0}, bỏ qua ${data.skipped || 0}`);
+      resetSelection();
+      fetchData();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSyncingJob(false);
+    }
+  };
+
   const handleMoveGroup = async () => {
     if (!selectedIds.length) return toast.warn('Chọn account cần chuyển nhóm');
     if (!moveGroupId) return toast.warn('Chọn nhóm cần chuyển tới');
@@ -622,6 +644,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
       </div>
 
       <FacebookToolbar
+        isReg={isReg}
         selectedCount={selectedIds.length}
         statusOptions={tabs.filter((tab) => tab.value)}
         groups={groups}
@@ -639,6 +662,8 @@ export default function FacebookAccounts({ kind = 'job' }) {
         checkingPages={checkingPages}
         onCopy={handleCopy}
         copying={copying}
+        onSyncToJob={handleSyncToJob}
+        syncingJob={syncingJob}
         onDelete={handleDelete}
         onClear={() => setSelected(new Set())}
       />
