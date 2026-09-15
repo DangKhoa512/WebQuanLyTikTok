@@ -30,6 +30,21 @@ const WEB_OPTIONS = [
   { label: 'XSMM', value: 'XSMM' },
 ];
 
+const readSessionOption = (key, options, fallback) => {
+  try {
+    const stored = window.sessionStorage.getItem(key);
+    return options.find((option) => String(option) === stored) ?? fallback;
+  } catch (_) {
+    return fallback;
+  }
+};
+
+const writeSessionOption = (key, value) => {
+  try {
+    window.sessionStorage.setItem(key, String(value));
+  } catch (_) {}
+};
+
 const fmtNum = (value) => Number(value || 0).toLocaleString('vi-VN');
 const fmtXu = (value) => `${fmtNum(value)} xu`;
 const fmtDate = (value) =>
@@ -78,8 +93,8 @@ function SummaryCard({ title, value, color, icon, suffix = '' }) {
 }
 
 function TikTokJobStats({ onSwitchPlatform }) {
-  const [range, setRange] = useState('today');
-  const [web, setWeb] = useState('TDS');
+  const [range, setRange] = useState(() => readSessionOption('stats_tiktok_range', RANGE_OPTIONS.map((item) => item.value), 'today'));
+  const [web, setWeb] = useState(() => readSessionOption('stats_tiktok_web', WEB_OPTIONS.map((item) => item.value), 'TDS'));
   const [stats, setStats] = useState(null);
   const [daily, setDaily] = useState(null);
   const [devices, setDevices] = useState([]);
@@ -111,6 +126,9 @@ function TikTokJobStats({ onSwitchPlatform }) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => { writeSessionOption('stats_tiktok_range', range); }, [range]);
+  useEffect(() => { writeSessionOption('stats_tiktok_web', web); }, [web]);
 
   const dailyData = useMemo(() => (
     (daily?.daily_job || []).map((row) => ({
@@ -494,8 +512,12 @@ function TikTokJobStats({ onSwitchPlatform }) {
 }
 
 export default function Stats() {
-  const [platform, setPlatform] = useState('tiktok');
+  const [platform, setPlatform] = useState(() => readSessionOption('stats_platform', ['tiktok', 'facebook'], 'tiktok'));
+  const handlePlatformChange = (value) => {
+    writeSessionOption('stats_platform', value);
+    setPlatform(value);
+  };
   return platform === 'facebook'
-    ? <FacebookJobStats onSwitchPlatform={setPlatform} />
-    : <TikTokJobStats onSwitchPlatform={setPlatform} />;
+    ? <FacebookJobStats onSwitchPlatform={handlePlatformChange} />
+    : <TikTokJobStats onSwitchPlatform={handlePlatformChange} />;
 }

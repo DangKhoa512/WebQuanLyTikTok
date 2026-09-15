@@ -20,6 +20,21 @@ const fmtNum = (value) => Number(value || 0).toLocaleString('vi-VN');
 const fmtDateTime = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '—';
 const naturalCollator = new Intl.Collator('vi-VN', { numeric: true, sensitivity: 'base' });
 
+const readSessionOption = (key, options, fallback) => {
+  try {
+    const stored = window.sessionStorage.getItem(key);
+    return options.includes(stored) ? stored : fallback;
+  } catch (_) {
+    return fallback;
+  }
+};
+
+const writeSessionOption = (key, value) => {
+  try {
+    window.sessionStorage.setItem(key, String(value));
+  } catch (_) {}
+};
+
 function StatCard({ title, value, color, icon }) {
   return (
     <div style={{ background: '#fff', borderRadius: 10, padding: '1rem 1.1rem', boxShadow: '0 1px 3px rgba(15,23,42,.12)', borderLeft: `4px solid ${color}`, minHeight: 96 }}>
@@ -35,9 +50,9 @@ function StatCard({ title, value, color, icon }) {
 }
 
 export default function FacebookJobStats({ onSwitchPlatform }) {
-  const [range, setRange] = useState('today');
-  const [web, setWeb] = useState('TTC');
-  const [metric, setMetric] = useState('xu');
+  const [range, setRange] = useState(() => readSessionOption('stats_facebook_range', RANGES.map((item) => item.key), 'today'));
+  const [web, setWeb] = useState(() => readSessionOption('stats_facebook_web', WEBS.map((item) => item.key), 'TTC'));
+  const [metric, setMetric] = useState(() => readSessionOption('stats_facebook_metric', ['xu', 'jobs'], 'xu'));
   const [stats, setStats] = useState(null);
   const [daily, setDaily] = useState(null);
   const [devices, setDevices] = useState([]);
@@ -66,6 +81,9 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
   }, [selectedRange.days]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { writeSessionOption('stats_facebook_range', range); }, [range]);
+  useEffect(() => { writeSessionOption('stats_facebook_web', web); }, [web]);
+  useEffect(() => { writeSessionOption('stats_facebook_metric', metric); }, [metric]);
 
   const summaryValue = useMemo(() => (daily?.daily_job || []).reduce(
     (sum, row) => sum + Number(row[metric === 'xu' ? `${web}_xu` : web] || 0),
