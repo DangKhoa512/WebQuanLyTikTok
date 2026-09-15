@@ -857,6 +857,7 @@ const checkFacebookPagesByToken = async (token) => {
 
 const regPageBaseWhere = ({ owner_username, device_id }) => ({
   owner_username,
+  kind: 'job',
   device_id,
   page_count: { [Op.lt]: REG_PAGE_MAX_PAGES },
   page_token_status: { [Op.ne]: 'die' },
@@ -971,7 +972,7 @@ const reportRegPage = async (req, res, next) => {
     }
 
     const account = await FacebookAccount.findOne({
-      where: { owner_username, uid, device_id, reg_page_locked_by: device_id },
+      where: { owner_username, kind: 'job', uid, device_id, reg_page_locked_by: device_id },
       order: [['reg_page_locked_at', 'DESC'], ['id', 'DESC']],
     });
     if (!account) return error(res, 'Khong tim thay account dang lock reg Page cua may ' + device_id + ' voi UID ' + uid, 404);
