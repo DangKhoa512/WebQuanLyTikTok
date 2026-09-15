@@ -248,7 +248,10 @@ const getFacebookCheckProxies = async (req, res, next) => {
 
 const updateFacebookCheckProxies = async (req, res, next) => {
   try {
-    const settings = await saveFacebookCheckProxySettings(ownerFromAdmin(req), { proxies: req.body.proxies });
+    const settings = await saveFacebookCheckProxySettings(ownerFromAdmin(req), {
+      proxies: req.body.proxies,
+      concurrency: req.body.concurrency,
+    });
     return success(res, { settings }, 'Da luu proxy check Facebook');
   } catch (err) {
     next(err);

@@ -25,6 +25,7 @@ const DEFAULT_ELIGIBILITY = {
 const DEFAULT_CHROME_KHANG_DAILY_LIMIT = parseInt(process.env.CHROME_KHANG_DAILY_LIMIT, 10) || 8;
 const DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT = parseInt(process.env.FACEBOOK_LOGIN_MACHINE_LIMIT, 10) || 10;
 const DEFAULT_JOB_ACCOUNT_DAILY_LIMIT = parseInt(process.env.JOB_ACCOUNT_DAILY_LIMIT, 10) || 20;
+const DEFAULT_FACEBOOK_CHECK_CONCURRENCY = 20;
 
 const normalizePositiveInt = (value, fallback) => {
   const parsed = parseInt(value, 10);
@@ -56,7 +57,11 @@ const normalizeFacebookCheckProxies = (data = {}) => {
     ? data.proxies
     : String(data.proxies || '').split(/\r?\n/);
   const proxies = [...new Set(source.map((proxy) => String(proxy || '').trim()).filter(Boolean))];
-  return { proxies };
+  const parsedConcurrency = parseInt(data.concurrency, 10);
+  const concurrency = Number.isInteger(parsedConcurrency)
+    ? Math.min(Math.max(parsedConcurrency, 1), 40)
+    : DEFAULT_FACEBOOK_CHECK_CONCURRENCY;
+  return { proxies, concurrency };
 };
 
 const getSetting = async (owner_username, setting_key) => {

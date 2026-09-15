@@ -820,12 +820,31 @@ const report = async (req, res, next) => {
   }
 };
 
-const loadFacebookProxyPool = async (owner_username) => {
+const loadFacebookCheckConfig = async (owner_username) => {
   const settings = await getFacebookCheckProxySettings(owner_username);
   const rawProxies = Array.isArray(settings.proxies) ? settings.proxies : [];
-  const proxies = rawProxies.map(parseProxy).filter(Boolean);
-  if (rawProxies.length && !proxies.length) throw new Error('Cau hinh proxy Facebook khong hop le');
-  return proxies;
+  const proxyPool = rawProxies.map(parseProxy).filter(Boolean);
+  if (rawProxies.length && !proxyPool.length) throw new Error('Cau hinh proxy Facebook khong hop le');
+  const concurrency = Math.min(Math.max(parseInt(settings.concurrency, 10) || 20, 1), 40);
+  return { proxyPool, concurrency };
+};
+
+const loadFacebookProxyPool = async (owner_username) => (await loadFacebookCheckConfig(owner_username)).proxyPool;
+
+const mapWithConcurrency = async (items, concurrency, mapper) => {
+  if (!items.length) return [];
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  };
+  const workerCount = Math.min(Math.max(concurrency, 1), items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
 };
 
 const pickFacebookProxy = (proxyPool, stableKey) => {
@@ -866,26 +885,21 @@ const checkLive = async (req, res, next) => {
     if (req.body.kind || req.query.kind) where.kind = normalizeKind(req.body.kind || req.query.kind, 'job');
 
     const accounts = await FacebookAccount.findAll({ where, limit: ids.length ? undefined : 500, order: [['id', 'ASC']] });
-    const proxyPool = await loadFacebookProxyPool(owner_username);
-    const rows = [];
-    let live = 0;
-    let die = 0;
-    let unknown = 0;
-
-    for (const account of accounts) {
+    const { proxyPool, concurrency } = await loadFacebookCheckConfig(owner_username);
+    const rows = await mapWithConcurrency(accounts, concurrency, async (account) => {
       const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
       const result = await checkFacebookUidLive(account.uid, proxyUrl);
       const live_status = result === true ? 'live' : result === false ? 'die' : 'unknown';
-      if (live_status === 'live') live += 1;
-      else if (live_status === 'die') die += 1;
-      else unknown += 1;
       const updates = { live_status, last_live_check_at: new Date() };
       if (live_status === 'die') updates.status = 'ACCOUNT_DIE';
       await account.update(updates);
-      rows.push({ id: account.id, uid: account.uid, result: live_status, proxy: maskProxy(proxyUrl) });
-    }
+      return { id: account.id, uid: account.uid, result: live_status, proxy: maskProxy(proxyUrl) };
+    });
+    const live = rows.filter((row) => row.result === 'live').length;
+    const die = rows.filter((row) => row.result === 'die').length;
+    const unknown = rows.length - live - die;
 
-    return success(res, { live, die, unknown, rows }, 'Check live Facebook thanh cong');
+    return success(res, { live, die, unknown, concurrency, rows }, 'Check live Facebook thanh cong');
   } catch (err) {
     next(err);
   }
@@ -1285,21 +1299,12 @@ const checkPages = async (req, res, next) => {
     if (req.body.kind || req.query.kind) where.kind = normalizeKind(req.body.kind || req.query.kind, 'reg');
 
     const accounts = await FacebookAccount.findAll({ where, limit: ids.length ? undefined : 300, order: [['id', 'ASC']] });
-    const proxyPool = await loadFacebookProxyPool(owner_username);
-    const rows = [];
-    let checked = 0;
-    let successCount = 0;
-    let tokenDieCount = 0;
-    let totalPages = 0;
-
-    for (const account of accounts) {
+    const { proxyPool, concurrency } = await loadFacebookCheckConfig(owner_username);
+    const rows = await mapWithConcurrency(accounts, concurrency, async (account) => {
       const data = hydrateFacebookData(account);
       const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
       const result = await checkFacebookPagesByToken(data.token, proxyUrl);
       const pageCount = result.pages.length;
-      checked += 1;
-      if (result.ok) successCount += 1;
-      if (result.ok) totalPages += pageCount;
       if (result.ok) {
         await account.update({
           page_count: pageCount,
@@ -1310,14 +1315,13 @@ const checkPages = async (req, res, next) => {
         });
         await syncFacebookPageJobs(account, result.pages);
       } else {
-        if (result.token_status === 'die') tokenDieCount += 1;
         await account.update({
           last_page_check_at: new Date(),
           page_token_status: result.token_status,
           page_token_error: result.message,
         });
       }
-      rows.push({
+      return {
         id: account.id,
         uid: account.uid,
         ok: result.ok,
@@ -1326,10 +1330,14 @@ const checkPages = async (req, res, next) => {
         page_count: result.ok ? pageCount : null,
         pages: result.pages,
         proxy: maskProxy(proxyUrl),
-      });
-    }
+      };
+    });
+    const checked = rows.length;
+    const successCount = rows.filter((row) => row.ok).length;
+    const tokenDieCount = rows.filter((row) => row.token_status === 'die').length;
+    const totalPages = rows.reduce((total, row) => total + (row.ok ? row.page_count : 0), 0);
 
-    return success(res, { checked, success: successCount, token_die: tokenDieCount, page_count: totalPages, rows }, 'Check page Facebook thanh cong');
+    return success(res, { checked, success: successCount, token_die: tokenDieCount, page_count: totalPages, concurrency, rows }, 'Check page Facebook thanh cong');
   } catch (err) {
     next(err);
   }

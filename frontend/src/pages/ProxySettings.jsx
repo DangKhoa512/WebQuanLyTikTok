@@ -43,8 +43,10 @@ export default function ProxySettings() {
     settingsApi.getFacebookCheckProxies()
       .then((res) => {
         if (!mounted) return;
-        const savedProxies = res.data?.settings?.proxies || [];
+        const settings = res.data?.settings || {};
+        const savedProxies = settings.proxies || [];
         if (savedProxies.length || !init.proxies.trim()) setProxies(savedProxies.join('\n'));
+        if (settings.concurrency) setConcurrency(settings.concurrency);
       })
       .catch((err) => toast.error(err.message || 'Không tải được proxy check Facebook'));
     settingsApi.getChromeKhangLimit()
@@ -103,7 +105,7 @@ export default function ProxySettings() {
         });
         return Promise.all([
           settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10)),
-          settingsApi.updateFacebookCheckProxies(proxies),
+          settingsApi.updateFacebookCheckProxies(proxies, parseInt(concurrency, 10)),
         ]);
       })
       .then(() => toast.success('Đã lưu cài đặt'))
@@ -113,7 +115,7 @@ export default function ProxySettings() {
 
   const handleReset = () => {
     setProxies('');
-    setConcurrency(12);
+    setConcurrency(20);
     setDelayMs(200);
     setBatchSize(60);
     setMinVideos(20);
@@ -121,10 +123,10 @@ export default function ProxySettings() {
     setKhangDailyLimit(8);
     setFacebookLoginLimit(10);
     setJobAccountDailyLimit(20);
-    saveCheckLiveSettings({ proxies: '', concurrency: 12, delayMs: 200, batchSize: 60 });
+    saveCheckLiveSettings({ proxies: '', concurrency: 20, delayMs: 200, batchSize: 60 });
     Promise.all([
       settingsApi.updateEligibility(4, 20),
-      settingsApi.updateFacebookCheckProxies(''),
+      settingsApi.updateFacebookCheckProxies('', 20),
     ])
       .then(() => toast.success('Đã reset cài đặt'))
       .catch((err) => toast.error(err.message || 'Reset cài đặt thất bại'));
@@ -693,12 +695,12 @@ export default function ProxySettings() {
                 <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '.95rem' }}>{concurrency}</span>
               </div>
               <input
-                type="range" min={1} max={50} value={concurrency}
+                type="range" min={1} max={40} value={concurrency}
                 onChange={(e) => setConcurrency(e.target.value)}
                 style={{ width: '100%', accentColor: '#3b82f6' }}
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.72rem', color: '#475569', marginTop: '.2rem' }}>
-                <span>1 (chậm, an toàn)</span><span>50 (rất nhanh)</span>
+                <span>1 (chậm, an toàn)</span><span>40 (rất nhanh)</span>
               </div>
             </div>
 
