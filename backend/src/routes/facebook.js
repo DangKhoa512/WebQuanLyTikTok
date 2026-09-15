@@ -14,6 +14,7 @@ router.post('/job/add-job', apiKeyAuth, controller.addFacebookJobCount);
 router.post('/reg-page/get-account', apiKeyAuth, controller.getRegPageAccount);
 router.post('/reg-page/report', apiKeyAuth, controller.reportRegPage);
 router.post('/check-page-token', apiKeyAuth, controller.checkPageToken);
+router.get('/reg-page/stats', jwtAuth, controller.getRegPageStats);
 
 router.get('/', jwtAuth, controller.list);
 router.get('/:accountId/pages', jwtAuth, controller.getAccountPages);

@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const FacebookAccount = require('../models/FacebookAccount');
 const FacebookPageJob = require('../models/FacebookPageJob');
+const FacebookRegPageReport = require('../models/FacebookRegPageReport');
 const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
@@ -456,6 +457,8 @@ const list = async (req, res, next) => {
     const kind = normalizeKind(req.query.kind, 'job');
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 2000);
+    const sortBy = ['device_id', 'page_count'].includes(req.query.sort_by) ? req.query.sort_by : null;
+    const sortDirection = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     const where = { owner_username, kind };
 
     const status = normalizeStatus(req.query.status, '');
@@ -528,9 +531,21 @@ const list = async (req, res, next) => {
         .sort((a, b) => b.total - a.total || String(a.device_id).localeCompare(String(b.device_id)));
     }
 
+    let order = status === 'DA_CHAY_XONG' ? [['completed_at', 'DESC'], ['id', 'DESC']] : [['updated_at', 'DESC'], ['id', 'DESC']];
+    if (sortBy === 'page_count') {
+      order = [['page_count', sortDirection], ['id', 'DESC']];
+    } else if (sortBy === 'device_id') {
+      order = [
+        [FacebookAccount.sequelize.literal("CASE WHEN device_id IS NULL OR device_id = '' THEN 1 ELSE 0 END"), 'ASC'],
+        [FacebookAccount.sequelize.fn('CHAR_LENGTH', FacebookAccount.sequelize.col('device_id')), sortDirection],
+        ['device_id', sortDirection],
+        ['id', 'DESC'],
+      ];
+    }
+
     const { rows, count } = await FacebookAccount.findAndCountAll({
       where,
-      order: status === 'DA_CHAY_XONG' ? [['completed_at', 'DESC'], ['id', 'DESC']] : [['updated_at', 'DESC'], ['id', 'DESC']],
+      order,
       limit,
       offset: (page - 1) * limit,
     });
@@ -985,15 +1000,170 @@ const reportRegPage = async (req, res, next) => {
     });
     if (!account) return error(res, 'Khong tim thay account dang lock reg Page cua may ' + device_id + ' voi UID ' + uid, 404);
 
-    const update = { reg_page_locked_by: null, reg_page_locked_at: null };
-    if (reportStatus === 'REG_XONG') update.last_reg_page_at = new Date();
-    await account.update(update);
+    let pageCheck = null;
+    if (reportStatus === 'REG_XONG') {
+      const previousPageCount = Number(account.page_count) || 0;
+      const pageResult = await checkFacebookPagesByToken(hydrateFacebookData(account).token);
+      if (!pageResult.ok) {
+        const tokenDie = pageResult.token_status === 'die';
+        await account.update({
+          page_token_status: pageResult.token_status,
+          page_token_error: pageResult.message,
+          last_page_check_at: new Date(),
+          ...(tokenDie ? { reg_page_locked_by: null, reg_page_locked_at: null } : {}),
+        });
+        return error(res, `Bao cao REG_XONG nhung khong check duoc Page cua UID ${uid}: ${pageResult.message}`, 422, {
+          uid,
+          device_id,
+          token_status: pageResult.token_status,
+          error_code: pageResult.error_code,
+        });
+      }
+
+      const currentPageCount = pageResult.pages.length;
+      const pageDifference = currentPageCount - previousPageCount;
+      const pagesAdded = Math.max(pageDifference, 0);
+      const checkedAt = new Date();
+      const transaction = await sequelize.transaction();
+      try {
+        const pageUpdate = {
+          page_count: currentPageCount,
+          pages: JSON.stringify(pageResult.pages),
+          last_page_check_at: checkedAt,
+          page_token_status: 'live',
+          page_token_error: null,
+          last_reg_page_at: checkedAt,
+          reg_page_locked_by: null,
+          reg_page_locked_at: null,
+        };
+        await account.update(pageUpdate, { transaction });
+        await syncFacebookPageJobs(account, pageResult.pages, transaction);
+        await FacebookAccount.update(pageUpdate, {
+          where: { owner_username, kind: 'reg', uid },
+          transaction,
+        });
+        await FacebookRegPageReport.create({
+          owner_username,
+          facebook_account_id: account.id,
+          uid,
+          device_id,
+          stat_date: vietnamToday(),
+          previous_page_count: previousPageCount,
+          current_page_count: currentPageCount,
+          page_difference: pageDifference,
+          pages_added: pagesAdded,
+        }, { transaction });
+        await transaction.commit();
+      } catch (err) {
+        if (!transaction.finished) await transaction.rollback();
+        throw err;
+      }
+      pageCheck = {
+        ok: true,
+        previous_page_count: previousPageCount,
+        current_page_count: currentPageCount,
+        page_difference: pageDifference,
+        pages_added: pagesAdded,
+      };
+    } else {
+      await account.update({ reg_page_locked_by: null, reg_page_locked_at: null });
+    }
 
     return success(res, {
       account: serialize(account),
       reg_page_status: reportStatus,
+      page_check: pageCheck,
       cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
     }, reportStatus === 'REG_XONG' ? 'Da bao cao reg Page xong' : 'Da bao cao reg Page that bai');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getRegPageStats = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const range = ['today', '7', '30', 'all'].includes(String(req.query.range || '').toLowerCase())
+      ? String(req.query.range).toLowerCase()
+      : 'all';
+    const q = nullify(req.query.q);
+    const accountWhere = { owner_username, kind: 'reg' };
+    const reportWhere = { owner_username };
+    if (q) {
+      accountWhere.device_id = { [Op.like]: `%${q}%` };
+      reportWhere.device_id = { [Op.like]: `%${q}%` };
+    }
+    if (range === 'today') reportWhere.stat_date = { [Op.eq]: sequelize.literal('CURDATE()') };
+    if (range === '7') reportWhere.stat_date = { [Op.gte]: sequelize.literal('DATE_SUB(CURDATE(), INTERVAL 6 DAY)') };
+    if (range === '30') reportWhere.stat_date = { [Op.gte]: sequelize.literal('DATE_SUB(CURDATE(), INTERVAL 29 DAY)') };
+
+    const [accountRows, reportRows] = await Promise.all([
+      FacebookAccount.findAll({
+        attributes: [
+          'device_id',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'total'],
+          [sequelize.fn('SUM', sequelize.literal("CASE WHEN live_status = 'live' THEN 1 ELSE 0 END")), 'live'],
+          [sequelize.fn('SUM', sequelize.literal("CASE WHEN live_status = 'die' THEN 1 ELSE 0 END")), 'die'],
+          [sequelize.fn('SUM', sequelize.col('page_count')), 'pages'],
+          [sequelize.fn('MAX', sequelize.col('created_at')), 'last_reg_at'],
+        ],
+        where: accountWhere,
+        group: ['device_id'],
+        raw: true,
+      }),
+      FacebookRegPageReport.findAll({
+        attributes: [
+          'device_id',
+          [sequelize.fn('SUM', sequelize.col('pages_added')), 'pages_registered'],
+          [sequelize.fn('SUM', sequelize.col('page_difference')), 'page_difference'],
+          [sequelize.fn('COUNT', sequelize.col('id')), 'report_count'],
+          [sequelize.fn('MAX', sequelize.col('created_at')), 'last_report_at'],
+        ],
+        where: reportWhere,
+        group: ['device_id'],
+        raw: true,
+      }),
+    ]);
+
+    const machines = new Map();
+    for (const row of accountRows) {
+      const device = row.device_id || '-';
+      machines.set(device, {
+        device_id: device,
+        total: Number(row.total) || 0,
+        live: Number(row.live) || 0,
+        die: Number(row.die) || 0,
+        pages: Number(row.pages) || 0,
+        pages_registered: 0,
+        page_difference: 0,
+        report_count: 0,
+        last_reg_at: row.last_reg_at || null,
+        last_report_at: null,
+      });
+    }
+    for (const row of reportRows) {
+      const device = row.device_id || '-';
+      const current = machines.get(device) || { device_id: device, total: 0, live: 0, die: 0, pages: 0, last_reg_at: null };
+      machines.set(device, {
+        ...current,
+        pages_registered: Number(row.pages_registered) || 0,
+        page_difference: Number(row.page_difference) || 0,
+        report_count: Number(row.report_count) || 0,
+        last_report_at: row.last_report_at || null,
+      });
+    }
+
+    const rows = [...machines.values()].sort((a, b) => String(a.device_id).localeCompare(String(b.device_id), 'vi', { numeric: true, sensitivity: 'base' }));
+    const summary = rows.reduce((total, row) => ({
+      total_accounts: total.total_accounts + row.total,
+      live: total.live + row.live,
+      die: total.die + row.die,
+      total_pages: total.total_pages + row.pages,
+      pages_registered: total.pages_registered + row.pages_registered,
+      report_count: total.report_count + row.report_count,
+    }), { total_accounts: 0, live: 0, die: 0, total_pages: 0, pages_registered: 0, report_count: 0 });
+
+    return success(res, { range, summary, machines: rows }, 'Lay thong ke reg Page thanh cong');
   } catch (err) {
     next(err);
   }
@@ -1351,6 +1521,7 @@ module.exports = {
   reportPageJob,
   getRegPageAccount,
   reportRegPage,
+  getRegPageStats,
   addFacebookJobCount,
   resetPageJobs,
   bulkGet,

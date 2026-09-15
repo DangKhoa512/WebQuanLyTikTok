@@ -170,6 +170,7 @@ export const facebookApi = {
   checkLive: (ids = [], kind = 'job') => api.post('/facebook/check-live', { ids, kind }, { timeout: 600_000 }),
   checkPages: (ids = [], kind = 'reg') => api.post('/facebook/check-pages', { ids, kind }, { timeout: 600_000 }),
   getAccountPages: (accountId) => api.get(`/facebook/${accountId}/pages`),
+  getRegPageStats: (range = 'all', q = '') => api.get('/facebook/reg-page/stats', { params: { range, q } }),
   resetPageJobs: (data) => api.post('/facebook/pages/reset', data),
   bulkGet: (ids) => api.post('/facebook/bulk-get', { ids }),
   bulkSyncToJob: (ids) => api.post('/facebook/bulk-sync-to-job', { ids }),

@@ -281,6 +281,18 @@ function FacebookPageDetails({ row, details, loading, resetting, onReset }) {
   );
 }
 
+function SortableTh({ field, label, sort, onSort }) {
+  const active = sort.field === field;
+  return (
+    <th>
+      <button type={'button'} className={`fb-sort-th${active ? ' active' : ''}`} onClick={() => onSort(field)}>
+        <span>{label}</span>
+        <span>{active ? (sort.direction === 'asc' ? '▲' : '▼') : '↕'}</span>
+      </button>
+    </th>
+  );
+}
+
 export default function FacebookAccounts({ kind = 'job' }) {
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState(null);
@@ -310,6 +322,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const [pageDetails, setPageDetails] = useState({});
   const [loadingPageAccountId, setLoadingPageAccountId] = useState(null);
   const [resettingPages, setResettingPages] = useState(false);
+  const [sort, setSort] = useState({ field: null, direction: 'asc' });
 
   const isReg = kind === 'reg';
   const tabs = isReg ? REG_TABS : STATUS_TABS;
@@ -317,7 +330,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const subtitle = isReg
     ? 'Quản lý account Facebook do máy push lên sau khi reg/login.'
     : 'Phone job lấy account, khóa lock theo máy và báo cáo trạng thái.';
-  const params = useMemo(() => ({ kind, page, limit, status, live_status: liveStatus, group_id: groupId, q, date_from: dateFrom, date_to: dateTo, soak_days: soakDays }), [kind, page, limit, status, liveStatus, groupId, q, dateFrom, dateTo, soakDays]);
+  const params = useMemo(() => ({ kind, page, limit, status, live_status: liveStatus, group_id: groupId, q, date_from: dateFrom, date_to: dateTo, soak_days: soakDays, sort_by: sort.field || undefined, sort_order: sort.field ? sort.direction : undefined }), [kind, page, limit, status, liveStatus, groupId, q, dateFrom, dateTo, soakDays, sort]);
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -364,6 +377,15 @@ export default function FacebookAccounts({ kind = 'job' }) {
 
   const handlePageChange = (nextPage) => {
     setPage(nextPage);
+    resetSelection();
+  };
+
+  const handleSort = (field) => {
+    setSort((current) => ({
+      field,
+      direction: current.field === field && current.direction === 'asc' ? 'desc' : 'asc',
+    }));
+    setPage(1);
     resetSelection();
   };
 
@@ -552,6 +574,9 @@ export default function FacebookAccounts({ kind = 'job' }) {
         .fb-page-status.done { background:rgba(16,185,129,.15); color:#059669; }
         .fb-page-status.working { background:rgba(139,92,246,.15); color:#7c3aed; }
         .fb-page-status.pending { background:rgba(245,158,11,.15); color:#d97706; }
+        .fb-sort-th { display:inline-flex; align-items:center; gap:.35rem; border:0; background:transparent; padding:0; color:inherit; font:inherit; font-weight:inherit; letter-spacing:inherit; cursor:pointer; text-transform:inherit; white-space:nowrap; }
+        .fb-sort-th span:last-child { color:#94a3b8; font-size:.68rem; line-height:1; }
+        .fb-sort-th.active span:last-child { color:#2563eb; }
       `}</style>
 
       <div className="page-header">
@@ -678,7 +703,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
             <thead>
               <tr>
                 <th style={{ width: 40 }}><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
-                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><th>PAGE</th><th>NHÓM</th><th>MÁY</th><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>REGPAGE LOCK</th><th>{isReg ? 'NGÀY PUSH' : 'LOGIN AT'}</th><th>NGÀY XONG</th>
+                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><SortableTh field={'page_count'} label={'PAGE'} sort={sort} onSort={handleSort} /><th>NHÓM</th><SortableTh field={'device_id'} label={'MÁY'} sort={sort} onSort={handleSort} /><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>REGPAGE LOCK</th><th>{isReg ? 'NGÀY PUSH' : 'LOGIN AT'}</th><th>NGÀY XONG</th>
               </tr>
             </thead>
             <tbody>

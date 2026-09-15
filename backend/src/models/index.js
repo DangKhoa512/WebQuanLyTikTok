@@ -15,5 +15,6 @@ const AppKhangDailyLog = require('./AppKhangDailyLog');
 const JobAccountDailyLog = require('./JobAccountDailyLog');
 const FacebookPageJob = require('./FacebookPageJob');
 const FacebookJobDailyStat = require('./FacebookJobDailyStat');
+const FacebookRegPageReport = require('./FacebookRegPageReport');
 
-module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat };
+module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat, FacebookRegPageReport };
