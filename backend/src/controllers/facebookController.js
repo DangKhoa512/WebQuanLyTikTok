@@ -335,9 +335,62 @@ const resolveJobGroupIdForRequest = async (req, owner_username) => {
   return null;
 };
 
+const syncRegAccountToJob = async (regAccount) => {
+  const source = hydrateFacebookData(regAccount);
+  const now = new Date();
+  const defaults = {
+    raw_data: source.raw_data,
+    uid: source.uid,
+    password: source.password,
+    two_fa: source.two_fa,
+    cookies: source.cookies,
+    token: source.token,
+    email: source.email,
+    email_pass: source.email_pass,
+    refresh_token: source.refresh_token,
+    client_id: source.client_id,
+    page_count: source.page_count || 0,
+    pages: source.pages?.length ? JSON.stringify(source.pages) : null,
+    last_page_check_at: source.last_page_check_at,
+    page_token_status: source.page_token_status || 'unknown',
+    page_token_error: source.page_token_error,
+    owner_username: source.owner_username,
+    kind: 'job',
+    device_id: source.device_id,
+    status: 'LOGIN_THANH_CONG',
+    live_status: source.live_status || 'unknown',
+    login_at: now,
+    note: 'Tu dong dong bo tu Facebook Reg',
+  };
+
+  const [jobAccount, created] = await FacebookAccount.findOrCreate({
+    where: { owner_username: source.owner_username, kind: 'job', uid: source.uid },
+    defaults,
+  });
+  if (created) return { created: true, account: jobAccount };
+
+  const update = {};
+  for (const field of ['raw_data', 'password', 'two_fa', 'cookies', 'token', 'email', 'email_pass', 'refresh_token', 'client_id', 'pages', 'last_page_check_at', 'page_token_status', 'page_token_error', 'live_status']) {
+    if (defaults[field] !== undefined && defaults[field] !== null) update[field] = defaults[field];
+  }
+  if (source.last_page_check_at) update.page_count = defaults.page_count;
+
+  const preserveWorkflow = ['DANG_LOGIN', 'DANG_LAM', 'DA_CHAY_XONG'].includes(jobAccount.status);
+  if (!preserveWorkflow) {
+    update.status = 'LOGIN_THANH_CONG';
+    update.device_id = source.device_id;
+    update.locked_by = null;
+    update.locked_at = null;
+    update.completed_at = null;
+    update.login_at = now;
+  }
+  await jobAccount.update(update);
+  return { created: false, account: jobAccount };
+};
+
 const importFacebookAccounts = async ({ text, owner_username, kind = 'job', status = 'CHO_LOGIN', groupId = null, device_id = null }) => {
   const lines = splitLines(text);
-  const result = { total: lines.length, created: 0, duplicated: 0, invalid: 0 };
+  const result = { total: lines.length, created: 0, duplicated: 0, invalid: 0, job_created: 0, job_updated: 0 };
 
   for (const line of lines) {
     const parsed = parseFacebookLine(line);
@@ -377,6 +430,12 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
         duplicateUpdate.completed_at = null;
       }
       await account.update(duplicateUpdate);
+    }
+
+    if (kind === 'reg' && status === 'LOGIN_THANH_CONG') {
+      const jobSync = await syncRegAccountToJob(account);
+      if (jobSync.created) result.job_created += 1;
+      else result.job_updated += 1;
     }
   }
 
