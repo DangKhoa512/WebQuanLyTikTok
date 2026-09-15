@@ -19,6 +19,7 @@ export default function ProxySettings() {
   const [userFacebookLoginLimits, setUserFacebookLoginLimits] = useState([]);
   const [savingFacebookLimitUser, setSavingFacebookLimitUser] = useState('');
   const [jobAccountDailyLimit, setJobAccountDailyLimit] = useState(20);
+  const [facebookRegPageWaitHours, setFacebookRegPageWaitHours] = useState(8);
   const [userJobAccountDailyLimits, setUserJobAccountDailyLimits] = useState([]);
   const [savingJobLimitUser, setSavingJobLimitUser] = useState('');
   const [savingOwnJobLimit, setSavingOwnJobLimit] = useState(false);
@@ -49,6 +50,13 @@ export default function ProxySettings() {
         if (settings.concurrency) setConcurrency(settings.concurrency);
       })
       .catch((err) => toast.error(err.message || 'Không tải được proxy check Facebook'));
+    settingsApi.getFacebookRegPageWait()
+      .then((res) => {
+        if (!mounted) return;
+        const hours = res.data?.settings?.hours;
+        if (Number.isInteger(hours)) setFacebookRegPageWaitHours(hours);
+      })
+      .catch((err) => toast.error(err.message || 'Không tải được thời gian chờ reg Page'));
     settingsApi.getChromeKhangLimit()
       .then((res) => {
         if (!mounted) return;
@@ -106,6 +114,7 @@ export default function ProxySettings() {
         return Promise.all([
           settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10)),
           settingsApi.updateFacebookCheckProxies(proxies, parseInt(concurrency, 10)),
+          settingsApi.updateFacebookRegPageWait(parseInt(facebookRegPageWaitHours, 10)),
         ]);
       })
       .then(() => toast.success('Đã lưu cài đặt'))
@@ -123,10 +132,12 @@ export default function ProxySettings() {
     setKhangDailyLimit(8);
     setFacebookLoginLimit(10);
     setJobAccountDailyLimit(20);
+    setFacebookRegPageWaitHours(8);
     saveCheckLiveSettings({ proxies: '', concurrency: 20, delayMs: 200, batchSize: 60 });
     Promise.all([
       settingsApi.updateEligibility(4, 20),
       settingsApi.updateFacebookCheckProxies('', 20),
+      settingsApi.updateFacebookRegPageWait(8),
     ])
       .then(() => toast.success('Đã reset cài đặt'))
       .catch((err) => toast.error(err.message || 'Reset cài đặt thất bại'));
@@ -649,6 +660,31 @@ export default function ProxySettings() {
             </div>
           </div>
         )}
+
+        <div className="card">
+          <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
+            Facebook Reg Page - thời gian chờ sau login
+          </h3>
+          <div style={{ color: '#64748b', fontSize: '.78rem', marginBottom: '.85rem' }}>
+            Account chỉ được máy lấy để reg Page sau khi login thành công đủ số giờ này. Nhập 0 để lấy ngay.
+          </div>
+          <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="number"
+              min={0}
+              max={720}
+              value={facebookRegPageWaitHours}
+              onChange={(e) => setFacebookRegPageWaitHours(e.target.value)}
+              style={{
+                width: 140, boxSizing: 'border-box',
+                background: '#1e293b', color: '#e2e8f0',
+                border: '1px solid #334155', borderRadius: '8px',
+                padding: '.55rem .75rem', fontWeight: 700,
+              }}
+            />
+            <span style={{ color: '#94a3b8', fontSize: '.85rem' }}>giờ</span>
+          </div>
+        </div>
 
         {/* Proxy pool */}
         <div className="card">

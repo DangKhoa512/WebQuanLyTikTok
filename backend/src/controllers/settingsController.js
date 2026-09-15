@@ -14,6 +14,8 @@ const {
   saveJobAccountDailyLimitSettings,
   getFacebookCheckProxySettings,
   saveFacebookCheckProxySettings,
+  getFacebookRegPageWaitSettings,
+  saveFacebookRegPageWaitSettings,
 } = require('../services/settingsService');
 
 const getEligibility = async (req, res, next) => {
@@ -258,4 +260,26 @@ const updateFacebookCheckProxies = async (req, res, next) => {
   }
 };
 
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies };
+const getFacebookRegPageWait = async (req, res, next) => {
+  try {
+    const settings = await getFacebookRegPageWaitSettings(ownerFromAdmin(req));
+    return success(res, { settings }, 'Lay thoi gian cho reg Page thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateFacebookRegPageWait = async (req, res, next) => {
+  try {
+    const hours = parseInt(req.body.hours, 10);
+    if (!Number.isInteger(hours) || hours < 0 || hours > 720) {
+      return error(res, 'So gio cho reg Page phai tu 0 den 720', 400);
+    }
+    const settings = await saveFacebookRegPageWaitSettings(ownerFromAdmin(req), { hours });
+    return success(res, { settings }, 'Da luu thoi gian cho reg Page');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait };

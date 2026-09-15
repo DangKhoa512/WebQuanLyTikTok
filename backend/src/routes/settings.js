@@ -18,5 +18,7 @@ router.get('/machine-api-keys', ctrl.getMachineApiKeysSetting);
 router.put('/machine-api-keys', ctrl.updateMachineApiKeysSetting);
 router.get('/facebook-check-proxies', ctrl.getFacebookCheckProxies);
 router.put('/facebook-check-proxies', ctrl.updateFacebookCheckProxies);
+router.get('/facebook-reg-page-wait', ctrl.getFacebookRegPageWait);
+router.put('/facebook-reg-page-wait', ctrl.updateFacebookRegPageWait);
 
 module.exports = router;

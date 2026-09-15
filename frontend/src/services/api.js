@@ -121,6 +121,8 @@ export const settingsApi = {
   updateMachineApiKeys: (keys) => api.put('/settings/machine-api-keys', { keys }),
   getFacebookCheckProxies: () => api.get('/settings/facebook-check-proxies'),
   updateFacebookCheckProxies: (proxies, concurrency) => api.put('/settings/facebook-check-proxies', { proxies, concurrency }),
+  getFacebookRegPageWait: () => api.get('/settings/facebook-reg-page-wait'),
+  updateFacebookRegPageWait: (hours) => api.put('/settings/facebook-reg-page-wait', { hours }),
 };
 
 

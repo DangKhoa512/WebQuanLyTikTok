@@ -8,7 +8,11 @@ const FacebookRegPageReport = require('../models/FacebookRegPageReport');
 const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
-const { getFacebookLoginLimitSettings, getFacebookCheckProxySettings } = require('../services/settingsService');
+const {
+  getFacebookLoginLimitSettings,
+  getFacebookCheckProxySettings,
+  getFacebookRegPageWaitSettings,
+} = require('../services/settingsService');
 const { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs } = require('../services/facebookJobStatService');
 const { parseProxy } = require('../utils/checkLiveUtils');
 
@@ -16,6 +20,7 @@ const STATUSES = ['CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LO
 const FINAL_STATUSES = ['LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
 const KINDS = ['reg', 'job'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.FACEBOOK_LOCK_TIMEOUT_MIN, 10) || 120;
+const MAX_LOGIN_GET_COUNT = 3;
 const REG_PAGE_MAX_PAGES = 15;
 const REG_PAGE_COOLDOWN_HOURS = 24;
 const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
@@ -438,6 +443,7 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
         if (!device_id) duplicateUpdate.device_id = null;
         duplicateUpdate.locked_by = null;
         duplicateUpdate.locked_at = null;
+        duplicateUpdate.login_get_count = 0;
         duplicateUpdate.login_at = null;
         duplicateUpdate.completed_at = null;
       }
@@ -621,7 +627,7 @@ const importFromApi = async (req, res, next) => {
   }
 };
 
-const releaseStaleFacebookLocks = async ({ owner_username, groupId, status, releaseStatus }) => {
+const releaseStaleFacebookLocks = async ({ owner_username, groupId, status, releaseStatus, failReason = null }) => {
   const staleWhere = {
     owner_username,
     kind: 'job',
@@ -629,10 +635,10 @@ const releaseStaleFacebookLocks = async ({ owner_username, groupId, status, rele
     locked_at: { [Op.lt]: new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000) },
   };
   if (groupId) staleWhere.group_id = groupId;
-  await FacebookAccount.update(
-    { status: releaseStatus, locked_by: null, locked_at: null },
-    { where: staleWhere }
-  );
+  const update = { status: releaseStatus, locked_by: null, locked_at: null };
+  if (FINAL_STATUSES.includes(releaseStatus)) update.completed_at = new Date();
+  if (failReason) update.fail_reason = failReason;
+  await FacebookAccount.update(update, { where: staleWhere });
 };
 
 const getJobForPhone = async (req, res, next) => {
@@ -644,9 +650,15 @@ const getJobForPhone = async (req, res, next) => {
     const groupId = await resolveJobGroupIdForRequest(req, owner_username);
     if (groupId === false) return error(res, 'Nhom Facebook JOB khong hop le', 400);
 
-    await releaseStaleFacebookLocks({ owner_username, groupId, status: 'DANG_LOGIN', releaseStatus: 'CHO_LOGIN' });
+    await releaseStaleFacebookLocks({
+      owner_username,
+      groupId,
+      status: 'DANG_LOGIN',
+      releaseStatus: 'LOGIN_FAIL',
+      failReason: 'Qua thoi gian lock login nhung may chua bao cao',
+    });
 
-    const account = await sequelize.transaction(async (t) => {
+    const claimResult = await sequelize.transaction(async (t) => {
       const activeWhere = { owner_username, kind: 'job', status: 'DANG_LOGIN', locked_by: device_id };
       if (groupId) activeWhere.group_id = groupId;
       const active = await FacebookAccount.findOne({
@@ -655,12 +667,37 @@ const getJobForPhone = async (req, res, next) => {
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
-      if (active) return active;
+      let autoFailedAccount = null;
+      if (active) {
+        const currentGetCount = Math.max(Number(active.login_get_count) || 0, 1);
+        const nextGetCount = currentGetCount + 1;
+        if (nextGetCount <= MAX_LOGIN_GET_COUNT) {
+          await active.update({
+            login_get_count: nextGetCount,
+            locked_at: new Date(),
+          }, { transaction: t });
+          return { account: active, autoFailedAccount: null };
+        }
+        await active.update({
+          status: 'LOGIN_FAIL',
+          login_get_count: nextGetCount,
+          locked_by: null,
+          locked_at: null,
+          completed_at: new Date(),
+          fail_reason: 'May get account qua 3 lan nhung chua bao cao login',
+        }, { transaction: t });
+        autoFailedAccount = {
+          id: active.id,
+          uid: active.uid,
+          device_id,
+          login_get_count: nextGetCount,
+        };
+      }
 
       const used = await countDeviceFacebookLoginActive({ owner_username, device_id, groupId, transaction: t });
       const loginLimit = await getFacebookLoginLimitSettings(owner_username);
       if (used >= loginLimit.limit) {
-        return { __fullLimit: true, limit: loginLimit.limit, used };
+        return { __fullLimit: true, limit: loginLimit.limit, used, autoFailedAccount };
       }
 
       const nextWhere = { owner_username, kind: 'job', status: 'CHO_LOGIN' };
@@ -671,16 +708,39 @@ const getJobForPhone = async (req, res, next) => {
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
-      if (!nextAccount) return null;
-      await nextAccount.update({ status: 'DANG_LOGIN', locked_by: device_id, locked_at: new Date(), device_id, completed_at: null }, { transaction: t });
-      return nextAccount;
+      if (!nextAccount) return { account: null, autoFailedAccount };
+      await nextAccount.update({
+        status: 'DANG_LOGIN',
+        locked_by: device_id,
+        locked_at: new Date(),
+        login_get_count: 1,
+        device_id,
+        completed_at: null,
+        fail_reason: null,
+      }, { transaction: t });
+      return { account: nextAccount, autoFailedAccount };
     });
 
-    if (account?.__fullLimit) {
-      return success(res, { limit: account.limit, used: account.used }, 'Full limit');
+    if (claimResult?.__fullLimit) {
+      return success(res, {
+        limit: claimResult.limit,
+        used: claimResult.used,
+        auto_failed_account: claimResult.autoFailedAccount,
+      }, 'Full limit');
     }
-    if (!account) return success(res, { account: null }, 'Het account Facebook JOB cho login');
-    return success(res, { account: await serializeForPhone(account), lock_timeout_min: LOCK_TIMEOUT_MIN }, 'Lay account Facebook JOB thanh cong');
+    if (!claimResult?.account) {
+      return success(res, {
+        account: null,
+        auto_failed_account: claimResult?.autoFailedAccount || null,
+      }, 'Het account Facebook JOB cho login');
+    }
+    return success(res, {
+      account: await serializeForPhone(claimResult.account),
+      login_get_count: Number(claimResult.account.login_get_count) || 1,
+      max_login_get_count: MAX_LOGIN_GET_COUNT,
+      auto_failed_account: claimResult.autoFailedAccount,
+      lock_timeout_min: LOCK_TIMEOUT_MIN,
+    }, 'Lay account Facebook JOB thanh cong');
   } catch (err) {
     next(err);
   }
@@ -790,6 +850,7 @@ const report = async (req, res, next) => {
       device_id: device_id || account.device_id,
       locked_by: null,
       locked_at: null,
+      login_get_count: 0,
       fail_reason: nullify(req.body.reason || req.body.note || req.body.message) || account.fail_reason,
     };
     if (status === 'LOGIN_THANH_CONG') {
@@ -945,10 +1006,11 @@ const checkFacebookPagesByToken = async (token, proxyUrl = null) => {
   }
 };
 
-const regPageBaseWhere = ({ owner_username, device_id }) => ({
+const regPageBaseWhere = ({ owner_username, device_id, eligibleLoginBefore }) => ({
   owner_username,
   kind: 'job',
   device_id,
+  login_at: { [Op.lte]: eligibleLoginBefore },
   page_count: { [Op.lt]: REG_PAGE_MAX_PAGES },
   page_token_status: { [Op.ne]: 'die' },
   status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
@@ -960,17 +1022,19 @@ const getRegPageAccount = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
     if (!device_id) return error(res, 'Can truyen device_id', 400);
+    const waitSettings = await getFacebookRegPageWaitSettings(owner_username);
+    const eligibleLoginBefore = new Date(Date.now() - waitSettings.hours * 60 * 60 * 1000);
 
     // Neu tool dung giua chung, lan goi tiep theo phai tra lai dung account dang lock.
     let account = await FacebookAccount.findOne({
-      where: { ...regPageBaseWhere({ owner_username, device_id }), reg_page_locked_by: device_id },
+      where: { ...regPageBaseWhere({ owner_username, device_id, eligibleLoginBefore }), reg_page_locked_by: device_id },
       order: [['reg_page_locked_at', 'DESC'], ['id', 'ASC']],
     });
 
     if (!account) {
       account = await sequelize.transaction(async (transaction) => {
         const commonWhere = {
-          ...regPageBaseWhere({ owner_username, device_id }),
+          ...regPageBaseWhere({ owner_username, device_id, eligibleLoginBefore }),
           reg_page_locked_by: null,
         };
 
@@ -1007,6 +1071,8 @@ const getRegPageAccount = async (req, res, next) => {
         account: null,
         max_pages: REG_PAGE_MAX_PAGES,
         cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
+        min_login_age_hours: waitSettings.hours,
+        eligible_login_before: eligibleLoginBefore,
       });
     }
 
@@ -1044,6 +1110,8 @@ const getRegPageAccount = async (req, res, next) => {
       account: serialize(account),
       page_check: { ok: true, page_count, max_pages: REG_PAGE_MAX_PAGES, proxy: maskProxy(proxyUrl) },
       cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
+      min_login_age_hours: waitSettings.hours,
+      eligible_login_before: eligibleLoginBefore,
     }, 'Lay account reg Page thanh cong');
   } catch (err) {
     next(err);
@@ -1578,10 +1646,12 @@ const bulkAction = async (req, res, next) => {
     if (status === 'CHO_LOGIN') {
       update.locked_by = null;
       update.locked_at = null;
+      update.login_get_count = 0;
       update.completed_at = null;
     } else if (status === 'LOGIN_THANH_CONG') {
       update.locked_by = null;
       update.locked_at = null;
+      update.login_get_count = 0;
       update.login_at = new Date();
       update.completed_at = null;
     } else if (status === 'DANG_LAM') {

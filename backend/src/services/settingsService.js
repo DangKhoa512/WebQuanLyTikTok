@@ -7,6 +7,7 @@ const FACEBOOK_LOGIN_LIMIT_KEY = 'facebook_login_machine_limit';
 const JOB_ACCOUNT_DAILY_LIMIT_KEY = 'job_account_daily_limit';
 const MACHINE_API_KEYS_KEY = 'machine_api_keys';
 const FACEBOOK_CHECK_PROXIES_KEY = 'facebook_check_proxies';
+const FACEBOOK_REG_PAGE_WAIT_KEY = 'facebook_reg_page_wait_hours';
 const DEFAULT_MACHINE_API_KEYS = [
   'WEB',
   'CAPTCHA_TDS',
@@ -26,6 +27,7 @@ const DEFAULT_CHROME_KHANG_DAILY_LIMIT = parseInt(process.env.CHROME_KHANG_DAILY
 const DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT = parseInt(process.env.FACEBOOK_LOGIN_MACHINE_LIMIT, 10) || 10;
 const DEFAULT_JOB_ACCOUNT_DAILY_LIMIT = parseInt(process.env.JOB_ACCOUNT_DAILY_LIMIT, 10) || 20;
 const DEFAULT_FACEBOOK_CHECK_CONCURRENCY = 20;
+const DEFAULT_FACEBOOK_REG_PAGE_WAIT_HOURS = 8;
 
 const normalizePositiveInt = (value, fallback) => {
   const parsed = parseInt(value, 10);
@@ -62,6 +64,13 @@ const normalizeFacebookCheckProxies = (data = {}) => {
     ? Math.min(Math.max(parsedConcurrency, 1), 40)
     : DEFAULT_FACEBOOK_CHECK_CONCURRENCY;
   return { proxies, concurrency };
+};
+const normalizeFacebookRegPageWait = (data = {}) => {
+  const parsedHours = parseInt(data.hours, 10);
+  const hours = Number.isInteger(parsedHours)
+    ? Math.min(Math.max(parsedHours, 0), 720)
+    : DEFAULT_FACEBOOK_REG_PAGE_WAIT_HOURS;
+  return { hours };
 };
 
 const getSetting = async (owner_username, setting_key) => {
@@ -162,6 +171,19 @@ const saveFacebookCheckProxySettings = async (owner_username = 'admin', data = {
   return normalized;
 };
 
+const getFacebookRegPageWaitSettings = async (owner_username = 'admin') => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, FACEBOOK_REG_PAGE_WAIT_KEY);
+  return normalizeFacebookRegPageWait(stored || { hours: DEFAULT_FACEBOOK_REG_PAGE_WAIT_HOURS });
+};
+
+const saveFacebookRegPageWaitSettings = async (owner_username = 'admin', data = {}) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const normalized = normalizeFacebookRegPageWait(data);
+  await saveSetting(owner, FACEBOOK_REG_PAGE_WAIT_KEY, normalized);
+  return normalized;
+};
+
 module.exports = {
   DEFAULT_ELIGIBILITY,
   DEFAULT_CHROME_KHANG_DAILY_LIMIT,
@@ -180,4 +202,6 @@ module.exports = {
   saveMachineApiKeys,
   getFacebookCheckProxySettings,
   saveFacebookCheckProxySettings,
+  getFacebookRegPageWaitSettings,
+  saveFacebookRegPageWaitSettings,
 };

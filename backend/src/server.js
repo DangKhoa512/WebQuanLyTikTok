@@ -222,6 +222,7 @@ const startServer = async () => {
       ['ALTER TABLE facebook_accounts ADD COLUMN reg_page_locked_by VARCHAR(255) NULL', 'facebook_accounts reg_page_locked_by column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN reg_page_locked_at DATETIME NULL', 'facebook_accounts reg_page_locked_at column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN last_reg_page_at DATETIME NULL', 'facebook_accounts last_reg_page_at column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN login_get_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER locked_at', 'facebook_accounts login_get_count column added'],
     ]) {
       try {
         await sequelize.query(sql);

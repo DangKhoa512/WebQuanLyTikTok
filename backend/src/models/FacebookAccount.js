@@ -107,6 +107,11 @@ const FacebookAccount = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    login_get_count: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+    },
     login_at: {
       type: DataTypes.DATE,
       allowNull: true,
