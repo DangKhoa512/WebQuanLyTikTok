@@ -1,4 +1,6 @@
 const { Op } = require('sequelize');
+const axios = require('axios');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const sequelize = require('../config/database');
 const FacebookAccount = require('../models/FacebookAccount');
 const FacebookPageJob = require('../models/FacebookPageJob');
@@ -6,8 +8,9 @@ const FacebookRegPageReport = require('../models/FacebookRegPageReport');
 const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
-const { getFacebookLoginLimitSettings } = require('../services/settingsService');
+const { getFacebookLoginLimitSettings, getFacebookCheckProxySettings } = require('../services/settingsService');
 const { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs } = require('../services/facebookJobStatService');
+const { parseProxy } = require('../utils/checkLiveUtils');
 
 const STATUSES = ['CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
 const FINAL_STATUSES = ['LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
@@ -789,17 +792,40 @@ const report = async (req, res, next) => {
   }
 };
 
-const checkFacebookUidLive = async (uid) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+const loadFacebookProxyPool = async (owner_username) => {
+  const settings = await getFacebookCheckProxySettings(owner_username);
+  const rawProxies = Array.isArray(settings.proxies) ? settings.proxies : [];
+  const proxies = rawProxies.map(parseProxy).filter(Boolean);
+  if (rawProxies.length && !proxies.length) throw new Error('Cau hinh proxy Facebook khong hop le');
+  return proxies;
+};
+
+const pickFacebookProxy = (proxyPool, stableKey) => {
+  if (!proxyPool.length) return null;
+  const hash = String(stableKey || '').split('').reduce((value, char) => ((value * 31) + char.charCodeAt(0)) >>> 0, 0);
+  return proxyPool[hash % proxyPool.length];
+};
+
+const maskProxy = (proxyUrl) => proxyUrl
+  ? proxyUrl.replace(/\/\/([^:@]+):([^@]+)@/, '//$1:***@')
+  : 'direct';
+
+const facebookGet = async (url, proxyUrl, timeout) => {
+  const config = { timeout, validateStatus: () => true };
+  if (proxyUrl) {
+    config.httpsAgent = new HttpsProxyAgent(proxyUrl);
+    config.proxy = false;
+  }
+  return axios.get(url, config);
+};
+
+const checkFacebookUidLive = async (uid, proxyUrl = null) => {
   try {
-    const response = await fetch(`https://graph.facebook.com/${encodeURIComponent(uid)}/picture?redirect=false`, { signal: controller.signal });
-    const json = await response.json();
+    const response = await facebookGet(`https://graph.facebook.com/${encodeURIComponent(uid)}/picture?redirect=false`, proxyUrl, 10000);
+    const json = response.data;
     return json?.data?.height != null;
   } catch (_) {
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 };
 
@@ -812,13 +838,15 @@ const checkLive = async (req, res, next) => {
     if (req.body.kind || req.query.kind) where.kind = normalizeKind(req.body.kind || req.query.kind, 'job');
 
     const accounts = await FacebookAccount.findAll({ where, limit: ids.length ? undefined : 500, order: [['id', 'ASC']] });
+    const proxyPool = await loadFacebookProxyPool(owner_username);
     const rows = [];
     let live = 0;
     let die = 0;
     let unknown = 0;
 
     for (const account of accounts) {
-      const result = await checkFacebookUidLive(account.uid);
+      const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
+      const result = await checkFacebookUidLive(account.uid, proxyUrl);
       const live_status = result === true ? 'live' : result === false ? 'die' : 'unknown';
       if (live_status === 'live') live += 1;
       else if (live_status === 'die') die += 1;
@@ -826,7 +854,7 @@ const checkLive = async (req, res, next) => {
       const updates = { live_status, last_live_check_at: new Date() };
       if (live_status === 'die') updates.status = 'ACCOUNT_DIE';
       await account.update(updates);
-      rows.push({ id: account.id, uid: account.uid, result: live_status });
+      rows.push({ id: account.id, uid: account.uid, result: live_status, proxy: maskProxy(proxyUrl) });
     }
 
     return success(res, { live, die, unknown, rows }, 'Check live Facebook thanh cong');
@@ -846,19 +874,17 @@ const normalizeGraphAccessToken = (value) => {
   return raw;
 };
 
-const checkFacebookPagesByToken = async (token) => {
+const checkFacebookPagesByToken = async (token, proxyUrl = null) => {
   const accessToken = normalizeGraphAccessToken(token);
   if (!accessToken) return { ok: false, message: 'NO_TOKEN', pages: [], token_status: 'die', error_code: null };
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     const url = new URL('https://graph.facebook.com/v26.0/me/accounts');
     url.searchParams.set('fields', 'id,name,access_token,tasks');
     url.searchParams.set('access_token', accessToken);
-    const response = await fetch(url, { signal: controller.signal });
-    const json = await response.json().catch(() => null);
-    if (!response.ok || json?.error) {
+    const response = await facebookGet(url.toString(), proxyUrl, 15000);
+    const json = response.data;
+    if (response.status < 200 || response.status >= 300 || json?.error) {
       const message = json?.error?.message || 'GRAPH_ERROR';
       const errorCode = Number(json?.error?.code) || null;
       const tokenDie = errorCode === 190 || /validating access token|session has been invalidated/i.test(message);
@@ -872,9 +898,7 @@ const checkFacebookPagesByToken = async (token) => {
     })) : [];
     return { ok: true, message: 'OK', pages, token_status: 'live', error_code: null };
   } catch (err) {
-    return { ok: false, message: err.name === 'AbortError' ? 'TIMEOUT' : 'REQUEST_FAILED', pages: [], token_status: 'unknown', error_code: null };
-  } finally {
-    clearTimeout(timeout);
+    return { ok: false, message: err.code === 'ECONNABORTED' ? 'TIMEOUT' : 'REQUEST_FAILED', pages: [], token_status: 'unknown', error_code: null };
   }
 };
 
@@ -944,7 +968,9 @@ const getRegPageAccount = async (req, res, next) => {
     }
 
     const data = hydrateFacebookData(account);
-    const pageResult = await checkFacebookPagesByToken(data.token);
+    const proxyPool = await loadFacebookProxyPool(owner_username);
+    const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
+    const pageResult = await checkFacebookPagesByToken(data.token, proxyUrl);
     if (!pageResult.ok) {
       const tokenDie = pageResult.token_status === 'die';
       await account.update({
@@ -973,7 +999,7 @@ const getRegPageAccount = async (req, res, next) => {
 
     return success(res, {
       account: serialize(account),
-      page_check: { ok: true, page_count, max_pages: REG_PAGE_MAX_PAGES },
+      page_check: { ok: true, page_count, max_pages: REG_PAGE_MAX_PAGES, proxy: maskProxy(proxyUrl) },
       cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
     }, 'Lay account reg Page thanh cong');
   } catch (err) {
@@ -1003,7 +1029,9 @@ const reportRegPage = async (req, res, next) => {
     let pageCheck = null;
     if (reportStatus === 'REG_XONG') {
       const previousPageCount = Number(account.page_count) || 0;
-      const pageResult = await checkFacebookPagesByToken(hydrateFacebookData(account).token);
+      const proxyPool = await loadFacebookProxyPool(owner_username);
+      const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
+      const pageResult = await checkFacebookPagesByToken(hydrateFacebookData(account).token, proxyUrl);
       if (!pageResult.ok) {
         const tokenDie = pageResult.token_status === 'die';
         await account.update({
@@ -1017,6 +1045,7 @@ const reportRegPage = async (req, res, next) => {
           device_id,
           token_status: pageResult.token_status,
           error_code: pageResult.error_code,
+          proxy: maskProxy(proxyUrl),
         });
       }
 
@@ -1064,6 +1093,7 @@ const reportRegPage = async (req, res, next) => {
         current_page_count: currentPageCount,
         page_difference: pageDifference,
         pages_added: pagesAdded,
+        proxy: maskProxy(proxyUrl),
       };
     } else {
       await account.update({ reg_page_locked_by: null, reg_page_locked_at: null });
@@ -1087,7 +1117,7 @@ const getRegPageStats = async (req, res, next) => {
       ? String(req.query.range).toLowerCase()
       : 'all';
     const q = nullify(req.query.q);
-    const accountWhere = { owner_username, kind: 'reg' };
+    const accountWhere = { owner_username, kind: 'job' };
     const reportWhere = { owner_username };
     if (q) {
       accountWhere.device_id = { [Op.like]: `%${q}%` };
@@ -1106,6 +1136,7 @@ const getRegPageStats = async (req, res, next) => {
           [sequelize.fn('SUM', sequelize.literal("CASE WHEN live_status = 'die' THEN 1 ELSE 0 END")), 'die'],
           [sequelize.fn('SUM', sequelize.col('page_count')), 'pages'],
           [sequelize.fn('MAX', sequelize.col('created_at')), 'last_reg_at'],
+          [sequelize.fn('MAX', sequelize.col('last_page_check_at')), 'last_page_check_at'],
         ],
         where: accountWhere,
         group: ['device_id'],
@@ -1134,16 +1165,18 @@ const getRegPageStats = async (req, res, next) => {
         live: Number(row.live) || 0,
         die: Number(row.die) || 0,
         pages: Number(row.pages) || 0,
+        page_account_count: Number(row.total) || 0,
         pages_registered: 0,
         page_difference: 0,
         report_count: 0,
         last_reg_at: row.last_reg_at || null,
+        last_page_check_at: row.last_page_check_at || null,
         last_report_at: null,
       });
     }
     for (const row of reportRows) {
       const device = row.device_id || '-';
-      const current = machines.get(device) || { device_id: device, total: 0, live: 0, die: 0, pages: 0, last_reg_at: null };
+      const current = machines.get(device) || { device_id: device, total: 0, live: 0, die: 0, pages: 0, page_account_count: 0, last_reg_at: null };
       machines.set(device, {
         ...current,
         pages_registered: Number(row.pages_registered) || 0,
@@ -1195,8 +1228,11 @@ const addFacebookJobCount = async (req, res, next) => {
 
 const checkPageToken = async (req, res, next) => {
   try {
+    const owner_username = ownerFromRequest(req);
     const token = req.body.token || req.body.access_token || req.query.token || req.query.access_token;
-    const result = await checkFacebookPagesByToken(token);
+    const proxyPool = await loadFacebookProxyPool(owner_username);
+    const proxyUrl = pickFacebookProxy(proxyPool, normalizeGraphAccessToken(token));
+    const result = await checkFacebookPagesByToken(token, proxyUrl);
     return success(res, {
       ok: result.ok,
       message: result.message,
@@ -1204,6 +1240,7 @@ const checkPageToken = async (req, res, next) => {
       error_code: result.error_code,
       page_count: result.ok ? result.pages.length : null,
       pages: result.pages,
+      proxy: maskProxy(proxyUrl),
     }, result.ok ? 'Check page token thanh cong' : 'Check page token that bai');
   } catch (err) {
     next(err);
@@ -1219,6 +1256,7 @@ const checkPages = async (req, res, next) => {
     if (req.body.kind || req.query.kind) where.kind = normalizeKind(req.body.kind || req.query.kind, 'reg');
 
     const accounts = await FacebookAccount.findAll({ where, limit: ids.length ? undefined : 300, order: [['id', 'ASC']] });
+    const proxyPool = await loadFacebookProxyPool(owner_username);
     const rows = [];
     let checked = 0;
     let successCount = 0;
@@ -1227,7 +1265,8 @@ const checkPages = async (req, res, next) => {
 
     for (const account of accounts) {
       const data = hydrateFacebookData(account);
-      const result = await checkFacebookPagesByToken(data.token);
+      const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
+      const result = await checkFacebookPagesByToken(data.token, proxyUrl);
       const pageCount = result.pages.length;
       checked += 1;
       if (result.ok) successCount += 1;
@@ -1257,6 +1296,7 @@ const checkPages = async (req, res, next) => {
         token_status: result.token_status,
         page_count: result.ok ? pageCount : null,
         pages: result.pages,
+        proxy: maskProxy(proxyUrl),
       });
     }
 

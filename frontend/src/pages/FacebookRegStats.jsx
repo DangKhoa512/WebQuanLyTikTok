@@ -41,7 +41,7 @@ export default function FacebookRegStats() {
       <div className="page-header">
         <div>
           <h1>Thống kê Facebook Reg</h1>
-          <div className="subtitle">Theo dõi máy nào đã reg account để backup và kiểm tra lại.</div>
+          <div className="subtitle">Theo dõi account và page từ Facebook Job, cùng số page tăng qua từng lần reg.</div>
         </div>
         <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
           <Link to="/facebook-reg" className="btn btn-secondary btn-sm">Facebook Reg</Link>
@@ -79,13 +79,13 @@ export default function FacebookRegStats() {
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="card-header">
-          <h3>Máy đã reg account và page / {rangeLabel}</h3>
+          <h3>Account và page Facebook Job theo máy / {rangeLabel}</h3>
           <span style={{ color: '#64748b', fontSize: '.8rem' }}>{rows.length} máy {loading ? '- đang tải...' : ''}</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
             <thead>
-              <tr><th>TÊN MÁY</th><th>ACCOUNT</th><th>LIVE</th><th>DIE</th><th>PAGE HIỆN CÓ</th><th>PAGE ĐÃ REG</th><th>LẦN BÁO CÁO</th><th>BÁO CÁO CUỐI</th><th>REG ACC CUỐI</th></tr>
+              <tr><th>TÊN MÁY</th><th>ACCOUNT JOB</th><th>LIVE</th><th>DIE</th><th>PAGE JOB HIỆN CÓ</th><th>PAGE ĐÃ REG</th><th>LẦN BÁO CÁO</th><th>BÁO CÁO CUỐI</th><th>ACCOUNT CẬP NHẬT CUỐI</th></tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (

@@ -40,6 +40,13 @@ export default function ProxySettings() {
         setMinAgeDays(settings.min_age_days || 4);
       })
       .catch((err) => toast.error(err.message || 'Không tải được cài đặt đủ điều kiện'));
+    settingsApi.getFacebookCheckProxies()
+      .then((res) => {
+        if (!mounted) return;
+        const savedProxies = res.data?.settings?.proxies || [];
+        if (savedProxies.length || !init.proxies.trim()) setProxies(savedProxies.join('\n'));
+      })
+      .catch((err) => toast.error(err.message || 'Không tải được proxy check Facebook'));
     settingsApi.getChromeKhangLimit()
       .then((res) => {
         if (!mounted) return;
@@ -94,7 +101,10 @@ export default function ProxySettings() {
           delayMs: parseInt(delayMs, 10),
           batchSize: parseInt(batchSize, 10),
         });
-        return settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10));
+        return Promise.all([
+          settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10)),
+          settingsApi.updateFacebookCheckProxies(proxies),
+        ]);
       })
       .then(() => toast.success('Đã lưu cài đặt'))
       .catch((err) => toast.error(err.message || 'Lưu cài đặt thất bại'))
@@ -112,7 +122,10 @@ export default function ProxySettings() {
     setFacebookLoginLimit(10);
     setJobAccountDailyLimit(20);
     saveCheckLiveSettings({ proxies: '', concurrency: 12, delayMs: 200, batchSize: 60 });
-    settingsApi.updateEligibility(4, 20)
+    Promise.all([
+      settingsApi.updateEligibility(4, 20),
+      settingsApi.updateFacebookCheckProxies(''),
+    ])
       .then(() => toast.success('Đã reset cài đặt'))
       .catch((err) => toast.error(err.message || 'Reset cài đặt thất bại'));
   };

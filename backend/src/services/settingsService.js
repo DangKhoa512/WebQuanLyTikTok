@@ -6,6 +6,7 @@ const CHROME_KHANG_LIMIT_KEY = 'chrome_khang_daily_limit';
 const FACEBOOK_LOGIN_LIMIT_KEY = 'facebook_login_machine_limit';
 const JOB_ACCOUNT_DAILY_LIMIT_KEY = 'job_account_daily_limit';
 const MACHINE_API_KEYS_KEY = 'machine_api_keys';
+const FACEBOOK_CHECK_PROXIES_KEY = 'facebook_check_proxies';
 const DEFAULT_MACHINE_API_KEYS = [
   'WEB',
   'CAPTCHA_TDS',
@@ -49,6 +50,13 @@ const normalizeMachineApiKeys = (keys = DEFAULT_MACHINE_API_KEYS) => {
     .map((key) => String(key || '').trim().toUpperCase())
     .filter((key) => key && key.length <= 100);
   return [...new Set(normalized)];
+};
+const normalizeFacebookCheckProxies = (data = {}) => {
+  const source = Array.isArray(data.proxies)
+    ? data.proxies
+    : String(data.proxies || '').split(/\r?\n/);
+  const proxies = [...new Set(source.map((proxy) => String(proxy || '').trim()).filter(Boolean))];
+  return { proxies };
 };
 
 const getSetting = async (owner_username, setting_key) => {
@@ -136,6 +144,19 @@ const saveMachineApiKeys = async (keys = DEFAULT_MACHINE_API_KEYS, owner_usernam
   return normalized;
 };
 
+const getFacebookCheckProxySettings = async (owner_username = 'admin') => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, FACEBOOK_CHECK_PROXIES_KEY);
+  return normalizeFacebookCheckProxies(stored || { proxies: [] });
+};
+
+const saveFacebookCheckProxySettings = async (owner_username = 'admin', data = {}) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const normalized = normalizeFacebookCheckProxies(data);
+  await saveSetting(owner, FACEBOOK_CHECK_PROXIES_KEY, normalized);
+  return normalized;
+};
+
 module.exports = {
   DEFAULT_ELIGIBILITY,
   DEFAULT_CHROME_KHANG_DAILY_LIMIT,
@@ -152,4 +173,6 @@ module.exports = {
   saveJobAccountDailyLimitSettings,
   getMachineApiKeys,
   saveMachineApiKeys,
+  getFacebookCheckProxySettings,
+  saveFacebookCheckProxySettings,
 };

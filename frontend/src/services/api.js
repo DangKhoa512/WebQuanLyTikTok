@@ -119,6 +119,8 @@ export const settingsApi = {
     api.put('/settings/job-account-daily-limit', { limit, owner_username }),
   getMachineApiKeys: () => api.get('/settings/machine-api-keys'),
   updateMachineApiKeys: (keys) => api.put('/settings/machine-api-keys', { keys }),
+  getFacebookCheckProxies: () => api.get('/settings/facebook-check-proxies'),
+  updateFacebookCheckProxies: (proxies) => api.put('/settings/facebook-check-proxies', { proxies }),
 };
 
 

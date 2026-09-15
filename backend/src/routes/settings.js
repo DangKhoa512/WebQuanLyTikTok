@@ -16,5 +16,7 @@ router.put('/job-account-daily-limit', ctrl.updateJobAccountDailyLimit);
 router.get('/job-account-daily-limits', ctrl.listJobAccountDailyLimits);
 router.get('/machine-api-keys', ctrl.getMachineApiKeysSetting);
 router.put('/machine-api-keys', ctrl.updateMachineApiKeysSetting);
+router.get('/facebook-check-proxies', ctrl.getFacebookCheckProxies);
+router.put('/facebook-check-proxies', ctrl.updateFacebookCheckProxies);
 
 module.exports = router;
