@@ -915,7 +915,8 @@ const checkFacebookPagesByToken = async (token, proxyUrl = null) => {
     if (response.status < 200 || response.status >= 300 || json?.error) {
       const message = json?.error?.message || 'GRAPH_ERROR';
       const errorCode = Number(json?.error?.code) || null;
-      const tokenDie = errorCode === 190 || /validating access token|session has been invalidated/i.test(message);
+      const tokenDie = [190, 459].includes(errorCode)
+        || /validating access token|session has been invalidated|checkpointed/i.test(message);
       return { ok: false, message, pages: [], token_status: tokenDie ? 'die' : 'unknown', error_code: errorCode };
     }
     const pages = Array.isArray(json?.data) ? json.data.map((page) => ({
