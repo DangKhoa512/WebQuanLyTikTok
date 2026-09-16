@@ -167,6 +167,18 @@ const parseFacebookLine = (line) => {
   return parsed;
 };
 
+const isFacebookSessionRefresh = (parsed) => Boolean(
+  parsed?.uid
+  && parsed.cookies
+  && parsed.token
+  && !parsed.password
+  && !parsed.two_fa
+  && !parsed.email
+  && !parsed.email_pass
+  && !parsed.refresh_token
+  && !parsed.client_id
+);
+
 const formatFacebookPipe = (account) => {
   const hasMailExtras = account.email_pass || account.refresh_token || account.client_id;
   const values = account.two_fa
@@ -407,7 +419,7 @@ const syncRegAccountToJob = async (regAccount) => {
 
 const importFacebookAccounts = async ({ text, owner_username, kind = 'job', status = 'CHO_LOGIN', groupId = null, device_id = null }) => {
   const lines = splitLines(text);
-  const result = { total: lines.length, created: 0, duplicated: 0, invalid: 0, job_created: 0, job_updated: 0 };
+  const result = { total: lines.length, created: 0, updated: 0, duplicated: 0, invalid: 0, job_created: 0, job_updated: 0 };
 
   for (const line of lines) {
     const parsed = parseFacebookLine(line);
@@ -431,6 +443,17 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
 
     if (created) result.created += 1;
     else {
+      if (isFacebookSessionRefresh(parsed)) {
+        await account.update({
+          cookies: parsed.cookies,
+          token: parsed.token,
+          page_token_status: 'unknown',
+          page_token_error: null,
+        });
+        result.updated += 1;
+        continue;
+      }
+
       result.duplicated += 1;
       const duplicateUpdate = { ...parsed, group_id: groupId ?? account.group_id, status };
       if (device_id) duplicateUpdate.device_id = device_id;
@@ -627,7 +650,7 @@ const importFromApi = async (req, res, next) => {
     const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
     const groupId = await resolveGroupId({ group_id: req.body.group_id || req.query.group_id, group_name: req.body.group_name || req.query.group_name, owner_username, kind });
     const result = await importFacebookAccounts({ text, owner_username, kind, status, groupId, device_id });
-    return success(res, result, `Da nhan ${result.created}/${result.total} account Facebook`);
+    return success(res, result, `Da nhan ${result.created + result.updated}/${result.total} account Facebook`);
   } catch (err) {
     next(err);
   }
