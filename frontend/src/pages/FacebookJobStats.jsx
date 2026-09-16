@@ -57,6 +57,7 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
   const [daily, setDaily] = useState(null);
   const [devices, setDevices] = useState([]);
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState({ field: 'device_id', direction: 'asc' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const selectedRange = RANGES.find((item) => item.key === range) || RANGES[0];
@@ -97,14 +98,44 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
     }));
   }, [daily, metric, web]);
 
+  const deviceValue = (device) => Number(device?.[`range_${web}${metric === 'xu' ? '_xu' : ''}`] || 0);
   const filteredDevices = useMemo(() => {
     const query = search.trim().toLowerCase();
+    const valueKey = `range_${web}${metric === 'xu' ? '_xu' : ''}`;
     return [...devices]
       .filter((item) => String(item.device_id || '').toLowerCase().includes(query))
-      .sort((a, b) => naturalCollator.compare(String(a.device_id || ''), String(b.device_id || '')));
-  }, [devices, search]);
+      .sort((a, b) => {
+        let result = 0;
+        if (sort.field === 'value') {
+          result = Number(a[valueKey] || 0) - Number(b[valueKey] || 0);
+        } else if (sort.field === 'last_seen') {
+          const aTime = a.last_seen ? new Date(a.last_seen).getTime() : null;
+          const bTime = b.last_seen ? new Date(b.last_seen).getTime() : null;
+          if (aTime === null || bTime === null) return aTime === null ? (bTime === null ? 0 : 1) : -1;
+          result = aTime - bTime;
+        } else {
+          result = naturalCollator.compare(String(a.device_id || ''), String(b.device_id || ''));
+        }
+        return (sort.direction === 'asc' ? result : -result)
+          || naturalCollator.compare(String(a.device_id || ''), String(b.device_id || ''));
+      });
+  }, [devices, search, sort, web, metric]);
 
-  const deviceValue = (device) => Number(device?.[`range_${web}${metric === 'xu' ? '_xu' : ''}`] || 0);
+  const toggleSort = (field) => {
+    setSort((current) => ({
+      field,
+      direction: current.field === field && current.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+  const sortLabel = (field, label) => (
+    <button
+      type="button"
+      onClick={() => toggleSort(field)}
+      style={{ border: 0, background: 'transparent', color: 'inherit', font: 'inherit', fontWeight: 'inherit', textTransform: 'inherit', letterSpacing: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '.35rem', whiteSpace: 'nowrap' }}
+    >
+      {label}<span aria-hidden="true" style={{ color: sort.field === field ? '#2563eb' : '#94a3b8' }}>{sort.field === field ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
+    </button>
+  );
   const selectedWeb = WEBS.find((item) => item.key === web) || WEBS[0];
 
   return (
@@ -191,7 +222,7 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
             </div>
             <div className={'table-container'} style={{ maxHeight: 520, overflowY: 'auto' }}>
               <table>
-                <thead><tr><th>Tên máy</th><th>{`${web} ${metric === 'xu' ? 'xu' : 'job'}`}</th><th>Hoạt động cuối</th></tr></thead>
+                <thead><tr><th>{sortLabel('device_id', 'Tên máy')}</th><th>{sortLabel('value', `${web} ${metric === 'xu' ? 'xu' : 'job'}`)}</th><th>{sortLabel('last_seen', 'Hoạt động cuối')}</th></tr></thead>
                 <tbody>
                   {filteredDevices.length === 0 ? (
                     <tr><td colSpan={3} className={'empty-cell'}>Chưa có dữ liệu Facebook JOB</td></tr>

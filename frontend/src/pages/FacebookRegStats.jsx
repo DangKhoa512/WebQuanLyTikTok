@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { facebookApi } from '../services/api';
 import { toast } from '../components/Toast';
 
 const fmt = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '-';
 const fmtNum = (value) => Number(value || 0).toLocaleString('vi-VN');
+const naturalCollator = new Intl.Collator('vi-VN', { numeric: true, sensitivity: 'base' });
 const RANGES = [
   { value: 'today', label: 'Hôm nay' },
   { value: '7', label: '7 ngày' },
@@ -17,6 +18,7 @@ export default function FacebookRegStats() {
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState('');
   const [range, setRange] = useState('all');
+  const [sort, setSort] = useState({ field: 'device_id', direction: 'asc' });
   const [summary, setSummary] = useState({ total_accounts: 0, live: 0, die: 0, total_pages: 0, pages_registered: 0, report_count: 0 });
 
   const fetchData = useCallback(async () => {
@@ -35,6 +37,38 @@ export default function FacebookRegStats() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const rangeLabel = RANGES.find((item) => item.value === range)?.label || 'Tất cả';
+  const sortedRows = useMemo(() => [...rows].sort((a, b) => {
+    let result = 0;
+    if (sort.field === 'device_id') {
+      result = naturalCollator.compare(String(a.device_id || ''), String(b.device_id || ''));
+    } else if (['last_report_at', 'last_reg_at'].includes(sort.field)) {
+      const aTime = a[sort.field] ? new Date(a[sort.field]).getTime() : null;
+      const bTime = b[sort.field] ? new Date(b[sort.field]).getTime() : null;
+      if (aTime === null || bTime === null) return aTime === null ? (bTime === null ? 0 : 1) : -1;
+      result = aTime - bTime;
+    } else {
+      result = Number(a[sort.field] || 0) - Number(b[sort.field] || 0);
+    }
+    return (sort.direction === 'asc' ? result : -result)
+      || naturalCollator.compare(String(a.device_id || ''), String(b.device_id || ''));
+  }), [rows, sort]);
+
+  const toggleSort = (field) => {
+    setSort((current) => ({
+      field,
+      direction: current.field === field && current.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
+  const sortLabel = (field, label) => (
+    <button
+      type="button"
+      onClick={() => toggleSort(field)}
+      style={{ border: 0, background: 'transparent', color: 'inherit', font: 'inherit', fontWeight: 'inherit', textTransform: 'inherit', letterSpacing: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '.35rem', whiteSpace: 'nowrap' }}
+    >
+      {label}<span aria-hidden="true" style={{ color: sort.field === field ? '#2563eb' : '#94a3b8' }}>{sort.field === field ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
+    </button>
+  );
 
   return (
     <div className="page">
@@ -85,12 +119,12 @@ export default function FacebookRegStats() {
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
             <thead>
-              <tr><th>TÊN MÁY</th><th>ACCOUNT JOB</th><th>LIVE</th><th>DIE</th><th>PAGE JOB HIỆN CÓ</th><th>PAGE ĐÃ REG</th><th>LẦN BÁO CÁO</th><th>BÁO CÁO CUỐI</th><th>ACCOUNT CẬP NHẬT CUỐI</th></tr>
+              <tr><th>{sortLabel('device_id', 'TÊN MÁY')}</th><th>{sortLabel('total', 'ACCOUNT JOB')}</th><th>{sortLabel('live', 'LIVE')}</th><th>{sortLabel('die', 'DIE')}</th><th>{sortLabel('pages', 'PAGE JOB HIỆN CÓ')}</th><th>{sortLabel('pages_registered', 'PAGE ĐÃ REG')}</th><th>{sortLabel('report_count', 'LẦN BÁO CÁO')}</th><th>{sortLabel('last_report_at', 'BÁO CÁO CUỐI')}</th><th>{sortLabel('last_reg_at', 'ACCOUNT CẬP NHẬT CUỐI')}</th></tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr><td colSpan="9" style={{ textAlign: 'center', color: '#94a3b8', padding: 36 }}>Chưa có thống kê máy reg</td></tr>
-              ) : rows.map((row) => (
+              ) : sortedRows.map((row) => (
                 <tr key={row.device_id}>
                   <td><strong>{row.device_id || '-'}</strong></td>
                   <td style={{ color: '#7c3aed', fontWeight: 800 }}>{row.total || 0}</td>
