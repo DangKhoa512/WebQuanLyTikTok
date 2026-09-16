@@ -176,15 +176,28 @@ export default function FacebookNurtureSettings() {
     }));
   };
 
-  const removeScenario = () => {
-    if (!selected || !confirm(`Xóa ${selected.name}?`)) return;
+  const removeScenario = async () => {
+    if (!selected || saving || !confirm(`Xóa ${selected.name}?`)) return;
     const remaining = settings.scenarios.filter((scenario) => scenario.id !== selected.id);
-    setSettings((current) => ({
-      ...current,
-      active_scenario_id: current.active_scenario_id === selected.id ? null : current.active_scenario_id,
+    const nextSettings = {
+      ...settings,
+      active_scenario_id: settings.active_scenario_id === selected.id
+        ? remaining[0]?.id || null
+        : settings.active_scenario_id,
       scenarios: remaining,
-    }));
-    setSelectedId(remaining[0]?.id || '');
+    };
+    setSaving(true);
+    try {
+      const res = await settingsApi.updateFacebookNurture(nextSettings);
+      const saved = res.data?.settings || nextSettings;
+      setSettings(saved);
+      setSelectedId(saved.active_scenario_id || saved.scenarios[0]?.id || '');
+      toast.success('Đã xóa kịch bản');
+    } catch (err) {
+      toast.error(err.message || 'Xóa kịch bản thất bại');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const save = async () => {
@@ -360,8 +373,8 @@ export default function FacebookNurtureSettings() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.75rem', marginTop: '1rem' }}>
-            <button onClick={removeScenario} style={{ background: '#fff1f2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: 8, padding: '.58rem .9rem', cursor: 'pointer', fontWeight: 700 }}>
-              Xóa kịch bản
+            <button onClick={removeScenario} disabled={saving} style={{ background: '#fff1f2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: 8, padding: '.58rem .9rem', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
+              {saving ? 'Đang xử lý...' : 'Xóa kịch bản'}
             </button>
             <button onClick={save} disabled={saving} style={{ background: saving ? '#334155' : '#10b981', border: 'none', color: '#fff', borderRadius: 8, padding: '.58rem 1.1rem', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 800 }}>
               {saving ? 'Đang lưu...' : 'Lưu kịch bản'}
