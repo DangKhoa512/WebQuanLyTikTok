@@ -108,6 +108,8 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
         let result = 0;
         if (sort.field === 'value') {
           result = Number(a[valueKey] || 0) - Number(b[valueKey] || 0);
+        } else if (sort.field === 'pages') {
+          result = Number(a.range_pages || 0) - Number(b.range_pages || 0);
         } else if (sort.field === 'last_seen') {
           const aTime = a.last_seen ? new Date(a.last_seen).getTime() : null;
           const bTime = b.last_seen ? new Date(b.last_seen).getTime() : null;
@@ -216,20 +218,21 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
             <div className={'card-header'}>
               <div>
                 <h3>🖥️ {web} theo máy / {selectedRange.label}</h3>
-                <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.2rem' }}>{filteredDevices.length} máy có gửi nhãn Facebook</div>
+                <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.2rem' }}>{filteredDevices.length} máy có dữ liệu Facebook</div>
               </div>
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={'Tìm tên máy...'} style={{ width: 240, maxWidth: '100%', border: '1px solid #cbd5e1', borderRadius: 8, padding: '.45rem .75rem' }} />
             </div>
             <div className={'table-container'} style={{ maxHeight: 520, overflowY: 'auto' }}>
               <table>
-                <thead><tr><th>{sortLabel('device_id', 'Tên máy')}</th><th>{sortLabel('value', `${web} ${metric === 'xu' ? 'xu' : 'job'}`)}</th><th>{sortLabel('last_seen', 'Hoạt động cuối')}</th></tr></thead>
+                <thead><tr><th>{sortLabel('device_id', 'Tên máy')}</th><th>{sortLabel('value', `${web} ${metric === 'xu' ? 'xu' : 'job'}`)}</th><th>{sortLabel('pages', 'Page đã lấy')}</th><th>{sortLabel('last_seen', 'Hoạt động cuối')}</th></tr></thead>
                 <tbody>
                   {filteredDevices.length === 0 ? (
-                    <tr><td colSpan={3} className={'empty-cell'}>Chưa có dữ liệu Facebook JOB</td></tr>
+                    <tr><td colSpan={4} className={'empty-cell'}>Chưa có dữ liệu Facebook JOB</td></tr>
                   ) : filteredDevices.map((device) => (
                       <tr key={device.device_id}>
                         <td><strong>{device.device_id}</strong></td>
                         <td style={{ color: selectedWeb.color, fontWeight: 850 }}>{fmtNum(deviceValue(device))}</td>
+                        <td style={{ color: '#8b5cf6', fontWeight: 850 }}>{fmtNum(device.range_pages)}</td>
                         <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDateTime(device.last_seen)}</td>
                       </tr>
                   ))}

@@ -292,6 +292,26 @@ const startServer = async () => {
       logger.warn('Migration facebook_job_daily_stats xu_count skipped:', e.message);
     }
     try {
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS facebook_page_claim_daily_stats (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL,
+          device_id VARCHAR(255) NOT NULL,
+          stat_date DATE NOT NULL,
+          page_count INT UNSIGNED NOT NULL DEFAULT 0,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_fb_page_claim_owner_device_date (owner_username, device_id, stat_date),
+          KEY idx_fb_page_claim_owner_date (owner_username, stat_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      logger.info('facebook_page_claim_daily_stats table ready');
+    } catch (e) {
+      logger.warn('Migration facebook_page_claim_daily_stats table skipped:', e.message);
+    }
+
+    try {
       await sequelize.query("ALTER TABLE facebook_accounts MODIFY COLUMN status ENUM('CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE') NOT NULL DEFAULT 'CHO_LOGIN'");
       logger.info('facebook_accounts status enum ready');
     } catch (e) {

@@ -17,7 +17,7 @@ const {
   getFacebookRegPageWaitSettings,
   getFacebookNurtureSettings,
 } = require('../services/settingsService');
-const { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs } = require('../services/facebookJobStatService');
+const { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs, addFacebookPageClaim } = require('../services/facebookJobStatService');
 const { parseProxy } = require('../utils/checkLiveUtils');
 
 const STATUSES = ['CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
@@ -335,6 +335,7 @@ const claimPageForPhone = async ({ account, device_id }) => {
     });
     if (!pageJob) return null;
     await pageJob.update({ job_status: 'DANG_LAM', device_id }, { transaction });
+    await addFacebookPageClaim({ owner_username: account.owner_username, device_id, stat_date: vietnamToday(), transaction });
     return pageJob;
   });
 };

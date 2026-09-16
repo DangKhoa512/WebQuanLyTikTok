@@ -659,19 +659,40 @@ const getFacebookJobDeviceStats = async (days = 1, ownerFilter = null) => {
   const ownerAnd = ownerFilter ? 'AND owner_username = :owner' : '';
   return sequelize.query(
     `SELECT
-       device_id,
-       COALESCE(SUM(CASE WHEN web = 'TTC' THEN job_count ELSE 0 END), 0) AS range_TTC,
-       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN job_count ELSE 0 END), 0) AS range_XSMM,
-       COALESCE(SUM(CASE WHEN web = 'NVC' THEN job_count ELSE 0 END), 0) AS range_NVC,
-       COALESCE(SUM(CASE WHEN web = 'TTC' THEN xu_count ELSE 0 END), 0) AS range_TTC_xu,
-       COALESCE(SUM(CASE WHEN web = 'XSMM' THEN xu_count ELSE 0 END), 0) AS range_XSMM_xu,
-       COALESCE(SUM(CASE WHEN web = 'NVC' THEN xu_count ELSE 0 END), 0) AS range_NVC_xu,
-       MAX(updated_at) AS last_seen
-     FROM facebook_job_daily_stats
-     WHERE ${dateWhere}
-       ${ownerAnd}
-     GROUP BY device_id
-     ORDER BY device_id ASC`,
+       devices.device_id,
+       COALESCE(jobs.range_TTC, 0) AS range_TTC,
+       COALESCE(jobs.range_XSMM, 0) AS range_XSMM,
+       COALESCE(jobs.range_NVC, 0) AS range_NVC,
+       COALESCE(jobs.range_TTC_xu, 0) AS range_TTC_xu,
+       COALESCE(jobs.range_XSMM_xu, 0) AS range_XSMM_xu,
+       COALESCE(jobs.range_NVC_xu, 0) AS range_NVC_xu,
+       COALESCE(pages.range_pages, 0) AS range_pages,
+       CASE
+         WHEN jobs.last_seen IS NULL THEN pages.last_seen
+         WHEN pages.last_seen IS NULL THEN jobs.last_seen
+         ELSE GREATEST(jobs.last_seen, pages.last_seen)
+       END AS last_seen
+     FROM (
+       SELECT device_id FROM facebook_job_daily_stats WHERE ${dateWhere} ${ownerAnd}
+       UNION
+       SELECT device_id FROM facebook_page_claim_daily_stats WHERE ${dateWhere} ${ownerAnd}
+     ) devices
+     LEFT JOIN (
+       SELECT device_id,
+         SUM(CASE WHEN web = 'TTC' THEN job_count ELSE 0 END) AS range_TTC,
+         SUM(CASE WHEN web = 'XSMM' THEN job_count ELSE 0 END) AS range_XSMM,
+         SUM(CASE WHEN web = 'NVC' THEN job_count ELSE 0 END) AS range_NVC,
+         SUM(CASE WHEN web = 'TTC' THEN xu_count ELSE 0 END) AS range_TTC_xu,
+         SUM(CASE WHEN web = 'XSMM' THEN xu_count ELSE 0 END) AS range_XSMM_xu,
+         SUM(CASE WHEN web = 'NVC' THEN xu_count ELSE 0 END) AS range_NVC_xu,
+         MAX(updated_at) AS last_seen
+       FROM facebook_job_daily_stats WHERE ${dateWhere} ${ownerAnd} GROUP BY device_id
+     ) jobs ON jobs.device_id = devices.device_id
+     LEFT JOIN (
+       SELECT device_id, SUM(page_count) AS range_pages, MAX(updated_at) AS last_seen
+       FROM facebook_page_claim_daily_stats WHERE ${dateWhere} ${ownerAnd} GROUP BY device_id
+     ) pages ON pages.device_id = devices.device_id
+     ORDER BY devices.device_id ASC`,
     { replacements, type: QueryTypes.SELECT }
   );
 };

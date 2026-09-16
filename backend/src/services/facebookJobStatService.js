@@ -29,4 +29,22 @@ const addFacebookDailyJobs = async ({ owner_username, device_id, stat_date, web,
   return true;
 };
 
-module.exports = { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs };
+const addFacebookPageClaim = async ({ owner_username, device_id, stat_date, transaction = null }) => {
+  if (!owner_username || !device_id || !stat_date) return false;
+  await sequelize.query(
+    `INSERT INTO facebook_page_claim_daily_stats
+       (owner_username, device_id, stat_date, page_count, created_at, updated_at)
+     VALUES (:owner, :device, :date, 1, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       page_count = page_count + 1,
+       updated_at = NOW()`,
+    {
+      replacements: { owner: owner_username, device: device_id, date: stat_date },
+      type: QueryTypes.INSERT,
+      transaction,
+    }
+  );
+  return true;
+};
+
+module.exports = { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs, addFacebookPageClaim };
