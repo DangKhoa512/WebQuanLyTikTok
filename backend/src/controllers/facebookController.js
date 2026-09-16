@@ -1008,13 +1008,9 @@ const getNurtureAccount = async (req, res, next) => {
 const reportNurtureAccount = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
-    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
     const uid = nullify(req.body.uid || req.body.username || req.query.uid || req.query.username);
-    const run_id = nullify(req.body.run_id || req.query.run_id);
     const reportStatus = String(req.body.status || req.query.status || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
-    if (!device_id) return error(res, 'Can truyen device_id', 400);
     if (!uid) return error(res, 'Can truyen uid account', 400);
-    if (!run_id) return error(res, 'Can truyen run_id', 400);
     if (!['DA_NUOI', 'NUOI_FAIL'].includes(reportStatus)) return error(res, 'status chi nhan DA_NUOI hoac NUOI_FAIL', 400);
 
     const account = await FacebookAccount.findOne({
@@ -1022,13 +1018,13 @@ const reportNurtureAccount = async (req, res, next) => {
         owner_username,
         kind: 'job',
         uid,
-        device_id,
         nurture_status: 'DANG_NUOI',
-        nurture_locked_by: device_id,
-        nurture_run_id: run_id,
       },
     });
-    if (!account) return error(res, 'Khong tim thay account dang nuoi cua may hoac run_id khong hop le', 404);
+    if (!account) return error(res, 'Khong tim thay account dang nuoi voi UID ' + uid, 404);
+    const device_id = account.nurture_locked_by || account.device_id;
+    if (!device_id) return error(res, 'Account dang nuoi khong co thong tin may', 422);
+    const run_id = account.nurture_run_id || randomUUID();
 
     const completedAt = new Date();
     const requestedDuration = parseNonNegativeInt(req.body.duration_seconds || req.query.duration_seconds);
