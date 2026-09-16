@@ -951,7 +951,6 @@ const getNurtureAccount = async (req, res, next) => {
           nurture_locked_by: null,
           reg_page_locked_by: null,
           cookies: { [Op.ne]: null },
-          page_token_status: { [Op.ne]: 'die' },
           [Op.and]: [
             { [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }] },
             {
