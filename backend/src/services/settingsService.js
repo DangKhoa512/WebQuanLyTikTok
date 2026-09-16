@@ -31,6 +31,7 @@ const DEFAULT_FACEBOOK_CHECK_CONCURRENCY = 20;
 const DEFAULT_FACEBOOK_REG_PAGE_WAIT_HOURS = 8;
 const DEFAULT_FACEBOOK_NURTURE = {
   active_scenario_id: null,
+  cooldown_hours: 24,
   scenarios: [],
 };
 
@@ -91,6 +92,10 @@ const normalizeNurtureRange = (data = {}) => {
 };
 
 const normalizeFacebookNurture = (data = {}) => {
+  const parsedCooldownHours = parseInt(data.cooldown_hours, 10);
+  const cooldown_hours = Number.isInteger(parsedCooldownHours)
+    ? Math.min(Math.max(parsedCooldownHours, 1), 720)
+    : DEFAULT_FACEBOOK_NURTURE.cooldown_hours;
   const source = Array.isArray(data.scenarios) ? data.scenarios.slice(0, 50) : [];
   const usedIds = new Set();
   const scenarios = source.map((scenario, index) => {
@@ -124,6 +129,7 @@ const normalizeFacebookNurture = (data = {}) => {
     active_scenario_id: scenarios.some((scenario) => scenario.id === requestedActiveId)
       ? requestedActiveId
       : null,
+    cooldown_hours,
     scenarios,
   };
 };

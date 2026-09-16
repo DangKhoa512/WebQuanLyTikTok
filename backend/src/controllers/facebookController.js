@@ -1,10 +1,13 @@
 const { Op } = require('sequelize');
+const { randomUUID } = require('crypto');
 const axios = require('axios');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const sequelize = require('../config/database');
 const FacebookAccount = require('../models/FacebookAccount');
 const FacebookPageJob = require('../models/FacebookPageJob');
 const FacebookRegPageReport = require('../models/FacebookRegPageReport');
+const FacebookNurtureAssignment = require('../models/FacebookNurtureAssignment');
+const FacebookNurtureLog = require('../models/FacebookNurtureLog');
 const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
@@ -12,6 +15,7 @@ const {
   getFacebookLoginLimitSettings,
   getFacebookCheckProxySettings,
   getFacebookRegPageWaitSettings,
+  getFacebookNurtureSettings,
 } = require('../services/settingsService');
 const { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs } = require('../services/facebookJobStatService');
 const { parseProxy } = require('../utils/checkLiveUtils');
@@ -23,6 +27,7 @@ const LOCK_TIMEOUT_MIN = parseInt(process.env.FACEBOOK_LOCK_TIMEOUT_MIN, 10) || 
 const MAX_LOGIN_GET_COUNT = 3;
 const REG_PAGE_MAX_PAGES = 15;
 const REG_PAGE_COOLDOWN_HOURS = 24;
+const NURTURE_STATUSES = ['CHUA_NUOI', 'DANG_NUOI', 'DA_NUOI', 'NUOI_FAIL'];
 const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Ho_Chi_Minh',
   year: 'numeric',
@@ -688,7 +693,7 @@ const getJobForPhone = async (req, res, next) => {
     });
 
     const claimResult = await sequelize.transaction(async (t) => {
-      const activeWhere = { owner_username, kind: 'job', status: 'DANG_LOGIN', locked_by: device_id };
+      const activeWhere = { owner_username, kind: 'job', status: 'DANG_LOGIN', locked_by: device_id, nurture_status: { [Op.ne]: 'DANG_NUOI' } };
       if (groupId) activeWhere.group_id = groupId;
       const active = await FacebookAccount.findOne({
         where: activeWhere,
@@ -729,7 +734,7 @@ const getJobForPhone = async (req, res, next) => {
         return { __fullLimit: true, limit: loginLimit.limit, used, autoFailedAccount };
       }
 
-      const nextWhere = { owner_username, kind: 'job', status: 'CHO_LOGIN' };
+      const nextWhere = { owner_username, kind: 'job', status: 'CHO_LOGIN', nurture_status: { [Op.ne]: 'DANG_NUOI' } };
       if (groupId) nextWhere.group_id = groupId;
       const nextAccount = await FacebookAccount.findOne({
         where: nextWhere,
@@ -794,6 +799,8 @@ const getLoginSuccessJobForPhone = async (req, res, next) => {
           owner_username,
           kind: 'job',
           status: 'DANG_LAM',
+          nurture_status: { [Op.ne]: 'DANG_NUOI' },
+          reg_page_locked_by: null,
           [Op.or]: [{ locked_by: device_id }, { device_id }],
         };
         if (groupId) activeWhere.group_id = groupId;
@@ -812,6 +819,8 @@ const getLoginSuccessJobForPhone = async (req, res, next) => {
           owner_username,
           kind: 'job',
           status: 'LOGIN_THANH_CONG',
+          nurture_status: { [Op.ne]: 'DANG_NUOI' },
+          reg_page_locked_by: null,
           [Op.or]: [{ device_id }, { locked_by: device_id }],
         };
         if (groupId) nextWhere.group_id = groupId;
@@ -859,6 +868,294 @@ const getLoginSuccessJobForPhone = async (req, res, next) => {
   }
 };
 
+const getEligibleNurtureScenarios = (settings) => settings.scenarios.filter(
+  (scenario) => Object.values(scenario.actions || {}).some((action) => action.enabled)
+);
+
+const pickNurtureScenario = async ({ owner_username, device_id, scenarios, transaction }) => {
+  const assignments = await FacebookNurtureAssignment.findAll({
+    where: { owner_username },
+    order: [['id', 'ASC']],
+    transaction,
+  });
+  const current = assignments.find((row) => row.device_id === device_id) || null;
+  const eligibleIds = new Set(scenarios.map((scenario) => scenario.id));
+  const counts = new Map(scenarios.map((scenario) => [scenario.id, 0]));
+  assignments.forEach((row) => {
+    if (eligibleIds.has(row.scenario_id)) counts.set(row.scenario_id, (counts.get(row.scenario_id) || 0) + 1);
+  });
+
+  let candidates = scenarios;
+  if (scenarios.length > 1 && current && eligibleIds.has(current.scenario_id)) {
+    candidates = scenarios.filter((scenario) => scenario.id !== current.scenario_id);
+  }
+  const minimumUsage = Math.min(...candidates.map((scenario) => counts.get(scenario.id) || 0));
+  const balanced = candidates.filter((scenario) => (counts.get(scenario.id) || 0) === minimumUsage);
+  const scenario = balanced[Math.floor(Math.random() * balanced.length)];
+  if (current) await current.update({ scenario_id: scenario.id }, { transaction });
+  else {
+    await FacebookNurtureAssignment.create({ owner_username, device_id, scenario_id: scenario.id }, { transaction });
+  }
+  return scenario;
+};
+
+const getNurtureAccount = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+
+    const settings = await getFacebookNurtureSettings(owner_username);
+    const scenarios = getEligibleNurtureScenarios(settings);
+    if (!scenarios.length) return error(res, 'Chua co kich ban Facebook nao duoc bat', 404, { account: null });
+    const cooldownAt = new Date(Date.now() - settings.cooldown_hours * 60 * 60 * 1000);
+    await FacebookNurtureAssignment.findOrCreate({
+      where: { owner_username, device_id },
+      defaults: { owner_username, device_id, scenario_id: scenarios[0].id },
+    });
+
+    const claimed = await sequelize.transaction(async (transaction) => {
+      await FacebookNurtureAssignment.findOne({
+        where: { owner_username, device_id },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      let account = await FacebookAccount.findOne({
+        where: {
+          owner_username,
+          kind: 'job',
+          device_id,
+          nurture_status: 'DANG_NUOI',
+          nurture_locked_by: device_id,
+        },
+        order: [['nurture_locked_at', 'DESC'], ['id', 'ASC']],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (account) {
+        let scenario = scenarios.find((item) => item.id === account.nurture_scenario_id) || null;
+        if (!scenario) {
+          scenario = await pickNurtureScenario({ owner_username, device_id, scenarios, transaction });
+          await account.update({ nurture_scenario_id: scenario.id }, { transaction });
+        }
+        return { account, scenario, resumed: true };
+      }
+
+      account = await FacebookAccount.findOne({
+        where: {
+          owner_username,
+          kind: 'job',
+          device_id,
+          status: 'LOGIN_THANH_CONG',
+          nurture_locked_by: null,
+          reg_page_locked_by: null,
+          cookies: { [Op.ne]: null },
+          page_token_status: { [Op.ne]: 'die' },
+          [Op.and]: [
+            { [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }] },
+            {
+              [Op.or]: [
+                { nurture_status: 'CHUA_NUOI' },
+                { nurture_status: 'NUOI_FAIL' },
+                { nurture_status: 'DA_NUOI', last_nurture_at: { [Op.lte]: cooldownAt } },
+              ],
+            },
+          ],
+        },
+        order: [
+          [sequelize.literal("CASE nurture_status WHEN 'CHUA_NUOI' THEN 0 WHEN 'NUOI_FAIL' THEN 1 ELSE 2 END"), 'ASC'],
+          ['last_nurture_at', 'ASC'],
+          ['id', 'ASC'],
+        ],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+        skipLocked: true,
+      });
+      if (!account) return null;
+
+      const scenario = await pickNurtureScenario({ owner_username, device_id, scenarios, transaction });
+      const run_id = randomUUID();
+      await account.update({
+        nurture_status: 'DANG_NUOI',
+        nurture_locked_by: device_id,
+        nurture_locked_at: new Date(),
+        nurture_run_id: run_id,
+        nurture_scenario_id: scenario.id,
+      }, { transaction });
+      return { account, scenario, resumed: false };
+    });
+
+    if (!claimed) {
+      return error(res, 'Het account Facebook co the nuoi luc nay', 404, {
+        account: null,
+        device_id,
+        cooldown_hours: settings.cooldown_hours,
+      });
+    }
+    return success(res, {
+      run_id: claimed.account.nurture_run_id,
+      account: serialize(claimed.account),
+      scenario: claimed.scenario,
+      resumed: claimed.resumed,
+      cooldown_hours: settings.cooldown_hours,
+    }, claimed.resumed ? 'Tiep tuc account Facebook dang nuoi' : 'Lay account Facebook nuoi thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const reportNurtureAccount = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
+    const uid = nullify(req.body.uid || req.body.username || req.query.uid || req.query.username);
+    const run_id = nullify(req.body.run_id || req.query.run_id);
+    const reportStatus = String(req.body.status || req.query.status || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    if (!uid) return error(res, 'Can truyen uid account', 400);
+    if (!run_id) return error(res, 'Can truyen run_id', 400);
+    if (!['DA_NUOI', 'NUOI_FAIL'].includes(reportStatus)) return error(res, 'status chi nhan DA_NUOI hoac NUOI_FAIL', 400);
+
+    const account = await FacebookAccount.findOne({
+      where: {
+        owner_username,
+        kind: 'job',
+        uid,
+        device_id,
+        nurture_status: 'DANG_NUOI',
+        nurture_locked_by: device_id,
+        nurture_run_id: run_id,
+      },
+    });
+    if (!account) return error(res, 'Khong tim thay account dang nuoi cua may hoac run_id khong hop le', 404);
+
+    const completedAt = new Date();
+    const requestedDuration = parseNonNegativeInt(req.body.duration_seconds || req.query.duration_seconds);
+    const computedDuration = account.nurture_locked_at
+      ? Math.max(Math.round((completedAt.getTime() - new Date(account.nurture_locked_at).getTime()) / 1000), 0)
+      : null;
+    const duration_seconds = Math.min(requestedDuration ?? computedDuration ?? 0, 7 * 24 * 60 * 60);
+    const message = nullify(req.body.message || req.body.note || req.query.message || req.query.note);
+    const startedAt = account.nurture_locked_at;
+    const scenarioId = account.nurture_scenario_id;
+
+    const transaction = await sequelize.transaction();
+    try {
+      await FacebookNurtureLog.create({
+        owner_username,
+        facebook_account_id: account.id,
+        uid: account.uid,
+        device_id,
+        scenario_id: scenarioId,
+        run_id,
+        status: reportStatus,
+        started_at: startedAt,
+        completed_at: completedAt,
+        duration_seconds,
+        message,
+      }, { transaction });
+      await account.update({
+        nurture_status: reportStatus,
+        nurture_locked_by: null,
+        nurture_locked_at: null,
+        nurture_run_id: null,
+        nurture_count: (Number(account.nurture_count) || 0) + 1,
+        ...(reportStatus === 'DA_NUOI' ? { last_nurture_at: completedAt } : {}),
+      }, { transaction });
+      await transaction.commit();
+    } catch (err) {
+      if (!transaction.finished) await transaction.rollback();
+      throw err;
+    }
+
+    return success(res, {
+      uid: account.uid,
+      device_id,
+      status: reportStatus,
+      scenario_id: scenarioId,
+      duration_seconds,
+      nurture_count: Number(account.nurture_count) || 0,
+      last_nurture_at: account.last_nurture_at,
+    }, reportStatus === 'DA_NUOI' ? 'Da bao cao nuoi Facebook thanh cong' : 'Da bao cao nuoi Facebook that bai');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const listNurtureAccounts = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 2000);
+    const where = { owner_username, kind: 'job', status: 'LOGIN_THANH_CONG' };
+    const nurtureStatus = String(req.query.status || '').trim().toUpperCase();
+    if (NURTURE_STATUSES.includes(nurtureStatus)) where.nurture_status = nurtureStatus;
+    const q = nullify(req.query.q);
+    if (q) {
+      where[Op.or] = [
+        { uid: { [Op.like]: '%' + q + '%' } },
+        { device_id: { [Op.like]: '%' + q + '%' } },
+        { email: { [Op.like]: '%' + q + '%' } },
+      ];
+    }
+
+    const [{ rows, count }, countRows, settings] = await Promise.all([
+      FacebookAccount.findAndCountAll({
+        where,
+        order: [
+          [sequelize.literal("CASE nurture_status WHEN 'DANG_NUOI' THEN 0 WHEN 'CHUA_NUOI' THEN 1 WHEN 'NUOI_FAIL' THEN 2 ELSE 3 END"), 'ASC'],
+          ['last_nurture_at', 'DESC'],
+          ['id', 'DESC'],
+        ],
+        limit,
+        offset: (page - 1) * limit,
+      }),
+      FacebookAccount.findAll({
+        attributes: ['nurture_status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+        where: { owner_username, kind: 'job', status: 'LOGIN_THANH_CONG' },
+        group: ['nurture_status'],
+        raw: true,
+      }),
+      getFacebookNurtureSettings(owner_username),
+    ]);
+    const status_counts = Object.fromEntries(NURTURE_STATUSES.map((status) => [status, 0]));
+    countRows.forEach((row) => { status_counts[row.nurture_status || 'CHUA_NUOI'] = Number(row.count) || 0; });
+    return success(res, {
+      accounts: rows.map(serialize),
+      status_counts,
+      cooldown_hours: settings.cooldown_hours,
+      pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) || 1 },
+    }, 'Lay danh sach Facebook Nuoi thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const listNurtureLogs = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
+    const where = { owner_username };
+    const device_id = nullify(req.query.device_id);
+    const uid = nullify(req.query.uid);
+    if (device_id) where.device_id = device_id;
+    if (uid) where.uid = uid;
+    const { rows, count } = await FacebookNurtureLog.findAndCountAll({
+      where,
+      order: [['completed_at', 'DESC'], ['id', 'DESC']],
+      limit,
+      offset: (page - 1) * limit,
+    });
+    return success(res, {
+      logs: rows.map((row) => row.toJSON()),
+      pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) || 1 },
+    }, 'Lay lich su Facebook Nuoi thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
 const findForReport = async (req, owner_username) => {
   const id = parseInt(req.body.id || req.query.id, 10);
   if (Number.isInteger(id) && id > 0) return FacebookAccount.findOne({ where: { id, owner_username } });
@@ -1042,7 +1339,8 @@ const regPageBaseWhere = ({ owner_username, device_id, eligibleLoginBefore }) =>
   login_at: { [Op.lte]: eligibleLoginBefore },
   page_count: { [Op.lt]: REG_PAGE_MAX_PAGES },
   page_token_status: { [Op.ne]: 'die' },
-  status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
+  status: { [Op.in]: ['LOGIN_THANH_CONG', 'DA_CHAY_XONG'] },
+  nurture_status: { [Op.ne]: 'DANG_NUOI' },
   [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }],
 });
 
@@ -1692,7 +1990,12 @@ const bulkAction = async (req, res, next) => {
     }
     if (status === 'ACCOUNT_DIE') update.live_status = 'die';
 
-    const [affected] = await FacebookAccount.update(update, { where: { id: { [Op.in]: ids }, owner_username } });
+    const actionWhere = { id: { [Op.in]: ids }, owner_username };
+    if (status === 'DANG_LAM') {
+      actionWhere.nurture_status = { [Op.ne]: 'DANG_NUOI' };
+      actionWhere.reg_page_locked_by = null;
+    }
+    const [affected] = await FacebookAccount.update(update, { where: actionWhere });
     return success(res, { affected }, `Da chuyen ${affected} account sang ${status}`);
   } catch (err) {
     next(err);
@@ -1721,6 +2024,10 @@ const bulkDelete = async (req, res, next) => {
           locked_at: null,
           reg_page_locked_by: null,
           reg_page_locked_at: null,
+          nurture_status: sequelize.literal("CASE WHEN nurture_status = 'DANG_NUOI' THEN 'NUOI_FAIL' ELSE nurture_status END"),
+          nurture_locked_by: null,
+          nurture_locked_at: null,
+          nurture_run_id: null,
         }, {
           where: { id: { [Op.in]: jobIds }, owner_username, kind: 'job' },
           transaction,
@@ -1824,6 +2131,9 @@ const restoreTrash = async (req, res, next) => {
         trashed_at: null,
         reg_page_locked_by: null,
         reg_page_locked_at: null,
+        nurture_locked_by: null,
+        nurture_locked_at: null,
+        nurture_run_id: null,
       }, {
         where: {
           id: { [Op.in]: ids },
@@ -1844,6 +2154,51 @@ const restoreTrash = async (req, res, next) => {
   }
 };
 
+const deleteTrash = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? [...new Set(req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean))] : [];
+    if (!ids.length) return error(res, 'Can truyen danh sach ids', 400);
+    const owner_username = ownerFromAdmin(req);
+    const transaction = await sequelize.transaction();
+    let deleted = 0;
+    try {
+      const trashedAccounts = await FacebookAccount.unscoped().findAll({
+        attributes: ['id'],
+        where: {
+          id: { [Op.in]: ids },
+          owner_username,
+          kind: 'job',
+          trashed_at: { [Op.ne]: null },
+        },
+        transaction,
+      });
+      const accountIds = trashedAccounts.map((account) => account.id);
+      if (accountIds.length) {
+        await FacebookPageJob.destroy({
+          where: { owner_username, facebook_account_id: { [Op.in]: accountIds } },
+          transaction,
+        });
+        deleted = await FacebookAccount.unscoped().destroy({
+          where: {
+            id: { [Op.in]: accountIds },
+            owner_username,
+            kind: 'job',
+            trashed_at: { [Op.ne]: null },
+          },
+          transaction,
+        });
+      }
+      await transaction.commit();
+    } catch (err) {
+      if (!transaction.finished) await transaction.rollback();
+      throw err;
+    }
+    return success(res, { deleted }, 'Da xoa vinh vien ' + deleted + ' account Facebook Job');
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   list,
   importFromDashboard,
@@ -1858,6 +2213,10 @@ module.exports = {
   reportPageJob,
   getRegPageAccount,
   reportRegPage,
+  getNurtureAccount,
+  reportNurtureAccount,
+  listNurtureAccounts,
+  listNurtureLogs,
   getRegPageStats,
   addFacebookJobCount,
   resetPageJobs,
@@ -1868,4 +2227,5 @@ module.exports = {
   bulkDelete,
   listTrash,
   restoreTrash,
+  deleteTrash,
 };

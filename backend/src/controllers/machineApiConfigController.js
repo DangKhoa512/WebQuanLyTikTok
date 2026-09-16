@@ -247,6 +247,7 @@ const getForDevice = async (req, res, next) => {
     if (activeNurture && Object.values(activeNurture.actions).some((action) => action.enabled)) {
       configs.FACEBOOK_NURTURE = {
         active_scenario_id: activeNurture.id,
+        cooldown_hours: facebookNurture.cooldown_hours,
         scenario: activeNurture,
       };
     }
@@ -329,6 +330,7 @@ const getRandomNurtureScenario = async (req, res, next) => {
         previous_scenario_id: result.previous_scenario_id,
         assigned_devices: result.assigned_devices,
         available_scenarios: eligibleScenarios.length,
+        cooldown_hours: facebookNurture.cooldown_hours,
       },
     });
   } catch (err) { next(err); }

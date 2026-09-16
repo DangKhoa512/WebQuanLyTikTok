@@ -28,7 +28,7 @@ const cardStyle = {
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 export default function FacebookNurtureSettings() {
-  const [settings, setSettings] = useState({ active_scenario_id: null, scenarios: [] });
+  const [settings, setSettings] = useState({ active_scenario_id: null, cooldown_hours: 24, scenarios: [] });
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,7 +41,7 @@ export default function FacebookNurtureSettings() {
     settingsApi.getFacebookNurture()
       .then((res) => {
         if (!mounted) return;
-        const value = res.data?.settings || { active_scenario_id: null, scenarios: [] };
+        const value = res.data?.settings || { active_scenario_id: null, cooldown_hours: 24, scenarios: [] };
         setSettings(value);
         setSelectedId(value.active_scenario_id || value.scenarios?.[0]?.id || '');
       })
@@ -139,6 +139,7 @@ export default function FacebookNurtureSettings() {
     });
     const nextSettings = {
       active_scenario_id: settings.active_scenario_id || generated[0].id,
+      cooldown_hours: settings.cooldown_hours || 24,
       scenarios: [...settings.scenarios, ...generated],
     };
 
@@ -241,6 +242,22 @@ export default function FacebookNurtureSettings() {
           </button>
         </div>
 
+        <div style={{ marginBottom: '1rem', padding: '.85rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#f8fafc' }}>
+          <label style={{ color: '#0f172a', fontWeight: 800, fontSize: '.85rem' }}>
+            Khoảng nghỉ trước khi nuôi lại (giờ)
+            <input
+              type={'number'}
+              min={1}
+              max={720}
+              value={settings.cooldown_hours ?? 24}
+              onChange={(event) => setSettings((current) => ({ ...current, cooldown_hours: event.target.value }))}
+              style={{ ...inputStyle, marginTop: '.4rem', maxWidth: 220 }}
+            />
+          </label>
+          <div style={{ color: '#64748b', fontSize: '.75rem', marginTop: '.4rem' }}>
+            Account đã nuôi vẫn được chạy Job hoặc Reg Page; thời gian này chỉ áp dụng cho lần nuôi tiếp theo.
+          </div>
+        </div>
         {settings.scenarios.length === 0 ? (
           <div style={{ padding: '1.5rem', border: '1px dashed #94a3b8', borderRadius: 8, textAlign: 'center', color: '#475569', background: '#f8fafc' }}>
             Chưa có kịch bản. Bấm “Thêm kịch bản” để bắt đầu.

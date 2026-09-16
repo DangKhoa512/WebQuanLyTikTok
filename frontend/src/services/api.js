@@ -185,6 +185,9 @@ export const facebookApi = {
   bulkDelete: (ids) => api.post('/facebook/bulk-delete', { ids }),
   getTrash: (params) => api.get('/facebook/trash', { params }),
   restoreTrash: (ids) => api.post('/facebook/trash/restore', { ids }),
+  deleteTrash: (ids) => api.post('/facebook/trash/delete', { ids }),
+  getNurtureAccounts: (params) => api.get('/facebook/nurture/accounts', { params }),
+  getNurtureLogs: (params) => api.get('/facebook/nurture/logs', { params }),
 };
 
 export const accountGroupApi = {

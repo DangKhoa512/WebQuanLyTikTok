@@ -13,10 +13,15 @@ router.post('/job/page-report', apiKeyAuth, controller.reportPageJob);
 router.post('/job/add-job', apiKeyAuth, controller.addFacebookJobCount);
 router.post('/reg-page/get-account', apiKeyAuth, controller.getRegPageAccount);
 router.post('/reg-page/report', apiKeyAuth, controller.reportRegPage);
+router.post('/nurture/get-account', apiKeyAuth, controller.getNurtureAccount);
+router.post('/nurture/report', apiKeyAuth, controller.reportNurtureAccount);
 router.post('/check-page-token', apiKeyAuth, controller.checkPageToken);
 router.get('/reg-page/stats', jwtAuth, controller.getRegPageStats);
 router.get('/trash', jwtAuth, controller.listTrash);
 router.post('/trash/restore', jwtAuth, controller.restoreTrash);
+router.post('/trash/delete', jwtAuth, controller.deleteTrash);
+router.get('/nurture/accounts', jwtAuth, controller.listNurtureAccounts);
+router.get('/nurture/logs', jwtAuth, controller.listNurtureLogs);
 
 router.get('/', jwtAuth, controller.list);
 router.get('/:accountId/pages', jwtAuth, controller.getAccountPages);

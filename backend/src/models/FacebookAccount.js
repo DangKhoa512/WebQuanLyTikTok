@@ -136,6 +136,36 @@ const FacebookAccount = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    nurture_status: {
+      type: DataTypes.ENUM('CHUA_NUOI', 'DANG_NUOI', 'DA_NUOI', 'NUOI_FAIL'),
+      allowNull: false,
+      defaultValue: 'CHUA_NUOI',
+    },
+    nurture_locked_by: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    nurture_locked_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    nurture_run_id: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    nurture_scenario_id: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    last_nurture_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    nurture_count: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+    },
     fail_reason: {
       type: DataTypes.STRING(500),
       allowNull: true,

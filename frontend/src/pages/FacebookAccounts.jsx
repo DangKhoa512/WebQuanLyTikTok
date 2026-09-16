@@ -326,6 +326,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const [trashMode, setTrashMode] = useState(false);
   const [trashCount, setTrashCount] = useState(0);
   const [restoring, setRestoring] = useState(false);
+  const [deletingPermanently, setDeletingPermanently] = useState(false);
 
   const isReg = kind === 'reg';
   const tabs = isReg ? REG_TABS : STATUS_TABS;
@@ -590,6 +591,22 @@ export default function FacebookAccounts({ kind = 'job' }) {
     }
   };
 
+  const handlePermanentDelete = async () => {
+    if (!selectedIds.length) return;
+    if (!confirm('Xóa vĩnh viễn ' + selectedIds.length + ' account Facebook Job? Dữ liệu này không thể khôi phục.')) return;
+    setDeletingPermanently(true);
+    try {
+      const res = await facebookApi.deleteTrash(selectedIds);
+      toast.success(res.message);
+      setSelected(new Set());
+      fetchData();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeletingPermanently(false);
+    }
+  };
+
   const toggleTrashMode = () => {
     setTrashMode((current) => !current);
     setPage(1);
@@ -718,8 +735,11 @@ export default function FacebookAccounts({ kind = 'job' }) {
       {trashMode ? (
         <div style={{ background: '#0f172a', borderRadius: '12px', padding: '.75rem 1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '.75rem', flexWrap: 'wrap' }}>
           <strong style={{ color: '#e2e8f0' }}>{selectedIds.length} account đã chọn</strong>
-          <button className="btn btn-success btn-sm" disabled={!selectedIds.length || restoring} onClick={handleRestore}>
+          <button className="btn btn-success btn-sm" disabled={!selectedIds.length || restoring || deletingPermanently} onClick={handleRestore}>
             {restoring ? 'Đang khôi phục...' : 'Khôi phục đã chọn'}
+          </button>
+          <button className="btn btn-danger btn-sm" disabled={!selectedIds.length || deletingPermanently || restoring} onClick={handlePermanentDelete}>
+            {deletingPermanently ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
           </button>
           {selectedIds.length > 0 && <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set())}>Bỏ chọn</button>}
         </div>

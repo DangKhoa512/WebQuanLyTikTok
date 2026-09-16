@@ -224,6 +224,13 @@ const startServer = async () => {
       ['ALTER TABLE facebook_accounts ADD COLUMN last_reg_page_at DATETIME NULL', 'facebook_accounts last_reg_page_at column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN login_get_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER locked_at', 'facebook_accounts login_get_count column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN trashed_at DATETIME NULL AFTER note', 'facebook_accounts trashed_at column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN nurture_status ENUM(\'CHUA_NUOI\',\'DANG_NUOI\',\'DA_NUOI\',\'NUOI_FAIL\') NOT NULL DEFAULT \'CHUA_NUOI\'', 'facebook_accounts nurture_status column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN nurture_locked_by VARCHAR(255) NULL', 'facebook_accounts nurture_locked_by column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN nurture_locked_at DATETIME NULL', 'facebook_accounts nurture_locked_at column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN nurture_run_id VARCHAR(100) NULL', 'facebook_accounts nurture_run_id column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN nurture_scenario_id VARCHAR(100) NULL', 'facebook_accounts nurture_scenario_id column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN last_nurture_at DATETIME NULL', 'facebook_accounts last_nurture_at column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN nurture_count INT UNSIGNED NOT NULL DEFAULT 0', 'facebook_accounts nurture_count column added'],
     ]) {
       try {
         await sequelize.query(sql);
@@ -237,6 +244,46 @@ const startServer = async () => {
       logger.info('facebook_accounts trash index ready');
     } catch (e) {
       logger.warn('Migration facebook_accounts trash index skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE facebook_accounts ADD INDEX idx_facebook_nurture_pick (owner_username, device_id, nurture_status)');
+      logger.info('facebook_accounts nurture pick index ready');
+    } catch (e) {
+      logger.warn('Migration facebook_accounts nurture pick index skipped:', e.message);
+    }
+    try {
+      await sequelize.query('ALTER TABLE facebook_accounts ADD INDEX idx_facebook_nurture_lock (owner_username, nurture_locked_by)');
+      logger.info('facebook_accounts nurture lock index ready');
+    } catch (e) {
+      logger.warn('Migration facebook_accounts nurture lock index skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS facebook_nurture_logs (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL,
+          facebook_account_id INT UNSIGNED NOT NULL,
+          uid VARCHAR(255) NOT NULL,
+          device_id VARCHAR(255) NOT NULL,
+          scenario_id VARCHAR(100) NULL,
+          run_id VARCHAR(100) NOT NULL,
+          status ENUM('DA_NUOI','NUOI_FAIL') NOT NULL,
+          started_at DATETIME NULL,
+          completed_at DATETIME NOT NULL,
+          duration_seconds INT UNSIGNED NULL,
+          message VARCHAR(1000) NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_fb_nurture_logs_owner_run (owner_username, run_id),
+          KEY idx_fb_nurture_logs_owner_created (owner_username, created_at),
+          KEY idx_fb_nurture_logs_account (facebook_account_id, created_at),
+          KEY idx_fb_nurture_logs_device (owner_username, device_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      logger.info('facebook_nurture_logs table ready');
+    } catch (e) {
+      logger.warn('Migration facebook_nurture_logs table skipped:', e.message);
     }
     try {
       await sequelize.query('ALTER TABLE facebook_job_daily_stats ADD COLUMN xu_count BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER job_count');

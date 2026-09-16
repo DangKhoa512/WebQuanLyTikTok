@@ -10,6 +10,7 @@ const NAV = [
   { to: '/jobs',            icon: '⚡', label: 'JOB' },
   { to: '/facebook-reg',    icon: 'FB', label: 'Facebook Reg' },
   { to: '/facebook-jobs',   icon: 'FB', label: 'Facebook Job' },
+  { to: '/facebook-nurture', icon: '🌱', label: 'Facebook Nuôi' },
   { to: '/hotmails',        icon: '📧', label: 'Hotmail' },
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
   { to: '/chrome-khang-stats', icon: '📊', label: 'Trạng Thái Máy' },
