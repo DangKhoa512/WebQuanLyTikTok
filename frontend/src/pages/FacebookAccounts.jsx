@@ -738,7 +738,10 @@ export default function FacebookAccounts({ kind = 'job' }) {
           <button className="btn btn-success btn-sm" disabled={!selectedIds.length || restoring || deletingPermanently} onClick={handleRestore}>
             {restoring ? 'Đang khôi phục...' : 'Khôi phục đã chọn'}
           </button>
-          <button className="btn btn-danger btn-sm" disabled={!selectedIds.length || deletingPermanently || restoring} onClick={handlePermanentDelete}>
+          <button className="btn btn-primary btn-sm" disabled={!selectedIds.length || copying || restoring || deletingPermanently} onClick={handleCopy}>
+            {copying ? 'Đang copy...' : 'Copy đã chọn'}
+          </button>
+          <button className="btn btn-danger btn-sm" disabled={!selectedIds.length || deletingPermanently || restoring || copying} onClick={handlePermanentDelete}>
             {deletingPermanently ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
           </button>
           {selectedIds.length > 0 && <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set())}>Bỏ chọn</button>}
