@@ -92,6 +92,7 @@ body {
   border-left-color: var(--primary);
 }
 .sidebar-nav .nav-icon { font-size: 1.1rem; flex-shrink: 0; }
+.sidebar-nav .nav-icon svg { display: block; width: 1.15rem; height: 1.15rem; }
 
 .sidebar-footer {
   padding: 1rem 1.25rem;

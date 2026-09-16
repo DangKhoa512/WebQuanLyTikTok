@@ -3,13 +3,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { statsApi } from '../services/api';
 import { authService } from '../services/authService';
 
+const FacebookLogo = () => (
+  <svg viewBox="0 0 24 24" role="img" aria-label="Facebook">
+    <circle cx="12" cy="12" r="12" fill="#1877f2" />
+    <path
+      fill="#fff"
+      d="M13.55 20v-7h2.35l.35-2.73h-2.7V8.53c0-.79.22-1.33 1.36-1.33h1.45V4.76c-.25-.03-1.11-.11-2.11-.11-2.09 0-3.52 1.28-3.52 3.62v2H8.37V13h2.36v7h2.82Z"
+    />
+  </svg>
+);
+
 const NAV = [
   { to: '/dashboard',       icon: '📊', label: 'Dashboard'  },
   { to: '/accounts',        icon: '👥', label: 'Accounts App' },
   { to: '/chrome-accounts', icon: '🖥️', label: 'Chrome Acc' },
   { to: '/jobs',            icon: '⚡', label: 'JOB' },
-  { to: '/facebook-reg',    icon: 'FB', label: 'Facebook Reg' },
-  { to: '/facebook-jobs',   icon: 'FB', label: 'Facebook Job' },
+  { to: '/facebook-reg',    icon: <FacebookLogo />, label: 'Facebook Reg' },
+  { to: '/facebook-jobs',   icon: <FacebookLogo />, label: 'Facebook Job' },
   { to: '/facebook-nurture', icon: '🌱', label: 'Facebook Nuôi' },
   { to: '/hotmails',        icon: '📧', label: 'Hotmail' },
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
