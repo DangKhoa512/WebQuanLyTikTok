@@ -781,7 +781,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
             <thead>
               <tr>
                 <th style={{ width: 40 }}><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
-                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><SortableTh field={'page_count'} label={'PAGE'} sort={sort} onSort={handleSort} /><th>NHÓM</th><SortableTh field={'device_id'} label={'MÁY'} sort={sort} onSort={handleSort} /><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>REGPAGE LOCK</th><th>{isReg ? 'NGÀY PUSH' : 'LOGIN AT'}</th><th>{trashMode ? 'NGÀY XÓA' : 'NGÀY XONG'}</th>
+                <th>STT</th><th>UID</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>TOKEN</th><th>MAIL</th><SortableTh field={'page_count'} label={'PAGE'} sort={sort} onSort={handleSort} /><th>NHÓM</th><SortableTh field={'device_id'} label={'MÁY'} sort={sort} onSort={handleSort} /><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th>{isReg || trashMode ? <th>REGPAGE LOCK</th> : <SortableTh field={'reg_page_locked_by'} label={'REGPAGE LOCK'} sort={sort} onSort={handleSort} />}<th>{isReg ? 'NGÀY PUSH' : 'LOGIN AT'}</th><th>{trashMode ? 'NGÀY XÓA' : 'NGÀY XONG'}</th>
               </tr>
             </thead>
             <tbody>

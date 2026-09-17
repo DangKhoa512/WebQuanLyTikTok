@@ -495,7 +495,7 @@ const list = async (req, res, next) => {
     const kind = normalizeKind(req.query.kind, 'job');
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 2000);
-    const sortBy = ['device_id', 'page_count'].includes(req.query.sort_by) ? req.query.sort_by : null;
+    const sortBy = ['device_id', 'page_count', 'reg_page_locked_by'].includes(req.query.sort_by) ? req.query.sort_by : null;
     const sortDirection = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     const where = { owner_username, kind };
 
@@ -584,8 +584,13 @@ const list = async (req, res, next) => {
         ['device_id', sortDirection],
         ['id', 'DESC'],
       ];
+    } else if (sortBy === 'reg_page_locked_by' && kind === 'job') {
+      order = [
+        [FacebookAccount.sequelize.literal("CASE WHEN reg_page_locked_by IS NULL OR reg_page_locked_by = '' THEN 0 ELSE 1 END"), sortDirection],
+        ['reg_page_locked_at', sortDirection],
+        ['id', 'DESC'],
+      ];
     }
-
     const { rows, count } = await FacebookAccount.findAndCountAll({
       where,
       order,
@@ -1991,8 +1996,38 @@ const bulkAction = async (req, res, next) => {
       actionWhere.nurture_status = { [Op.ne]: 'DANG_NUOI' };
       actionWhere.reg_page_locked_by = null;
     }
-    const [affected] = await FacebookAccount.update(update, { where: actionWhere });
-    return success(res, { affected }, `Da chuyen ${affected} account sang ${status}`);
+    if (status !== 'LOGIN_THANH_CONG') {
+      const [affected] = await FacebookAccount.update(update, { where: actionWhere });
+      return success(res, { affected }, `Da chuyen ${affected} account sang ${status}`);
+    }
+
+    const result = await sequelize.transaction(async (transaction) => {
+      const completedJobs = await FacebookAccount.findAll({
+        attributes: ['id'],
+        where: { ...actionWhere, kind: 'job', status: 'DA_CHAY_XONG' },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      const completedJobIds = completedJobs.map((account) => account.id);
+
+      const [affected] = await FacebookAccount.update(update, { where: actionWhere, transaction });
+      let resetPages = 0;
+      if (completedJobIds.length) {
+        [resetPages] = await FacebookPageJob.update({
+          job_status: 'CHUA_LAM',
+          device_id: null,
+          completed_at: null,
+          last_report_at: null,
+        }, {
+          where: { owner_username, facebook_account_id: { [Op.in]: completedJobIds }, is_active: true },
+          transaction,
+        });
+      }
+      return { affected, reset_pages: resetPages };
+    });
+    return success(res, result, result.reset_pages
+      ? `Da chuyen ${result.affected} account sang ${status}, reset ${result.reset_pages} Page`
+      : `Da chuyen ${result.affected} account sang ${status}`);
   } catch (err) {
     next(err);
   }
