@@ -294,12 +294,45 @@ function SortableTh({ field, label, sort, onSort }) {
 }
 function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [sort, setSort] = useState({ field: 'device_id', direction: 'asc' });
+
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-    return keyword
+    const result = keyword
       ? machines.filter((machine) => String(machine.device_id || '').toLowerCase().includes(keyword))
       : machines;
-  }, [machines, query]);
+    const multiplier = sort.direction === 'asc' ? 1 : -1;
+    return [...result].sort((left, right) => {
+      if (sort.field === 'device_id') {
+        return String(left.device_id || '').localeCompare(String(right.device_id || ''), 'vi', { numeric: true, sensitivity: 'base' }) * multiplier;
+      }
+      if (sort.field === 'last_updated_at') {
+        return ((left.last_updated_at ? new Date(left.last_updated_at).getTime() : 0) - (right.last_updated_at ? new Date(right.last_updated_at).getTime() : 0)) * multiplier;
+      }
+      return (Number(left[sort.field] || 0) - Number(right[sort.field] || 0)) * multiplier;
+    });
+  }, [machines, query, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+  const currentPage = Math.min(page, totalPages);
+  const visibleMachines = useMemo(
+    () => filtered.slice((currentPage - 1) * limit, currentPage * limit),
+    [filtered, currentPage, limit],
+  );
+  const machinePagination = { page: currentPage, limit, total: filtered.length, totalPages };
+
+  useEffect(() => { setPage(1); }, [query, limit, sort.field, sort.direction]);
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const handleSort = (field) => {
+    setSort((current) => current.field === field
+      ? { field, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+      : { field, direction: field === 'device_id' ? 'asc' : 'desc' });
+  };
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '1rem' }}>
@@ -307,21 +340,35 @@ function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
         <div>
           <h3>🖥️ Quản lý account theo máy</h3>
           <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.2rem' }}>
-            {machines.length} máy đã có account{selectedDevice ? ` · Đang xem ${selectedDevice}` : ''}
+            {machines.length} máy đã có account{selectedDevice ? ' · Đang xem ' + selectedDevice : ''}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '.55rem', flexWrap: 'wrap' }}>
           {selectedDevice && <button type="button" className="btn btn-secondary btn-sm" onClick={() => onSelect('')}>Tất cả máy</button>}
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên máy..." style={{ width: 210, maxWidth: '100%', border: '1px solid #cbd5e1', borderRadius: 8, padding: '.45rem .75rem' }} />
+          <select value={limit} onChange={(event) => setLimit(Number(event.target.value))} aria-label="Số máy mỗi trang" style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: '.45rem .65rem', background: '#fff' }}>
+            {[10, 20, 50, 100].map((value) => <option key={value} value={value}>{value} dòng</option>)}
+          </select>
         </div>
       </div>
-      <div style={{ maxHeight: 310, overflow: 'auto' }}>
+      <div style={{ overflowX: 'auto' }}>
         <table className="data-table">
-          <thead><tr><th>MÁY</th><th>ACCOUNT</th><th>CHỜ LOGIN</th><th>ĐANG LOGIN</th><th>LOGIN THÀNH CÔNG</th><th>ĐANG LÀM</th><th>ĐÃ XONG</th><th>FAIL / DIE</th><th>PAGE</th><th>CẬP NHẬT CUỐI</th></tr></thead>
+          <thead><tr>
+            <SortableTh field="device_id" label="MÁY" sort={sort} onSort={handleSort} />
+            <SortableTh field="total" label="ACCOUNT" sort={sort} onSort={handleSort} />
+            <SortableTh field="waiting_login" label="CHỜ LOGIN" sort={sort} onSort={handleSort} />
+            <SortableTh field="logging_in" label="ĐANG LOGIN" sort={sort} onSort={handleSort} />
+            <SortableTh field="login_success" label="LOGIN THÀNH CÔNG" sort={sort} onSort={handleSort} />
+            <SortableTh field="working" label="ĐANG LÀM" sort={sort} onSort={handleSort} />
+            <SortableTh field="done" label="ĐÃ XONG" sort={sort} onSort={handleSort} />
+            <SortableTh field="failed" label="FAIL / DIE" sort={sort} onSort={handleSort} />
+            <SortableTh field="pages" label="PAGE" sort={sort} onSort={handleSort} />
+            <SortableTh field="last_updated_at" label="CẬP NHẬT CUỐI" sort={sort} onSort={handleSort} />
+          </tr></thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr><td colSpan={10} style={{ textAlign: 'center', color: '#94a3b8', padding: 28 }}>Chưa có máy phù hợp</td></tr>
-            ) : filtered.map((machine) => {
+            ) : visibleMachines.map((machine) => {
               const active = selectedDevice === machine.device_id;
               return (
                 <tr key={machine.device_id} onClick={() => onSelect(active ? '' : machine.device_id)} style={{ cursor: 'pointer', background: active ? 'rgba(37,99,235,.10)' : undefined }}>
@@ -340,10 +387,10 @@ function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
           </tbody>
         </table>
       </div>
+      <Pagination pagination={machinePagination} onPageChange={setPage} itemLabel="máy" />
     </div>
   );
 }
-
 
 export default function FacebookAccounts({ kind = 'job' }) {
   const [rows, setRows] = useState([]);

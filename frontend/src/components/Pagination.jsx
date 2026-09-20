@@ -1,4 +1,4 @@
-export default function Pagination({ pagination, onPageChange }) {
+export default function Pagination({ pagination, onPageChange, itemLabel = 'accounts' }) {
   if (!pagination || pagination.totalPages <= 1) return null;
 
   const { page, totalPages, total, limit } = pagination;
@@ -44,7 +44,7 @@ export default function Pagination({ pagination, onPageChange }) {
       <button onClick={() => onPageChange(totalPages)} disabled={page >= totalPages}>»</button>
 
       <span className="pagination-info">
-        {total?.toLocaleString()} accounts
+        {total?.toLocaleString()} {itemLabel}
       </span>
     </div>
   );
