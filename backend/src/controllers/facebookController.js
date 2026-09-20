@@ -1194,6 +1194,34 @@ const listNurtureLogs = async (req, res, next) => {
     next(err);
   }
 };
+const resetNurtureAccounts = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const ids = Array.isArray(req.body?.ids)
+      ? [...new Set(req.body.ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0))]
+      : [];
+    if (!ids.length) return error(res, 'Can truyen danh sach account can reset', 400);
+
+    const [affected] = await FacebookAccount.update({
+      nurture_status: 'CHUA_NUOI',
+      nurture_locked_by: null,
+      nurture_locked_at: null,
+      nurture_run_id: null,
+      nurture_scenario_id: null,
+    }, {
+      where: {
+        id: { [Op.in]: ids },
+        owner_username,
+        kind: 'job',
+        status: 'LOGIN_THANH_CONG',
+      },
+    });
+
+    return success(res, { affected }, 'Da reset trang thai nuoi cua ' + affected + ' account');
+  } catch (err) {
+    next(err);
+  }
+};
 const findForReport = async (req, owner_username) => {
   const id = parseInt(req.body.id || req.query.id, 10);
   if (Number.isInteger(id) && id > 0) return FacebookAccount.findOne({ where: { id, owner_username } });
@@ -2285,6 +2313,7 @@ module.exports = {
   reportNurtureAccount,
   listNurtureAccounts,
   listNurtureLogs,
+  resetNurtureAccounts,
   getRegPageStats,
   addFacebookJobCount,
   resetPageJobs,

@@ -22,6 +22,7 @@ router.post('/trash/restore', jwtAuth, controller.restoreTrash);
 router.post('/trash/delete', jwtAuth, controller.deleteTrash);
 router.get('/nurture/accounts', jwtAuth, controller.listNurtureAccounts);
 router.get('/nurture/logs', jwtAuth, controller.listNurtureLogs);
+router.post('/nurture/reset', jwtAuth, controller.resetNurtureAccounts);
 
 router.get('/', jwtAuth, controller.list);
 router.get('/:accountId/pages', jwtAuth, controller.getAccountPages);

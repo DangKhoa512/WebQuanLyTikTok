@@ -35,6 +35,8 @@ export default function FacebookNurture() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
   const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState(new Set());
+  const [resetting, setResetting] = useState(false);
 
   const params = useMemo(() => ({ page, limit, status, q }), [page, limit, status, q]);
   const fetchData = useCallback(async () => {
@@ -57,7 +59,42 @@ export default function FacebookNurture() {
   }, [params]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setSelected(new Set()); }, [page, limit, status, q]);
   const total = Object.values(counts).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const selectedIds = [...selected];
+  const allChecked = rows.length > 0 && rows.every((row) => selected.has(row.id));
+
+  const toggleAll = () => setSelected((current) => {
+    const next = new Set(current);
+    if (allChecked) rows.forEach((row) => next.delete(row.id));
+    else rows.forEach((row) => next.add(row.id));
+    return next;
+  });
+  const toggleOne = (id) => setSelected((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+  const handleResetNurture = async () => {
+    if (!selectedIds.length) return toast.warn('Chọn account cần reset trạng thái nuôi');
+    const hasRunning = rows.some((row) => selected.has(row.id) && row.nurture_status === 'DANG_NUOI');
+    const warning = hasRunning
+      ? '\nCó account đang nuôi. Phiên đang chạy sẽ bị hủy lock và báo cáo cũ không còn được nhận.'
+      : '';
+    if (!confirm('Reset ' + selectedIds.length + ' account về Chưa nuôi?' + warning + '\nLịch sử và tổng số lần nuôi vẫn được giữ lại.')) return;
+    setResetting(true);
+    try {
+      const res = await facebookApi.resetNurtureAccounts(selectedIds);
+      toast.success(res.message || 'Đã reset trạng thái nuôi');
+      setSelected(new Set());
+      await fetchData();
+    } catch (err) {
+      toast.error(err.message || 'Reset trạng thái nuôi thất bại');
+    } finally {
+      setResetting(false);
+    }
+  };
 
   return (
     <div className="page">
@@ -111,18 +148,26 @@ export default function FacebookNurture() {
           <h3>Danh sách account nuôi</h3>
           <span style={{ color: '#64748b', fontSize: '.8rem' }}>{pagination?.total || 0} account</span>
         </div>
+        {selectedIds.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', flexWrap: 'wrap', padding: '.7rem 1rem', background: '#0f172a', color: '#fff' }}>
+            <strong>{selectedIds.length} account đã chọn</strong>
+            <button type="button" className="btn btn-warning btn-sm" disabled={resetting} onClick={handleResetNurture}>{resetting ? 'Đang reset...' : '↻ Reset trạng thái nuôi'}</button>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={resetting} onClick={() => setSelected(new Set())}>Bỏ chọn</button>
+          </div>
+        )}
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
             <thead>
-              <tr><th>STT</th><th>UID</th><th>MÁY</th><th>JOB</th><th>NUÔI</th><th>KỊCH BẢN</th><th>TỔNG LẦN</th><th>LẦN CUỐI</th><th>LOCK NUÔI</th><th>COOKIES</th></tr>
+              <tr><th style={{ width: 40 }}><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th><th>STT</th><th>UID</th><th>MÁY</th><th>JOB</th><th>NUÔI</th><th>KỊCH BẢN</th><th>TỔNG LẦN</th><th>LẦN CUỐI</th><th>LOCK NUÔI</th><th>COOKIES</th></tr>
             </thead>
             <tbody>
               {!rows.length ? (
-                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>Chưa có account Facebook Nuôi</td></tr>
+                <tr><td colSpan={11} style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>Chưa có account Facebook Nuôi</td></tr>
               ) : rows.map((row, index) => {
                 const current = STATUS_STYLE[row.nurture_status] || STATUS_STYLE.CHUA_NUOI;
                 return (
                   <tr key={row.id}>
+                    <td><input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleOne(row.id)} /></td>
                     <td>{(page - 1) * limit + index + 1}</td>
                     <td><strong>{row.uid}</strong></td>
                     <td>{row.device_id || '-'}</td>
