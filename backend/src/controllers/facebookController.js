@@ -507,6 +507,8 @@ const list = async (req, res, next) => {
     if (['unknown', 'live', 'die'].includes(liveStatus)) where.live_status = liveStatus;
     const groupId = parseInt(req.query.group_id, 10);
     if (Number.isInteger(groupId) && groupId > 0) where.group_id = groupId;
+    const deviceId = nullify(req.query.device_id);
+    if (deviceId) where.device_id = deviceId;
     if (date_from || date_to) {
       const dateField = status === 'DA_CHAY_XONG' ? 'completed_at' : 'created_at';
       where[dateField] = {};
@@ -573,6 +575,41 @@ const list = async (req, res, next) => {
         }))
         .sort((a, b) => b.total - a.total || String(a.device_id).localeCompare(String(b.device_id)));
     }
+    if (kind === 'job') {
+      const machineRows = await FacebookAccount.findAll({
+        attributes: [
+          'device_id',
+          [FacebookAccount.sequelize.fn('COUNT', FacebookAccount.sequelize.col('id')), 'total'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'CHO_LOGIN' THEN 1 ELSE 0 END")), 'waiting_login'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'DANG_LOGIN' THEN 1 ELSE 0 END")), 'logging_in'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'LOGIN_THANH_CONG' THEN 1 ELSE 0 END")), 'login_success'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'DANG_LAM' THEN 1 ELSE 0 END")), 'working'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'DA_CHAY_XONG' THEN 1 ELSE 0 END")), 'done'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status IN ('LOGIN_FAIL','ACCOUNT_DIE') THEN 1 ELSE 0 END")), 'failed'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.col('page_count')), 'pages'],
+          [FacebookAccount.sequelize.fn('MAX', FacebookAccount.sequelize.col('updated_at')), 'last_updated_at'],
+        ],
+        where: { owner_username, kind: 'job' },
+        group: ['device_id'],
+        raw: true,
+      });
+      machine_stats = machineRows
+        .filter((row) => nullify(row.device_id))
+        .map((row) => ({
+          device_id: row.device_id,
+          total: Number(row.total) || 0,
+          waiting_login: Number(row.waiting_login) || 0,
+          logging_in: Number(row.logging_in) || 0,
+          login_success: Number(row.login_success) || 0,
+          working: Number(row.working) || 0,
+          done: Number(row.done) || 0,
+          failed: Number(row.failed) || 0,
+          pages: Number(row.pages) || 0,
+          last_updated_at: row.last_updated_at || null,
+        }))
+        .sort((a, b) => String(a.device_id).localeCompare(String(b.device_id), 'vi', { numeric: true, sensitivity: 'base' }));
+    }
+
 
     let order = status === 'DA_CHAY_XONG' ? [['completed_at', 'DESC'], ['id', 'DESC']] : [['updated_at', 'DESC'], ['id', 'DESC']];
     if (sortBy === 'page_count') {

@@ -292,11 +292,66 @@ function SortableTh({ field, label, sort, onSort }) {
     </th>
   );
 }
+function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    return keyword
+      ? machines.filter((machine) => String(machine.device_id || '').toLowerCase().includes(keyword))
+      : machines;
+  }, [machines, query]);
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '1rem' }}>
+      <div className="card-header" style={{ gap: '.75rem', flexWrap: 'wrap' }}>
+        <div>
+          <h3>🖥️ Quản lý account theo máy</h3>
+          <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.2rem' }}>
+            {machines.length} máy đã có account{selectedDevice ? ` · Đang xem ${selectedDevice}` : ''}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '.55rem', flexWrap: 'wrap' }}>
+          {selectedDevice && <button type="button" className="btn btn-secondary btn-sm" onClick={() => onSelect('')}>Tất cả máy</button>}
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên máy..." style={{ width: 210, maxWidth: '100%', border: '1px solid #cbd5e1', borderRadius: 8, padding: '.45rem .75rem' }} />
+        </div>
+      </div>
+      <div style={{ maxHeight: 310, overflow: 'auto' }}>
+        <table className="data-table">
+          <thead><tr><th>MÁY</th><th>ACCOUNT</th><th>CHỜ LOGIN</th><th>ĐANG LOGIN</th><th>LOGIN THÀNH CÔNG</th><th>ĐANG LÀM</th><th>ĐÃ XONG</th><th>FAIL / DIE</th><th>PAGE</th><th>CẬP NHẬT CUỐI</th></tr></thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={10} style={{ textAlign: 'center', color: '#94a3b8', padding: 28 }}>Chưa có máy phù hợp</td></tr>
+            ) : filtered.map((machine) => {
+              const active = selectedDevice === machine.device_id;
+              return (
+                <tr key={machine.device_id} onClick={() => onSelect(active ? '' : machine.device_id)} style={{ cursor: 'pointer', background: active ? 'rgba(37,99,235,.10)' : undefined }}>
+                  <td><strong style={{ color: active ? '#2563eb' : '#0f172a' }}>{machine.device_id}</strong></td>
+                  <td style={{ color: '#7c3aed', fontWeight: 800 }}>{machine.total}</td>
+                  <td>{machine.waiting_login}</td><td>{machine.logging_in}</td>
+                  <td style={{ color: '#059669', fontWeight: 750 }}>{machine.login_success}</td>
+                  <td style={{ color: '#7c3aed', fontWeight: 750 }}>{machine.working}</td>
+                  <td style={{ color: '#2563eb', fontWeight: 750 }}>{machine.done}</td>
+                  <td style={{ color: '#ef4444', fontWeight: 750 }}>{machine.failed}</td>
+                  <td style={{ color: '#0284c7', fontWeight: 800 }}>{machine.pages}</td>
+                  <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{fmt(machine.last_updated_at)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 
 export default function FacebookAccounts({ kind = 'job' }) {
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [statusCounts, setStatusCounts] = useState({});
+  const [machineStats, setMachineStats] = useState([]);
+  const [selectedDevice, setSelectedDevice] = useState('');
+  const [viewMode, setViewMode] = useState('accounts');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
   const [status, setStatus] = useState('');
@@ -334,7 +389,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
   const subtitle = isReg
     ? 'Quản lý account Facebook do máy push lên sau khi reg/login.'
     : 'Phone job lấy account, khóa lock theo máy và báo cáo trạng thái.';
-  const params = useMemo(() => ({ kind, page, limit, status, live_status: liveStatus, group_id: groupId, q, date_from: dateFrom, date_to: dateTo, soak_days: soakDays, sort_by: sort.field || undefined, sort_order: sort.field ? sort.direction : undefined }), [kind, page, limit, status, liveStatus, groupId, q, dateFrom, dateTo, soakDays, sort]);
+  const params = useMemo(() => ({ kind, page, limit, status, live_status: liveStatus, group_id: groupId, device_id: !isReg && selectedDevice ? selectedDevice : undefined, q, date_from: dateFrom, date_to: dateTo, soak_days: soakDays, sort_by: sort.field || undefined, sort_order: sort.field ? sort.direction : undefined }), [kind, page, limit, status, liveStatus, groupId, selectedDevice, q, dateFrom, dateTo, soakDays, sort, isReg]);
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -354,6 +409,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
       setRows(res.data?.accounts || []);
       if (!trashMode) {
         setStatusCounts(res.data?.status_counts || {});
+        setMachineStats(res.data?.machine_stats || []);
         setTrashCount(res.data?.trash_count || 0);
       } else {
         setTrashCount(res.data?.pagination?.total || 0);
@@ -387,6 +443,22 @@ export default function FacebookAccounts({ kind = 'job' }) {
     setter(value);
     setPage(1);
     resetSelection();
+  };
+
+  const handleMachineSelect = (deviceId) => {
+    setSelectedDevice(deviceId);
+    setViewMode('accounts');
+    setStatus('');
+    setLiveStatus('');
+    setGroupId('');
+    setQ('');
+    setDateFrom('');
+    setDateTo('');
+    setSoakDays('');
+    setPage(1);
+    setSort({ field: null, direction: 'asc' });
+    resetSelection();
+    setExpandedAccountId(null);
   };
 
   const handlePageChange = (nextPage) => {
@@ -609,9 +681,11 @@ export default function FacebookAccounts({ kind = 'job' }) {
 
   const toggleTrashMode = () => {
     setTrashMode((current) => !current);
+    setViewMode('accounts');
     setPage(1);
     setQ('');
     setStatus('');
+    setSelectedDevice('');
     setLiveStatus('');
     setGroupId('');
     setDateFrom('');
@@ -649,6 +723,10 @@ export default function FacebookAccounts({ kind = 'job' }) {
         </div>
         <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
           {isReg && <Link to="/facebook-reg-stats" className="btn btn-secondary btn-sm">Thống kê</Link>}
+          {!isReg && !trashMode && <>
+            <button type="button" onClick={() => setViewMode('accounts')} className={viewMode === 'accounts' ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'}>Danh sách account</button>
+            <button type="button" onClick={() => setViewMode('machines')} className={viewMode === 'machines' ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'}>Theo máy ({machineStats.length})</button>
+          </>}
           {!isReg && <button onClick={toggleTrashMode} className="btn btn-secondary btn-sm">{trashMode ? 'Quay lại Facebook Job' : 'Thùng rác (' + trashCount + ')'}</button>}
           {!trashMode && <button onClick={() => setShowImport(true)} className="btn btn-primary btn-sm">Import</button>}
           <button onClick={fetchData} disabled={loading} className="btn btn-secondary btn-sm">{loading ? 'Đang tải...' : 'Làm mới'}</button>
@@ -668,7 +746,14 @@ export default function FacebookAccounts({ kind = 'job' }) {
         </div>
       )}
 
-      {!trashMode && <div className="fb-status-tabs">
+      {!isReg && !trashMode && viewMode === 'accounts' && selectedDevice && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginBottom: '1rem' }}>
+          <span style={{ background: 'rgba(37,99,235,.10)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,.22)', borderRadius: 20, padding: '.38rem .75rem', fontSize: '.8rem', fontWeight: 750 }}>Đang xem máy: {selectedDevice}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleMachineSelect('')}>Bỏ lọc máy</button>
+        </div>
+      )}
+
+      {!trashMode && (isReg || viewMode === 'accounts') && <div className="fb-status-tabs">
         {tabs.map((tab) => (
           <button key={tab.value || 'ALL'} onClick={() => setFilter(setStatus, tab.value)} style={{
             background: status === tab.value ? tab.color : 'rgba(255,255,255,.06)',
@@ -682,6 +767,15 @@ export default function FacebookAccounts({ kind = 'job' }) {
         ))}
       </div>}
 
+
+      {!isReg && !trashMode && viewMode === 'machines' && (
+        <FacebookJobMachinePanel
+          machines={machineStats}
+          selectedDevice={selectedDevice}
+          onSelect={handleMachineSelect}
+        />
+      )}
+      {(isReg || trashMode || viewMode === 'accounts') && <>
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="filter-bar">
           <div className="filter-row">
@@ -727,7 +821,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
                 {[20, 50, 100, 500, 1000, 2000].map((n) => <option key={n} value={n}>{n} dòng</option>)}
               </select>
             </div>
-            <button className="btn btn-secondary btn-sm" onClick={() => { setQ(''); setStatus(''); setLiveStatus(''); setGroupId(''); setDateFrom(''); setDateTo(''); setSoakDays(''); setPage(1); resetSelection(); }}>Xóa bộ lọc</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => { setQ(''); setStatus(''); setLiveStatus(''); setGroupId(''); setSelectedDevice(''); setDateFrom(''); setDateTo(''); setSoakDays(''); setPage(1); resetSelection(); }}>Xóa bộ lọc</button>
           </div>
         </div>
       </div>
@@ -844,6 +938,7 @@ export default function FacebookAccounts({ kind = 'job' }) {
       </div>
 
       <Pagination pagination={pagination} onPageChange={handlePageChange} />
+      </>}
       {showImport && <ImportFacebookModal kind={kind} groups={groups} onGroupsChanged={fetchGroups} onClose={() => setShowImport(false)} onImported={fetchData} />}
     </div>
   );
