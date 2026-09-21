@@ -1524,11 +1524,48 @@ const reportRegPage = async (req, res, next) => {
       return error(res, 'status chi nhan REG_XONG hoac REG_FAIL', 400);
     }
 
-    const account = await FacebookAccount.findOne({
+    let reportSource = 'reg_page_lock';
+    let account = await FacebookAccount.findOne({
       where: { owner_username, kind: 'job', uid, device_id, reg_page_locked_by: device_id },
       order: [['reg_page_locked_at', 'DESC'], ['id', 'DESC']],
     });
-    if (!account) return error(res, 'Khong tim thay account dang lock reg Page cua may ' + device_id + ' voi UID ' + uid, 404);
+
+    // Cho phep may dung ngay account vua nuoi xong de reg Page ma khong can goi get-account lan nua.
+    // Bao cao nuoi thanh cong phai moi hon lan bao cao reg Page gan nhat, nen moi phien nuoi chi duoc dung mot lan.
+    if (!account && reportStatus === 'REG_XONG') {
+      const nurtureAccount = await FacebookAccount.findOne({
+        where: {
+          owner_username,
+          kind: 'job',
+          uid,
+          device_id,
+          status: { [Op.in]: ['LOGIN_THANH_CONG', 'DA_CHAY_XONG'] },
+          nurture_status: 'DA_NUOI',
+        },
+        order: [['id', 'DESC']],
+      });
+      if (nurtureAccount) {
+        const nurtureWhere = {
+          owner_username,
+          facebook_account_id: nurtureAccount.id,
+          device_id,
+          status: 'DA_NUOI',
+        };
+        if (nurtureAccount.last_reg_page_at) {
+          nurtureWhere.completed_at = { [Op.gt]: nurtureAccount.last_reg_page_at };
+        }
+        const completedNurture = await FacebookNurtureLog.findOne({
+          where: nurtureWhere,
+          order: [['completed_at', 'DESC'], ['id', 'DESC']],
+        });
+        if (completedNurture) {
+          account = nurtureAccount;
+          reportSource = 'nurture';
+        }
+      }
+    }
+
+    if (!account) return error(res, 'Khong tim thay REGPAGE LOCK hoac phien nuoi moi cua may ' + device_id + ' voi UID ' + uid, 404);
 
     let pageCheck = null;
     if (reportStatus === 'REG_XONG') {
@@ -1606,6 +1643,7 @@ const reportRegPage = async (req, res, next) => {
     return success(res, {
       account: serialize(account),
       reg_page_status: reportStatus,
+      report_source: reportSource,
       page_check: pageCheck,
       cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
     }, reportStatus === 'REG_XONG' ? 'Da bao cao reg Page xong' : 'Da bao cao reg Page that bai');
@@ -1945,7 +1983,7 @@ const bulkGet = async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean) : [];
     if (!ids.length) return error(res, 'Can truyen danh sach ids', 400);
-    const accounts = await FacebookAccount.findAll({
+    const accounts = await FacebookAccount.unscoped().findAll({
       where: { id: { [Op.in]: ids }, owner_username: ownerFromAdmin(req) },
       order: [['id', 'ASC']],
     });
@@ -2152,6 +2190,8 @@ const listTrash = async (req, res, next) => {
     const owner_username = ownerFromAdmin(req);
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 2000);
+    const sortBy = ['device_id', 'page_count', 'reg_page_locked_by', 'trashed_at'].includes(req.query.sort_by) ? req.query.sort_by : null;
+    const sortDirection = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     const where = {
       owner_username,
       kind: 'job',
@@ -2169,9 +2209,28 @@ const listTrash = async (req, res, next) => {
         { device_id: { [Op.like]: '%' + q + '%' } },
       ];
     }
+    let order = [['trashed_at', 'DESC'], ['id', 'DESC']];
+    if (sortBy === 'page_count') {
+      order = [['page_count', sortDirection], ['id', 'DESC']];
+    } else if (sortBy === 'device_id') {
+      order = [
+        [sequelize.literal("CASE WHEN device_id IS NULL OR device_id = '' THEN 1 ELSE 0 END"), 'ASC'],
+        [sequelize.fn('CHAR_LENGTH', sequelize.col('device_id')), sortDirection],
+        ['device_id', sortDirection],
+        ['id', 'DESC'],
+      ];
+    } else if (sortBy === 'reg_page_locked_by') {
+      order = [
+        [sequelize.literal("CASE WHEN reg_page_locked_by IS NULL OR reg_page_locked_by = '' THEN 0 ELSE 1 END"), sortDirection],
+        ['reg_page_locked_at', sortDirection],
+        ['id', 'DESC'],
+      ];
+    } else if (sortBy === 'trashed_at') {
+      order = [['trashed_at', sortDirection], ['id', 'DESC']];
+    }
     const { rows, count } = await FacebookAccount.unscoped().findAndCountAll({
       where,
-      order: [['trashed_at', 'DESC'], ['id', 'DESC']],
+      order,
       limit,
       offset: (page - 1) * limit,
     });
