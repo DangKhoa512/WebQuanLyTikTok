@@ -697,6 +697,104 @@ const getFacebookJobDeviceStats = async (days = 1, ownerFilter = null) => {
   );
 };
 
+const instagramActivityAt = 'COALESCE(completed_at, login_at, updated_at, created_at)';
+const emptyInstagramWebSummary = () => Object.fromEntries(['TTC','XSMM','NVC'].map((web)=>[web,{today_jobs:0,month_jobs:0,year_jobs:0,total_jobs:0,today_xu:0,month_xu:0,year_xu:0,total_xu:0}]));
+
+const getInstagramJobStats = async (ownerFilter = null) => {
+  const replacements = {};
+  if (ownerFilter) replacements.owner = ownerFilter;
+  const ownerAnd = ownerFilter ? 'AND owner_username = :owner' : '';
+  const [row = {}] = await sequelize.query(
+    `SELECT COUNT(*) AS total, SUM(status = 'CHO_LOGIN') AS waiting_login, SUM(status = 'DANG_LOGIN') AS logging_in,
+       SUM(status = 'LOGIN_THANH_CONG') AS ready, SUM(status = 'DANG_LAM') AS working,
+       SUM(status = 'DA_CHAY_XONG') AS done, SUM(status IN ('LOGIN_FAIL','ACCOUNT_DIE')) AS failed,
+       SUM(live_status = 'live') AS live, SUM(live_status = 'die') AS die, COUNT(DISTINCT NULLIF(device_id,'')) AS devices
+     FROM instagram_accounts WHERE kind = 'job' AND trashed_at IS NULL ${ownerAnd}`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+  const webRows = await sequelize.query(
+    `SELECT web,
+       COALESCE(SUM(CASE WHEN stat_date=CURDATE() THEN job_count ELSE 0 END),0) AS today_jobs,
+       COALESCE(SUM(CASE WHEN YEAR(stat_date)=YEAR(CURDATE()) AND MONTH(stat_date)=MONTH(CURDATE()) THEN job_count ELSE 0 END),0) AS month_jobs,
+       COALESCE(SUM(CASE WHEN YEAR(stat_date)=YEAR(CURDATE()) THEN job_count ELSE 0 END),0) AS year_jobs,
+       COALESCE(SUM(job_count),0) AS total_jobs,
+       COALESCE(SUM(CASE WHEN stat_date=CURDATE() THEN xu_count ELSE 0 END),0) AS today_xu,
+       COALESCE(SUM(CASE WHEN YEAR(stat_date)=YEAR(CURDATE()) AND MONTH(stat_date)=MONTH(CURDATE()) THEN xu_count ELSE 0 END),0) AS month_xu,
+       COALESCE(SUM(CASE WHEN YEAR(stat_date)=YEAR(CURDATE()) THEN xu_count ELSE 0 END),0) AS year_xu,
+       COALESCE(SUM(xu_count),0) AS total_xu
+     FROM instagram_job_daily_stats WHERE 1=1 ${ownerAnd} GROUP BY web`,
+    { replacements, type: QueryTypes.SELECT }
+  );
+  const web_summary=emptyInstagramWebSummary();
+  for(const item of webRows) web_summary[item.web]={today_jobs:numeric(item,'today_jobs'),month_jobs:numeric(item,'month_jobs'),year_jobs:numeric(item,'year_jobs'),total_jobs:numeric(item,'total_jobs'),today_xu:numeric(item,'today_xu'),month_xu:numeric(item,'month_xu'),year_xu:numeric(item,'year_xu'),total_xu:numeric(item,'total_xu')};
+  return {accounts:{total:numeric(row,'total'),waiting_login:numeric(row,'waiting_login'),logging_in:numeric(row,'logging_in'),ready:numeric(row,'ready'),working:numeric(row,'working'),done:numeric(row,'done'),failed:numeric(row,'failed'),live:numeric(row,'live'),die:numeric(row,'die'),devices:numeric(row,'devices')},web_summary};
+};
+
+const getInstagramJobDailyStats = async (days = 30, ownerFilter = null) => {
+  const daysInt=Math.min(365,Math.max(1,parseInt(days,10)||30));
+  const replacements={days:Math.max(0,daysInt-1)};
+  if(ownerFilter)replacements.owner=ownerFilter;
+  const ownerAnd=ownerFilter?'AND owner_username = :owner':'';
+  const activityWhere=daysInt===1?`DATE(${instagramActivityAt})=CURDATE()`:`DATE(${instagramActivityAt})>=DATE_SUB(CURDATE(),INTERVAL :days DAY)`;
+  const statWhere=daysInt===1?'stat_date=CURDATE()':'stat_date>=DATE_SUB(CURDATE(),INTERVAL :days DAY)';
+  const daily=await sequelize.query(
+    `SELECT DATE(${instagramActivityAt}) AS date, COUNT(*) AS total_accounts,
+       SUM(status='LOGIN_THANH_CONG') AS ready_accounts, SUM(status='DANG_LAM') AS working_accounts,
+       SUM(status='DA_CHAY_XONG') AS done_accounts, SUM(status IN ('LOGIN_FAIL','ACCOUNT_DIE')) AS failed_accounts
+     FROM instagram_accounts WHERE kind='job' AND trashed_at IS NULL AND ${activityWhere} ${ownerAnd}
+     GROUP BY DATE(${instagramActivityAt}) ORDER BY date ASC`,
+    {replacements,type:QueryTypes.SELECT}
+  );
+  const daily_job=await sequelize.query(
+    `SELECT stat_date AS date,
+       COALESCE(SUM(CASE WHEN web='TTC' THEN job_count ELSE 0 END),0) AS TTC,
+       COALESCE(SUM(CASE WHEN web='XSMM' THEN job_count ELSE 0 END),0) AS XSMM,
+       COALESCE(SUM(CASE WHEN web='NVC' THEN job_count ELSE 0 END),0) AS NVC,
+       COALESCE(SUM(CASE WHEN web='TTC' THEN xu_count ELSE 0 END),0) AS TTC_xu,
+       COALESCE(SUM(CASE WHEN web='XSMM' THEN xu_count ELSE 0 END),0) AS XSMM_xu,
+       COALESCE(SUM(CASE WHEN web='NVC' THEN xu_count ELSE 0 END),0) AS NVC_xu,
+       COALESCE(SUM(job_count),0) AS total_jobs, COALESCE(SUM(xu_count),0) AS total_xu
+     FROM instagram_job_daily_stats WHERE ${statWhere} ${ownerAnd} GROUP BY stat_date ORDER BY stat_date ASC`,
+    {replacements,type:QueryTypes.SELECT}
+  );
+  return {daily,daily_job};
+};
+
+const getInstagramJobDeviceStats = async (days = 1, ownerFilter = null) => {
+  const daysInt=Math.min(365,Math.max(1,parseInt(days,10)||1));
+  const replacements={days:Math.max(0,daysInt-1)};
+  if(ownerFilter)replacements.owner=ownerFilter;
+  const ownerAnd=ownerFilter?'AND owner_username = :owner':'';
+  const activityWhere=daysInt===1?`DATE(${instagramActivityAt})=CURDATE()`:`DATE(${instagramActivityAt})>=DATE_SUB(CURDATE(),INTERVAL :days DAY)`;
+  const statWhere=daysInt===1?'stat_date=CURDATE()':'stat_date>=DATE_SUB(CURDATE(),INTERVAL :days DAY)';
+  const accounts=await sequelize.query(
+    `SELECT COALESCE(NULLIF(device_id,''),NULLIF(locked_by,''),'Chua gan may') AS device_id, COUNT(*) AS total_accounts,
+       SUM(status='CHO_LOGIN') AS waiting_login, SUM(status='DANG_LOGIN') AS logging_in,
+       SUM(status='LOGIN_THANH_CONG') AS ready_accounts, SUM(status='DANG_LAM') AS working_accounts,
+       SUM(status='DA_CHAY_XONG') AS done_accounts, SUM(status IN ('LOGIN_FAIL','ACCOUNT_DIE')) AS failed_accounts,
+       MAX(${instagramActivityAt}) AS account_last_seen
+     FROM instagram_accounts WHERE kind='job' AND trashed_at IS NULL AND ${activityWhere} ${ownerAnd}
+     GROUP BY COALESCE(NULLIF(device_id,''),NULLIF(locked_by,''),'Chua gan may')`,
+    {replacements,type:QueryTypes.SELECT}
+  );
+  const jobs=await sequelize.query(
+    `SELECT device_id,
+       SUM(CASE WHEN web='TTC' THEN job_count ELSE 0 END) AS range_TTC,
+       SUM(CASE WHEN web='XSMM' THEN job_count ELSE 0 END) AS range_XSMM,
+       SUM(CASE WHEN web='NVC' THEN job_count ELSE 0 END) AS range_NVC,
+       SUM(CASE WHEN web='TTC' THEN xu_count ELSE 0 END) AS range_TTC_xu,
+       SUM(CASE WHEN web='XSMM' THEN xu_count ELSE 0 END) AS range_XSMM_xu,
+       SUM(CASE WHEN web='NVC' THEN xu_count ELSE 0 END) AS range_NVC_xu,
+       MAX(updated_at) AS job_last_seen
+     FROM instagram_job_daily_stats WHERE ${statWhere} ${ownerAnd} GROUP BY device_id`,
+    {replacements,type:QueryTypes.SELECT}
+  );
+  const map=new Map();
+  const ensure=(device_id)=>{if(!map.has(device_id))map.set(device_id,{device_id,total_accounts:0,waiting_login:0,logging_in:0,ready_accounts:0,working_accounts:0,done_accounts:0,failed_accounts:0,range_TTC:0,range_XSMM:0,range_NVC:0,range_TTC_xu:0,range_XSMM_xu:0,range_NVC_xu:0,last_seen:null});return map.get(device_id);};
+  for(const item of accounts){const row=ensure(item.device_id);['total_accounts','waiting_login','logging_in','ready_accounts','working_accounts','done_accounts','failed_accounts'].forEach((key)=>{row[key]=numeric(item,key);});row.last_seen=item.account_last_seen||row.last_seen;}
+  for(const item of jobs){const row=ensure(item.device_id);['range_TTC','range_XSMM','range_NVC','range_TTC_xu','range_XSMM_xu','range_NVC_xu'].forEach((key)=>{row[key]=numeric(item,key);});if(item.job_last_seen&&(!row.last_seen||new Date(item.job_last_seen)>new Date(row.last_seen)))row.last_seen=item.job_last_seen;}
+  return [...map.values()].sort((a,b)=>String(a.device_id).localeCompare(String(b.device_id),'vi',{numeric:true}));
+};
 module.exports = {
   getStats,
   getDailyStats,
@@ -707,4 +805,7 @@ module.exports = {
   getFacebookJobStats,
   getFacebookJobDailyStats,
   getFacebookJobDeviceStats,
+  getInstagramJobStats,
+  getInstagramJobDailyStats,
+  getInstagramJobDeviceStats,
 };

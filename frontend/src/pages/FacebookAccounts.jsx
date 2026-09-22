@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import InstagramAccounts from './InstagramAccounts';
+import SocialPlatformSwitch from '../components/SocialPlatformSwitch';
 import { Link } from 'react-router-dom';
 import { facebookApi, accountGroupApi } from '../services/api';
 import Pagination from '../components/Pagination';
@@ -392,7 +394,7 @@ function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
   );
 }
 
-export default function FacebookAccounts({ kind = 'job' }) {
+function FacebookAccountPanel({ kind = 'job', platformSwitch = null }) {
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [statusCounts, setStatusCounts] = useState({});
@@ -780,6 +782,8 @@ export default function FacebookAccounts({ kind = 'job' }) {
         </div>
       </div>
 
+      {platformSwitch && <div style={{ marginBottom: '1rem' }}>{platformSwitch}</div>}
+
       {isReg && (
         <div className="fb-stat-grid">
           <div className="stat-card" style={{ borderLeftColor: '#06b6d4' }}>
@@ -989,4 +993,13 @@ export default function FacebookAccounts({ kind = 'job' }) {
       {showImport && <ImportFacebookModal kind={kind} groups={groups} onGroupsChanged={fetchGroups} onClose={() => setShowImport(false)} onImported={fetchData} />}
     </div>
   );
+}
+
+export default function FacebookAccounts({ kind = 'job' }) {
+  const [platform, setPlatform] = useState('facebook');
+  useEffect(() => { setPlatform('facebook'); }, [kind]);
+  const platformSwitch = <SocialPlatformSwitch active={platform} onChange={setPlatform} />;
+  return platform === 'instagram'
+    ? <InstagramAccounts kind={kind} platformSwitch={platformSwitch} />
+    : <FacebookAccountPanel kind={kind} platformSwitch={platformSwitch} />;
 }

@@ -1,6 +1,7 @@
 const PLATFORM_META = {
   tiktok: { label: 'TikTok', color: '#10b981' },
   facebook: { label: 'Facebook', color: '#10b981' },
+  instagram: { label: 'Instagram', color: '#ec4899' },
 };
 
 export default function StatsPlatformSwitch({ active, onChange }) {

@@ -7,6 +7,8 @@ const AccountGroup  = require('./AccountGroup');
 const JobAccount    = require('./JobAccount');
 const JobDailyStat  = require('./JobDailyStat');
 const FacebookAccount = require('./FacebookAccount');
+const InstagramAccount = require('./InstagramAccount');
+const InstagramJobDailyStat = require('./InstagramJobDailyStat');
 const HotmailAccount = require('./HotmailAccount');
 const AppSetting    = require('./AppSetting');
 const MachineApiConfig = require('./MachineApiConfig');
@@ -19,4 +21,4 @@ const FacebookRegPageReport = require('./FacebookRegPageReport');
 const FacebookNurtureAssignment = require('./FacebookNurtureAssignment');
 const FacebookNurtureLog = require('./FacebookNurtureLog');
 
-module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat, FacebookRegPageReport, FacebookNurtureAssignment, FacebookNurtureLog };
+module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, InstagramAccount, InstagramJobDailyStat, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat, FacebookRegPageReport, FacebookNurtureAssignment, FacebookNurtureLog };

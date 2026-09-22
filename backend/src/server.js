@@ -85,7 +85,7 @@ const startServer = async () => {
         CREATE TABLE IF NOT EXISTS account_groups (
           id INT UNSIGNED NOT NULL AUTO_INCREMENT,
           owner_username VARCHAR(100) NOT NULL DEFAULT '${adminOwner()}',
-          account_type ENUM('app','chrome','job','facebook_reg','facebook_job') NOT NULL,
+          account_type ENUM('app','chrome','job','facebook_reg','facebook_job','instagram_reg','instagram_job') NOT NULL,
           name VARCHAR(100) NOT NULL,
           note VARCHAR(255) NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -104,7 +104,7 @@ const startServer = async () => {
     try {
       await sequelize.query(`
         ALTER TABLE account_groups
-        MODIFY COLUMN account_type ENUM('app','chrome','job','facebook_reg','facebook_job') NOT NULL
+        MODIFY COLUMN account_type ENUM('app','chrome','job','facebook_reg','facebook_job','instagram_reg','instagram_job') NOT NULL
       `);
       logger.info('account_groups job type ready');
     } catch (e) {
@@ -112,7 +112,7 @@ const startServer = async () => {
     }
 
     try {
-      await sequelize.query("ALTER TABLE account_groups MODIFY COLUMN account_type ENUM('app','chrome','job','facebook_reg','facebook_job') NOT NULL");
+      await sequelize.query("ALTER TABLE account_groups MODIFY COLUMN account_type ENUM('app','chrome','job','facebook_reg','facebook_job','instagram_reg','instagram_job') NOT NULL");
       logger.info('account_groups facebook types ready');
     } catch (e) {
       logger.warn('Migration account_groups facebook type skipped:', e.message);

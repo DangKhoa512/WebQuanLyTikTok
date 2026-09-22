@@ -99,6 +99,9 @@ export const statsApi = {
   getFacebookJobStats: () => api.get('/stats/facebook-job', { timeout: 60_000 }),
   getFacebookJobDailyStats: (days = 30) => api.get('/stats/facebook-job/daily', { params: { days }, timeout: 60_000 }),
   getFacebookJobDeviceStats: (days = 1) => api.get('/stats/facebook-job/devices', { params: { days }, timeout: 60_000 }),
+  getInstagramJobStats: () => api.get('/stats/instagram-job', { timeout: 60_000 }),
+  getInstagramJobDailyStats: (days = 30) => api.get('/stats/instagram-job/daily', { params: { days }, timeout: 60_000 }),
+  getInstagramJobDeviceStats: (days = 1) => api.get('/stats/instagram-job/devices', { params: { days }, timeout: 60_000 }),
 };
 
 export const settingsApi = {
@@ -191,6 +194,19 @@ export const facebookApi = {
   resetNurtureAccounts: (ids) => api.post('/facebook/nurture/reset', { ids }),
 };
 
+export const instagramApi = {
+  getAll: (params) => api.get('/instagram', { params }),
+  addJob: (device_id, web, jobs = 0, xu = 0) => api.post('/instagram/job/add-job', { device_id, web, jobs, xu }),
+  import: (text, kind = 'job', status = 'CHO_LOGIN', group_id = null) => api.post('/instagram/import', { text, kind, status, group_id }),
+  bulkGet: (ids) => api.post('/instagram/bulk-get', { ids }),
+  bulkSyncToJob: (ids) => api.post('/instagram/bulk-sync-to-job', { ids }),
+  bulkMoveGroup: (ids, group_id, kind = 'job') => api.post('/instagram/bulk-move-group', { ids, group_id, kind }),
+  bulkAction: (ids, action, opts = {}) => api.post('/instagram/bulk-action', { ids, action, ...opts }),
+  bulkDelete: (ids) => api.post('/instagram/bulk-delete', { ids }),
+  getTrash: (params) => api.get('/instagram/trash', { params }),
+  restoreTrash: (ids) => api.post('/instagram/trash/restore', { ids }),
+  deleteTrash: (ids) => api.post('/instagram/trash/delete', { ids }),
+};
 export const accountGroupApi = {
   getAll: (account_type, job_type = null) => api.get('/account-groups', { params: { account_type, job_type } }),
   create: (account_type, name, note = '', job_type = null) => api.post('/account-groups', { account_type, name, note, job_type }),

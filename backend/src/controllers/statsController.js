@@ -85,6 +85,26 @@ const getFacebookJobDeviceStats = async (req, res, next) => {
   }
 };
 
+const getInstagramJobStats = async (req, res, next) => {
+  try {
+    const stats = await statsService.getInstagramJobStats(ownerFromAdmin(req));
+    return success(res, stats, 'Lấy thống kê Instagram JOB thành công');
+  } catch (err) { next(err); }
+};
+
+const getInstagramJobDailyStats = async (req, res, next) => {
+  try {
+    const stats = await statsService.getInstagramJobDailyStats(req.query.days || 30, ownerFromAdmin(req));
+    return success(res, stats, 'Lấy thống kê Instagram JOB theo ngày thành công');
+  } catch (err) { next(err); }
+};
+
+const getInstagramJobDeviceStats = async (req, res, next) => {
+  try {
+    const devices = await statsService.getInstagramJobDeviceStats(req.query.days || 1, ownerFromAdmin(req));
+    return success(res, { devices }, 'Lấy thống kê Instagram JOB theo máy thành công');
+  } catch (err) { next(err); }
+};
 module.exports = {
   getStats,
   getDailyStats,
@@ -95,4 +115,7 @@ module.exports = {
   getFacebookJobStats,
   getFacebookJobDailyStats,
   getFacebookJobDeviceStats,
+  getInstagramJobStats,
+  getInstagramJobDailyStats,
+  getInstagramJobDeviceStats,
 };

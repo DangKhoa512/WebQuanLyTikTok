@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { statsApi } from '../services/api';
 import FacebookJobStats from './FacebookJobStats';
+import InstagramJobStats from './InstagramJobStats';
 import StatsPlatformSwitch from '../components/StatsPlatformSwitch';
 
 const RANGE_OPTIONS = [
@@ -512,12 +513,12 @@ function TikTokJobStats({ onSwitchPlatform }) {
 }
 
 export default function Stats() {
-  const [platform, setPlatform] = useState(() => readSessionOption('stats_platform', ['tiktok', 'facebook'], 'tiktok'));
+  const [platform, setPlatform] = useState(() => readSessionOption('stats_platform', ['tiktok', 'facebook', 'instagram'], 'tiktok'));
   const handlePlatformChange = (value) => {
     writeSessionOption('stats_platform', value);
     setPlatform(value);
   };
-  return platform === 'facebook'
-    ? <FacebookJobStats onSwitchPlatform={handlePlatformChange} />
-    : <TikTokJobStats onSwitchPlatform={handlePlatformChange} />;
+  if (platform === 'instagram') return <InstagramJobStats onSwitchPlatform={handlePlatformChange} />;
+  if (platform === 'facebook') return <FacebookJobStats onSwitchPlatform={handlePlatformChange} />;
+  return <TikTokJobStats onSwitchPlatform={handlePlatformChange} />;
 }

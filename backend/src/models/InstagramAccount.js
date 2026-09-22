@@ -1,0 +1,46 @@
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+
+const InstagramAccount = sequelize.define('InstagramAccount', {
+  id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
+  kind: { type: DataTypes.ENUM('reg', 'job'), allowNull: false, defaultValue: 'job' },
+  raw_data: { type: DataTypes.TEXT('long'), allowNull: false },
+  uid: { type: DataTypes.STRING(255), allowNull: false },
+  password: { type: DataTypes.STRING(255), allowNull: true },
+  two_fa: { type: DataTypes.TEXT, allowNull: true },
+  cookies: { type: DataTypes.TEXT('long'), allowNull: true },
+  owner_username: { type: DataTypes.STRING(100), allowNull: false, defaultValue: 'admin' },
+  group_id: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
+  device_id: { type: DataTypes.STRING(255), allowNull: true },
+  status: { type: DataTypes.ENUM('CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE'), allowNull: false, defaultValue: 'CHO_LOGIN' },
+  live_status: { type: DataTypes.ENUM('unknown','live','die'), allowNull: false, defaultValue: 'unknown' },
+  locked_by: { type: DataTypes.STRING(255), allowNull: true },
+  locked_at: { type: DataTypes.DATE, allowNull: true },
+  login_get_count: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  login_at: { type: DataTypes.DATE, allowNull: true },
+  completed_at: { type: DataTypes.DATE, allowNull: true },
+  nurture_status: { type: DataTypes.ENUM('CHUA_NUOI','DANG_NUOI','DA_NUOI','NUOI_FAIL'), allowNull: false, defaultValue: 'CHUA_NUOI' },
+  nurture_locked_by: { type: DataTypes.STRING(255), allowNull: true },
+  nurture_locked_at: { type: DataTypes.DATE, allowNull: true },
+  nurture_run_id: { type: DataTypes.STRING(100), allowNull: true },
+  nurture_scenario_id: { type: DataTypes.STRING(100), allowNull: true },
+  last_nurture_at: { type: DataTypes.DATE, allowNull: true },
+  nurture_count: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  fail_reason: { type: DataTypes.STRING(500), allowNull: true },
+  note: { type: DataTypes.TEXT, allowNull: true },
+  trashed_at: { type: DataTypes.DATE, allowNull: true },
+}, {
+  tableName: 'instagram_accounts',
+  defaultScope: { where: { trashed_at: null } },
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  indexes: [
+    { unique: true, name: 'uq_instagram_owner_kind_uid', fields: ['owner_username','kind','uid'] },
+    { fields: ['owner_username','kind','status'] },
+    { fields: ['owner_username','kind','trashed_at'] },
+    { fields: ['device_id'] },
+  ],
+});
+
+module.exports = InstagramAccount;
