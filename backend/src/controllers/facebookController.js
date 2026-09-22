@@ -152,12 +152,12 @@ const parseFacebookLine = (line) => {
     if (used.has(i)) continue;
     const value = nullify(parts[i]);
     if (!value) continue;
+    if (!parsed.two_fa && looksLikeTwoFa(value)) { parsed.two_fa = value; used.add(i); continue; }
     if (!parsed.email_pass && parsed.email && i === emailIndex + 1 && !looksLikeCookie(value) && !looksLikeToken(value) && !looksLikeEmail(value) && !looksLikeClientId(value) && !looksLikeRefreshToken(value)) {
       parsed.email_pass = value;
       used.add(i);
       continue;
     }
-    if (!parsed.two_fa && looksLikeTwoFa(value)) { parsed.two_fa = value; used.add(i); continue; }
     if (!parsed.email_pass && parsed.email && !looksLikeCookie(value) && !looksLikeToken(value) && !looksLikeEmail(value) && !looksLikeClientId(value) && !looksLikeRefreshToken(value)) {
       parsed.email_pass = value;
       used.add(i);
