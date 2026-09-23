@@ -10,6 +10,8 @@ const {
   saveMachineApiKeys,
   getFacebookLoginLimitSettings,
   saveFacebookLoginLimitSettings,
+  getInstagramLoginLimitSettings,
+  saveInstagramLoginLimitSettings,
   getJobAccountDailyLimitSettings,
   saveJobAccountDailyLimitSettings,
   getFacebookCheckProxySettings,
@@ -164,6 +166,38 @@ const listFacebookLoginLimits = async (req, res, next) => {
   }
 };
 
+const getInstagramLoginLimit = async (req, res, next) => {
+  try {
+    const isAdmin = req.admin?.role === 'admin';
+    const targetOwner = isAdmin && req.query.owner_username ? normalizeOwner(req.query.owner_username) : ownerFromAdmin(req);
+    const settings = await getInstagramLoginLimitSettings(targetOwner);
+    settings.owner_username = targetOwner;
+    settings.editable = isAdmin;
+    return success(res, { settings }, 'Lay cai dat limit Instagram login thanh cong');
+  } catch (err) { next(err); }
+};
+
+const updateInstagramLoginLimit = async (req, res, next) => {
+  try {
+    if (req.admin?.role !== 'admin') return error(res, 'Chi admin duoc sua limit Instagram login', 403);
+    const owner = normalizeOwner(req.body.owner_username || ownerFromAdmin(req));
+    const limit = parseInt(req.body.limit, 10);
+    if (!Number.isInteger(limit) || limit <= 0) return error(res, 'Limit phai lon hon 0', 400);
+    const settings = await saveInstagramLoginLimitSettings(owner, { limit });
+    settings.owner_username = owner;
+    settings.editable = true;
+    return success(res, { settings }, 'Da luu limit Instagram login');
+  } catch (err) { next(err); }
+};
+
+const listInstagramLoginLimits = async (req, res, next) => {
+  try {
+    if (req.admin?.role !== 'admin') return error(res, 'Chi admin duoc xem limit Instagram login cua user', 403);
+    const users = await User.findAll({ attributes: ['id','username','role','is_active'], order: [['username','ASC']], raw: true });
+    const rows = await Promise.all(users.map(async (user) => ({ ...user, limit: (await getInstagramLoginLimitSettings(user.username)).limit })));
+    return success(res, { users: rows }, 'OK');
+  } catch (err) { next(err); }
+};
 const getJobAccountDailyLimit = async (req, res, next) => {
   try {
     const isAdmin = req.admin?.role === 'admin';
@@ -305,4 +339,4 @@ const updateFacebookNurture = async (req, res, next) => {
   }
 };
 
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookNurture, updateFacebookNurture };
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookNurture, updateFacebookNurture };

@@ -5,6 +5,7 @@ const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs } = require('../services/instagramJobStatService');
+const { getInstagramLoginLimitSettings } = require('../services/settingsService');
 
 const STATUSES = ['CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE'];
 const FINAL_STATUSES = ['LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE'];
@@ -137,18 +138,70 @@ const releaseStaleInstagramLocks = async ({ owner_username, status, releaseStatu
   await InstagramAccount.update(update, { where: { owner_username, kind: 'job', status, locked_at: { [Op.lt]: new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000) } } });
 };
 
+const deviceAccountWhere = (owner_username, device_id) => ({
+  owner_username,
+  kind: 'job',
+  [Op.or]: [{ device_id }, { locked_by: device_id }],
+});
+const countDeviceInstagramActive = async ({ owner_username, device_id, transaction = null }) => InstagramAccount.count({
+  where: {
+    ...deviceAccountWhere(owner_username, device_id),
+    status: { [Op.in]: ['DANG_LOGIN','LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG'] },
+    [Op.and]: [
+      { [Op.or]: [{ device_id }, { locked_by: device_id }] },
+      { [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }] },
+    ],
+  },
+  transaction,
+});
+const getDeviceAccountSummary = async ({ owner_username, device_id }) => {
+  const rows = await InstagramAccount.findAll({
+    attributes: ['status',[sequelize.fn('COUNT',sequelize.col('id')),'count']],
+    where: deviceAccountWhere(owner_username, device_id),
+    group: ['status'],
+    raw: true,
+  });
+  const status_counts = Object.fromEntries(rows.map((row)=>[row.status,Number(row.count)||0]));
+  const total = Object.values(status_counts).reduce((sum,value)=>sum+value,0);
+  const used = await countDeviceInstagramActive({ owner_username, device_id });
+  const settings = await getInstagramLoginLimitSettings(owner_username);
+  return { device_id, total, used, limit: settings.limit, remaining: Math.max(settings.limit-used,0), full: used>=settings.limit, status_counts };
+};
+
 const getAccount = async (req,res,next) => {
   try {
-    const owner_username=ownerFromRequest(req); const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may); if(!device_id)return error(res,'Can truyen device_id',400);
+    const owner_username=ownerFromRequest(req);
+    const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may);
+    if(!device_id)return error(res,'Can truyen device_id',400);
     await releaseStaleInstagramLocks({ owner_username, status: 'DANG_LOGIN', releaseStatus: 'LOGIN_FAIL', failReason: 'Qua thoi gian lock login nhung may chua bao cao' });
-    const account=await sequelize.transaction(async(t)=>{
+    const claimResult=await sequelize.transaction(async(t)=>{
       let active=await InstagramAccount.findOne({where:{owner_username,kind:'job',status:'DANG_LOGIN',locked_by:device_id},transaction:t,lock:t.LOCK.UPDATE});
-      if(active){const count=(Number(active.login_get_count)||1)+1;if(count<=MAX_LOGIN_GET_COUNT){await active.update({login_get_count:count,locked_at:new Date()},{transaction:t});return active;}await active.update({status:'LOGIN_FAIL',login_get_count:count,locked_by:null,locked_at:null,completed_at:new Date(),fail_reason:'May get qua 3 lan chua bao cao'},{transaction:t});}
+      let auto_failed_account=null;
+      if(active){
+        const count=(Number(active.login_get_count)||1)+1;
+        if(count<=MAX_LOGIN_GET_COUNT){await active.update({login_get_count:count,locked_at:new Date()},{transaction:t});const loginLimit=await getInstagramLoginLimitSettings(owner_username);const used=await countDeviceInstagramActive({owner_username,device_id,transaction:t});return {account:active,limit:loginLimit.limit,used};}
+        await active.update({status:'LOGIN_FAIL',login_get_count:count,locked_by:null,locked_at:null,completed_at:new Date(),fail_reason:'May get qua 3 lan chua bao cao'},{transaction:t});
+        auto_failed_account={id:active.id,uid:active.uid,device_id,login_get_count:count};
+      }
+      const loginLimit=await getInstagramLoginLimitSettings(owner_username);
+      const used=await countDeviceInstagramActive({owner_username,device_id,transaction:t});
+      if(used>=loginLimit.limit)return {full:true,limit:loginLimit.limit,used,auto_failed_account};
       const nextAccount=await InstagramAccount.findOne({where:{owner_username,kind:'job',status:'CHO_LOGIN'},order:[['id','ASC']],transaction:t,lock:t.LOCK.UPDATE,skipLocked:true});
-      if(!nextAccount)return null; await nextAccount.update({status:'DANG_LOGIN',device_id,locked_by:device_id,locked_at:new Date(),login_get_count:1},{transaction:t});return nextAccount;
+      if(!nextAccount)return {account:null,limit:loginLimit.limit,used,auto_failed_account};
+      await nextAccount.update({status:'DANG_LOGIN',device_id,locked_by:device_id,locked_at:new Date(),login_get_count:1,completed_at:null,fail_reason:null},{transaction:t});
+      return {account:nextAccount,limit:loginLimit.limit,used:used+1,auto_failed_account};
     });
-    return success(res,{account:account?serialize(account):null,max_login_get_count:MAX_LOGIN_GET_COUNT,lock_timeout_min:LOCK_TIMEOUT_MIN},account?'Lay account Instagram thanh cong':'Het account Instagram cho login');
+    if(claimResult.full)return success(res,{account:null,limit:claimResult.limit,used:claimResult.used,remaining:0,full:true,auto_failed_account:claimResult.auto_failed_account||null},'Full limit');
+    return success(res,{account:claimResult.account?serialize(claimResult.account):null,limit:claimResult.limit,used:claimResult.used,remaining:Math.max((claimResult.limit||0)-(claimResult.used||0),0),full:false,auto_failed_account:claimResult.auto_failed_account||null,max_login_get_count:MAX_LOGIN_GET_COUNT,lock_timeout_min:LOCK_TIMEOUT_MIN},claimResult.account?'Lay account Instagram thanh cong':'Het account Instagram cho login');
   } catch(err){next(err);}
+};
+const checkDeviceAccountCount = async(req,res,next)=>{
+  try{
+    const owner_username=ownerFromRequest(req);
+    const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may);
+    if(!device_id)return error(res,'Can truyen device_id',400);
+    return success(res,await getDeviceAccountSummary({owner_username,device_id}),'Lay so luong account Instagram cua may thanh cong');
+  }catch(err){next(err);}
 };
 const getLoginSuccess = async(req,res,next)=>{try{const owner_username=ownerFromRequest(req);const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may);if(!device_id)return error(res,'Can truyen device_id',400);await releaseStaleInstagramLocks({owner_username,status:'DANG_LAM',releaseStatus:'LOGIN_THANH_CONG'});const account=await sequelize.transaction(async(t)=>{let row=await InstagramAccount.findOne({where:{owner_username,kind:'job',status:'DANG_LAM',locked_by:device_id},transaction:t,lock:t.LOCK.UPDATE});if(row)return row;row=await InstagramAccount.findOne({where:{owner_username,kind:'job',status:'LOGIN_THANH_CONG',device_id},order:[['login_at','ASC'],['id','ASC']],transaction:t,lock:t.LOCK.UPDATE,skipLocked:true});if(row)await row.update({status:'DANG_LAM',locked_by:device_id,locked_at:new Date()},{transaction:t});return row;});return success(res,{account:account?serialize(account):null,lock_timeout_min:LOCK_TIMEOUT_MIN},account?'Lay Instagram Job thanh cong':'Het Instagram Job');}catch(err){next(err);}};
 const report = async(req,res,next)=>{try{const owner_username=ownerFromRequest(req);const uid=nullify(req.body.uid||req.query.uid||req.body.username);const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may);if(!uid)return error(res,'Can truyen tai khoan',400);if(!device_id)return error(res,'Can truyen device_id',400);const account=await InstagramAccount.findOne({where:{owner_username,kind:'job',uid,...(device_id?{[Op.or]:[{locked_by:device_id},{device_id}]}:{})},order:[['id','DESC']]});if(!account)return error(res,'Khong tim thay Instagram',404);const status=normalizeStatus(req.body.status||req.query.status,'LOGIN_THANH_CONG');if(account.locked_by&&device_id&&account.locked_by!==device_id)return error(res,'Account dang lock boi '+account.locked_by,409);const update={status};if(device_id)update.device_id=device_id;if(status==='LOGIN_THANH_CONG'){update.login_at=new Date();update.locked_by=null;update.locked_at=null;update.login_get_count=0;}else if(status==='DANG_LAM'){update.locked_by=device_id||account.device_id;update.locked_at=new Date();}else if(FINAL_STATUSES.includes(status)){update.locked_by=null;update.locked_at=null;update.completed_at=new Date();}if(status==='ACCOUNT_DIE')update.live_status='die';await account.update(update);return success(res,{account:serialize(account)},'Bao cao Instagram thanh cong');}catch(err){next(err);}};
@@ -184,4 +237,4 @@ const listTrash=async(req,res,next)=>{try{const owner_username=ownerFromAdmin(re
 const restore=async(req,res,next)=>{try{const ids=idsFrom(req);const [restored]=await InstagramAccount.unscoped().update({trashed_at:null,status:'CHO_LOGIN',locked_by:null,locked_at:null,login_get_count:0},{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'job',trashed_at:{[Op.ne]:null}}});return success(res,{restored},'Khoi phuc Instagram thanh cong');}catch(err){next(err);}};
 const deleteTrash=async(req,res,next)=>{try{const ids=idsFrom(req);const deleted=await InstagramAccount.unscoped().destroy({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'job',trashed_at:{[Op.ne]:null}}});return success(res,{deleted},'Xoa vinh vien Instagram thanh cong');}catch(err){next(err);}};
 
-module.exports={list,importDashboard,importApi,getAccount,getLoginSuccess,report,addInstagramJobCount,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};
+module.exports={list,importDashboard,importApi,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};

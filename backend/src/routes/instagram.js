@@ -6,6 +6,8 @@ const router = express.Router();
 
 router.post('/import-api', apiKeyAuth, controller.importApi);
 router.post('/job/get-account', apiKeyAuth, controller.getAccount);
+router.all('/job/device-account-count', apiKeyAuth, controller.checkDeviceAccountCount);
+router.all('/job/check-limit', apiKeyAuth, controller.checkDeviceAccountCount);
 router.post('/job/get-login-success-account', apiKeyAuth, controller.getLoginSuccess);
 router.post('/job/report', apiKeyAuth, controller.report);
 router.post('/job/add-job', apiKeyAuth, controller.addInstagramJobCount);

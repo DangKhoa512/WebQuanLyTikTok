@@ -4,6 +4,10 @@ import { settingsApi } from '../services/api';
 import { toast } from '../components/Toast';
 import { authService } from '../services/authService';
 import FacebookNurtureSettings from '../components/FacebookNurtureSettings';
+function MachineLoginLimitCard({ isAdmin, title, description, currentLimit, users, setUsers, savingUser, onSaveUser }) {
+  if (!isAdmin) return <div className="card"><h3 style={{marginTop:0,marginBottom:'.75rem',fontSize:'1rem',color:'#e2e8f0'}}>{title}</h3><div style={{color:'#94a3b8',fontSize:'.85rem'}}>Limit hiện tại: <b style={{color:'#e2e8f0'}}>{currentLimit}</b> account/máy</div></div>;
+  return <div className="card"><h3 style={{marginTop:0,marginBottom:'.75rem',fontSize:'1rem',color:'#e2e8f0'}}>{title} theo user</h3><div style={{color:'#64748b',fontSize:'.78rem',marginBottom:'.85rem'}}>{description}</div><div style={{overflowX:'auto'}}><table className="table" style={{margin:0}}><thead><tr><th>User</th><th>Role</th><th>Trạng thái</th><th>Limit account/máy</th><th></th></tr></thead><tbody>{users.length===0?<tr><td colSpan={5} style={{textAlign:'center',color:'#94a3b8',padding:'1rem'}}>Chưa tải được danh sách user</td></tr>:users.map((user)=><tr key={user.username}><td style={{fontWeight:700}}>{user.username}</td><td>{user.role}</td><td style={{color:user.is_active?'#10b981':'#ef4444',fontWeight:700}}>{user.is_active?'Đang bật':'Đã tắt'}</td><td><input type="number" min={1} value={user.limit} onChange={(e)=>setUsers((prev)=>prev.map((item)=>item.username===user.username?{...item,limit:e.target.value}:item))} style={{width:120,boxSizing:'border-box',background:'#1e293b',color:'#e2e8f0',border:'1px solid #334155',borderRadius:8,padding:'.45rem .6rem',fontWeight:700}}/></td><td><button onClick={()=>onSaveUser(user.username)} disabled={savingUser===user.username} style={{background:savingUser===user.username?'#334155':'#ec4899',border:'none',color:'#fff',borderRadius:7,padding:'.45rem .85rem',cursor:savingUser===user.username?'not-allowed':'pointer',fontWeight:700,whiteSpace:'nowrap'}}>{savingUser===user.username?'Đang lưu...':'Lưu'}</button></td></tr>)}</tbody></table></div></div>;
+}
 
 export default function ProxySettings() {
   const init = loadCheckLiveSettings();
@@ -19,6 +23,9 @@ export default function ProxySettings() {
   const [facebookLoginLimit, setFacebookLoginLimit] = useState(10);
   const [userFacebookLoginLimits, setUserFacebookLoginLimits] = useState([]);
   const [savingFacebookLimitUser, setSavingFacebookLimitUser] = useState('');
+  const [instagramLoginLimit, setInstagramLoginLimit] = useState(10);
+  const [userInstagramLoginLimits, setUserInstagramLoginLimits] = useState([]);
+  const [savingInstagramLimitUser, setSavingInstagramLimitUser] = useState('');
   const [jobAccountDailyLimit, setJobAccountDailyLimit] = useState(20);
   const [facebookRegPageWaitHours, setFacebookRegPageWaitHours] = useState(8);
   const [userJobAccountDailyLimits, setUserJobAccountDailyLimits] = useState([]);
@@ -72,6 +79,12 @@ export default function ProxySettings() {
         setFacebookLoginLimit(settings.limit || 10);
       })
       .catch((err) => toast.error(err.message || 'Khong tai duoc limit Facebook login'));
+    settingsApi.getInstagramLoginLimit()
+      .then((res) => {
+        if (!mounted) return;
+        setInstagramLoginLimit(res.data?.settings?.limit || 10);
+      })
+      .catch((err) => toast.error(err.message || 'Không tải được limit Instagram'));
     settingsApi.getJobAccountDailyLimit()
       .then((res) => {
         if (!mounted) return;
@@ -92,6 +105,12 @@ export default function ProxySettings() {
           setUserFacebookLoginLimits(res.data?.users || []);
         })
         .catch((err) => toast.error(err.message || 'Khong tai duoc limit Facebook login user'));
+      settingsApi.getInstagramLoginLimits()
+        .then((res) => {
+          if (!mounted) return;
+          setUserInstagramLoginLimits(res.data?.users || []);
+        })
+        .catch((err) => toast.error(err.message || 'Không tải được limit Instagram theo user'));
       settingsApi.getJobAccountDailyLimits()
         .then((res) => {
           if (!mounted) return;
@@ -132,6 +151,7 @@ export default function ProxySettings() {
     setMinAgeDays(4);
     setKhangDailyLimit(8);
     setFacebookLoginLimit(10);
+    setInstagramLoginLimit(10);
     setJobAccountDailyLimit(20);
     setFacebookRegPageWaitHours(8);
     saveCheckLiveSettings({ proxies: '', concurrency: 20, delayMs: 200, batchSize: 60 });
@@ -201,6 +221,20 @@ export default function ProxySettings() {
     }
   };
 
+  const handleSaveInstagramUserLimit = async (username) => {
+    const row = userInstagramLoginLimits.find((item) => item.username === username);
+    const limit = parseInt(row?.limit, 10);
+    if (!row || !Number.isInteger(limit) || limit <= 0) return toast.error('Limit Instagram phải lớn hơn 0');
+    setSavingInstagramLimitUser(username);
+    try {
+      const res = await settingsApi.updateInstagramLoginLimit(limit, username);
+      const saved = res.data?.settings || {};
+      setUserInstagramLoginLimits((prev) => prev.map((item) => item.username === username ? { ...item, limit: saved.limit || limit } : item));
+      if (username === authService.getUsername().toLowerCase()) setInstagramLoginLimit(saved.limit || limit);
+      toast.success('Đã lưu limit Instagram cho ' + username);
+    } catch (err) { toast.error(err.message || 'Lưu limit Instagram thất bại'); }
+    finally { setSavingInstagramLimitUser(''); }
+  };
   const handleSaveOwnJobLimit = async () => {
     const limit = parseInt(jobAccountDailyLimit, 10);
     if (!Number.isInteger(limit) || limit <= 0) {
@@ -555,6 +589,17 @@ export default function ProxySettings() {
             </div>
           </div>
         )}
+
+        <MachineLoginLimitCard
+          isAdmin={isAdminUser}
+          title="📸 Limit Instagram login"
+          description="Khi máy đang giữ đủ account Instagram, API lấy account mới sẽ trả Full limit. Account die hoặc chuyển khỏi máy sẽ mở slot."
+          currentLimit={instagramLoginLimit}
+          users={userInstagramLoginLimits}
+          setUsers={setUserInstagramLoginLimits}
+          savingUser={savingInstagramLimitUser}
+          onSaveUser={handleSaveInstagramUserLimit}
+        />
 
         {isAdminUser ? (
           <div className="card">

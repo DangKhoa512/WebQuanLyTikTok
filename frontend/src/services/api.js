@@ -114,6 +114,10 @@ export const settingsApi = {
     api.put('/settings/chrome-khang-limit', { limit, owner_username }),
   getFacebookLoginLimit: () => api.get('/settings/facebook-login-limit'),
   getFacebookLoginLimits: () => api.get('/settings/facebook-login-limits'),
+  getInstagramLoginLimit: () => api.get('/settings/instagram-login-limit'),
+  getInstagramLoginLimits: () => api.get('/settings/instagram-login-limits'),
+  updateInstagramLoginLimit: (limit, owner_username = null) =>
+    api.put('/settings/instagram-login-limit', { limit, owner_username }),
   updateFacebookLoginLimit: (limit, owner_username = null) =>
     api.put('/settings/facebook-login-limit', { limit, owner_username }),
   getJobAccountDailyLimit: () => api.get('/settings/job-account-daily-limit'),

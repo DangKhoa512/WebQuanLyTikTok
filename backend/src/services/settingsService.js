@@ -4,6 +4,7 @@ const { defaultOwner, normalizeOwner } = require('../utils/owner');
 const ELIGIBILITY_KEY = 'eligibility';
 const CHROME_KHANG_LIMIT_KEY = 'chrome_khang_daily_limit';
 const FACEBOOK_LOGIN_LIMIT_KEY = 'facebook_login_machine_limit';
+const INSTAGRAM_LOGIN_LIMIT_KEY = 'instagram_login_machine_limit';
 const JOB_ACCOUNT_DAILY_LIMIT_KEY = 'job_account_daily_limit';
 const MACHINE_API_KEYS_KEY = 'machine_api_keys';
 const FACEBOOK_CHECK_PROXIES_KEY = 'facebook_check_proxies';
@@ -26,6 +27,7 @@ const DEFAULT_ELIGIBILITY = {
 };
 const DEFAULT_CHROME_KHANG_DAILY_LIMIT = parseInt(process.env.CHROME_KHANG_DAILY_LIMIT, 10) || 8;
 const DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT = parseInt(process.env.FACEBOOK_LOGIN_MACHINE_LIMIT, 10) || 10;
+const DEFAULT_INSTAGRAM_LOGIN_MACHINE_LIMIT = parseInt(process.env.INSTAGRAM_LOGIN_MACHINE_LIMIT, 10) || 10;
 const DEFAULT_JOB_ACCOUNT_DAILY_LIMIT = parseInt(process.env.JOB_ACCOUNT_DAILY_LIMIT, 10) || 20;
 const DEFAULT_FACEBOOK_CHECK_CONCURRENCY = 20;
 const DEFAULT_FACEBOOK_REG_PAGE_WAIT_HOURS = 8;
@@ -191,6 +193,18 @@ const saveFacebookLoginLimitSettings = async (owner_username = 'admin', data = {
   return normalized;
 };
 
+const getInstagramLoginLimitSettings = async (owner_username = 'admin') => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, INSTAGRAM_LOGIN_LIMIT_KEY);
+  return normalizeFacebookLoginLimit(stored || { limit: DEFAULT_INSTAGRAM_LOGIN_MACHINE_LIMIT });
+};
+
+const saveInstagramLoginLimitSettings = async (owner_username = 'admin', data = {}) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const normalized = normalizeFacebookLoginLimit(data);
+  await saveSetting(owner, INSTAGRAM_LOGIN_LIMIT_KEY, normalized);
+  return normalized;
+};
 const getJobAccountDailyLimitSettings = async (owner_username = 'admin') => {
   const owner = normalizeOwner(owner_username) || defaultOwner();
   const stored = await getSetting(owner, JOB_ACCOUNT_DAILY_LIMIT_KEY);
@@ -262,6 +276,7 @@ module.exports = {
   DEFAULT_ELIGIBILITY,
   DEFAULT_CHROME_KHANG_DAILY_LIMIT,
   DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT,
+  DEFAULT_INSTAGRAM_LOGIN_MACHINE_LIMIT,
   DEFAULT_JOB_ACCOUNT_DAILY_LIMIT,
   DEFAULT_MACHINE_API_KEYS,
   DEFAULT_FACEBOOK_NURTURE,
@@ -271,6 +286,8 @@ module.exports = {
   saveChromeKhangLimitSettings,
   getFacebookLoginLimitSettings,
   saveFacebookLoginLimitSettings,
+  getInstagramLoginLimitSettings,
+  saveInstagramLoginLimitSettings,
   getJobAccountDailyLimitSettings,
   saveJobAccountDailyLimitSettings,
   getMachineApiKeys,
