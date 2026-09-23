@@ -88,7 +88,8 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
     setChecking(true);setCheckProgress({done:0,total:targetIds.length,live:0,die:0,unknown:0});
     try{
       const result=await checkLiveInBatches('/instagram/check-live',targetIds,loadCheckLiveSettings(),setCheckProgress);
-      toast.success(`Đã check ${targetIds.length} account: ${result.live} live, ${result.die} die, ${result.unknown} unknown · ${result.proxyCount > 0 ? result.proxyCount + ' proxy' : 'mạng chính'}`);
+      const postsChecked=result.rows.filter((row)=>row.result==='live'&&row.posts!==null&&row.posts!==undefined).length;
+      toast.success(`Đã check ${targetIds.length} account: ${result.live} live, ${result.die} die, ${result.unknown} unknown · ${postsChecked}/${result.live} live có số post · ${result.proxyCount > 0 ? result.proxyCount + ' proxy' : 'mạng chính'}`);
       reset();await load();
     }catch(e){toast.error(e.message||'Check live Instagram thất bại');}
     finally{setChecking(false);setCheckProgress(null);}

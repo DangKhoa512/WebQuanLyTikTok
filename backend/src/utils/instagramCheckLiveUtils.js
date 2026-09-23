@@ -130,42 +130,44 @@ const parseProfileJson = (input) => {
 
 const parseProfileHtml = (html) => {
   if (typeof html !== 'string' || !html.trim()) return null;
-  const normalized = html.replace(/&quot;/gi, '"').replace(/\\"/g, '"').replace(/&#x27;|&#39;/gi, "'");
-  const pick = (patterns) => {
+  let normalized = html
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&#44;/gi, ',')
+    .replace(/&amp;/gi, '&')
+    .replace(/\\u0022/gi, '"')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\u003c/gi, '<')
+    .replace(/\\u003e/gi, '>')
+    .replace(/&#x27;|&#39;/gi, "'");
+  for (let index = 0; index < 2; index += 1) normalized = normalized.replace(/\\"/g, '"');
+  const pick = (patterns, text = normalized) => {
     for (const pattern of patterns) {
-      const match = normalized.match(pattern);
-      if (match) return numberOrNull(match[1]);
+      const match = text.match(pattern);
+      if (match) return numberOrNull(String(match[1]).replace(/[.,](?=\d{3}(?:\D|$))/g, ''));
     }
     return null;
   };
   const posts = pick([
-    /"edge_owner_to_timeline_media"\s*:\s*\{\s*"count"\s*:\s*(\d+)/,
-    /"edge_felix_video_timeline"\s*:\s*\{\s*"count"\s*:\s*(\d+)/,
-    /"(?:media_count|post_count|posts_count)"\s*:\s*(\d+)/,
+    /"edge_owner_to_timeline_media"\s*:\s*\{[\s\S]{0,160}?"count"\s*:\s*"?(\d+)"?/i,
+    /"edge_felix_video_timeline"\s*:\s*\{[\s\S]{0,160}?"count"\s*:\s*"?(\d+)"?/i,
+    /"(?:media_count|post_count|posts_count|postsCount)"\s*:\s*"?(\d+)"?/i,
   ]);
-  const followers = pick([/"edge_followed_by"\s*:\s*\{\s*"count"\s*:\s*(\d+)/, /"(?:follower_count|followers_count)"\s*:\s*(\d+)/]);
-  const following = pick([/"edge_follow"\s*:\s*\{\s*"count"\s*:\s*(\d+)/, /"following_count"\s*:\s*(\d+)/]);
+  const followers = pick([/"edge_followed_by"\s*:\s*\{[\s\S]{0,160}?"count"\s*:\s*"?(\d+)"?/i, /"(?:follower_count|followers_count|followersCount)"\s*:\s*"?(\d+)"?/i]);
+  const following = pick([/"edge_follow"\s*:\s*\{[\s\S]{0,160}?"count"\s*:\s*"?(\d+)"?/i, /"(?:following_count|followingCount)"\s*:\s*"?(\d+)"?/i]);
   if (posts !== null || followers !== null || following !== null) return { live: true, posts, followers, following };
-
-  const metaFollowers = normalized.match(/([\d.,]+\s*[KMB]?)\s+(?:Followers?|người theo dõi)/i);
-  const metaFollowing = normalized.match(/([\d.,]+\s*[KMB]?)\s+(?:Following|đang theo dõi)/i);
-  const metaPosts = normalized.match(/([\d.,]+\s*[KMB]?)\s+(?:Posts?|bài viết)/i);
-  if (metaFollowers || metaFollowing || metaPosts) {
-    return {
-      live: true,
-      posts: humanNumberOrNull(metaPosts?.[1]),
-      followers: humanNumberOrNull(metaFollowers?.[1]),
-      following: humanNumberOrNull(metaFollowing?.[1]),
-    };
-  }
-
+  const metaValues = [];
+  for (const match of normalized.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:description|description)["'][^>]+content="([^"]*)"/gi)) metaValues.push(match[1]);
+  for (const match of normalized.matchAll(/<meta[^>]+content="([^"]*)"[^>]+(?:property|name)=["'](?:og:description|description)["']/gi)) metaValues.push(match[1]);
+  const visibleText = [normalized, ...metaValues].join(' ');
+  const metaFollowers = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Followers?|người theo dõi)/i);
+  const metaFollowing = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Following|đang theo dõi)/i);
+  const metaPosts = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Posts?|bài viết|publications?|publicaciones|publicações)/i);
+  if (metaFollowers || metaFollowing || metaPosts) return { live: true, posts: humanNumberOrNull(metaPosts?.[1]), followers: humanNumberOrNull(metaFollowers?.[1]), following: humanNumberOrNull(metaFollowing?.[1]) };
   const lower = normalized.toLowerCase();
-  if (lower.includes("sorry, this page isn't available")
-      || lower.includes('page may have been removed')
-      || lower.includes('the link you followed may be broken')) return dieResult('profile_page_not_found');
+  if (lower.includes("sorry, this page isn't available") || lower.includes('page may have been removed') || lower.includes('the link you followed may be broken')) return dieResult('profile_page_not_found');
   return null;
 };
-
 const responseUrl = (response) => response?.request?.res?.responseUrl || response?.config?.url || '';
 const responseReason = (response, source) => {
   const status = Number(response?.status) || 0;
@@ -190,53 +192,95 @@ const mergeLiveStats = (base, extra) => ({
   verified: extra?.verified ?? base?.verified ?? false,
 });
 
-const checkInstagramProfile = async (username, proxyUrl = null, cookies = null) => {
+const fetchPublicPostStats = async (username, userId, proxyUrl) => {
+  const endpoints = [
+    { url: `https://www.instagram.com/${encodeURIComponent(username)}/?__a=1&__d=dis`, source: 'profile_json' },
+    ...(userId ? [{ url: `https://i.instagram.com/api/v1/users/${encodeURIComponent(userId)}/info/`, source: 'mobile_user_info' }] : []),
+    { url: `https://www.instagram.com/api/v1/feed/user/${encodeURIComponent(username)}/username/?count=12`, source: 'profile_feed' },
+  ];
+  for (const endpoint of endpoints) {
+    try {
+      const response = await axios.get(endpoint.url, requestConfig(username, proxyUrl, true, null));
+      const parsed = parseProfileJson(response.data);
+      if (parsed?.live === true && parsed.posts !== null) {
+        return { ...parsed, source: endpoint.source, http_status: response.status };
+      }
+      const items = Array.isArray(response.data?.items) ? response.data.items : null;
+      const moreAvailable = response.data?.more_available ?? response.data?.moreAvailable;
+      if (items && moreAvailable === false) {
+        return {
+          live: true,
+          posts: items.length,
+          followers: parsed?.followers ?? null,
+          following: parsed?.following ?? null,
+          source: endpoint.source,
+          http_status: response.status,
+        };
+      }
+    } catch (_) {}
+  }
+  return null;
+};
+const fetchProfileHtml = async (username, proxyUrl) => {
+  const endpoints = [
+    { url: `https://www.instagram.com/${encodeURIComponent(username)}/?hl=en`, source: 'profile_html', definitiveDie: true },
+    { url: `https://www.instagram.com/${encodeURIComponent(username)}/embed/?hl=en`, source: 'profile_embed_html', definitiveDie: false },
+  ];
+  let partial = null;
+  let last = unknownResult('profile_html_unavailable');
+  for (const endpoint of endpoints) {
+    try {
+      const response = await axios.get(endpoint.url, requestConfig(username, proxyUrl, false, null));
+      const parsed = parseProfileHtml(response.data);
+      if (parsed?.live === false && endpoint.definitiveDie) return { ...parsed, source: endpoint.source, http_status: response.status };
+      if (parsed?.live === true) {
+        partial = { ...mergeLiveStats(partial, parsed), source: endpoint.source, http_status: response.status };
+        if (partial.posts !== null) return partial;
+      } else last = unknownResult(responseReason(response, endpoint.source), { source: endpoint.source, http_status: response.status });
+    } catch (err) {
+      last = unknownResult(`${endpoint.source}_${err.code || 'request_failed'}`, { source: endpoint.source });
+    }
+  }
+  return partial || last;
+};
+
+const checkInstagramProfile = async (username, proxyUrl = null) => {
   const safeUsername = String(username || '').trim().replace(/^@/, '');
   if (!safeUsername) return unknownResult('missing_username');
   await sleep(jitter(50, 0.8));
   let partial = null;
   let lastReason = 'no_profile_data';
   let lastStatus = null;
-
+  const htmlProfile = await fetchProfileHtml(safeUsername, proxyUrl);
+  if (htmlProfile?.live === false) return htmlProfile;
+  if (htmlProfile?.live === true) {
+    partial = htmlProfile;
+    if (partial.posts !== null) return partial;
+  } else {
+    lastReason = htmlProfile?.reason || lastReason;
+    lastStatus = htmlProfile?.http_status ?? lastStatus;
+  }
   try {
     const endpoint = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(safeUsername)}`;
-    const response = await axios.get(endpoint, requestConfig(safeUsername, proxyUrl, true, cookies));
+    const response = await axios.get(endpoint, requestConfig(safeUsername, proxyUrl, true, null));
     lastStatus = response.status;
     const parsed = parseProfileJson(response.data);
-    if (parsed?.live === false) return { ...parsed, source: 'web_profile_info', http_status: response.status };
+    if (parsed?.live === false && !partial) return { ...parsed, source: 'web_profile_info', http_status: response.status };
     if (parsed?.live === true) {
-      partial = { ...parsed, source: 'web_profile_info', http_status: response.status };
+      partial = { ...mergeLiveStats(partial, parsed), source: 'web_profile_info', http_status: response.status };
       if (partial.posts !== null) return partial;
-      if (partial.user_id) {
-        try {
-          const infoResponse = await axios.get(`https://www.instagram.com/api/v1/users/${encodeURIComponent(partial.user_id)}/info/`, requestConfig(safeUsername, proxyUrl, true, cookies));
-          const infoParsed = parseProfileJson(infoResponse.data);
-          if (infoParsed?.live === true) {
-            partial = { ...mergeLiveStats(partial, infoParsed), source: 'user_info', http_status: infoResponse.status };
-            if (partial.posts !== null) return partial;
-          }
-        } catch (_) {}
+      const publicStats = await fetchPublicPostStats(safeUsername, partial.user_id, proxyUrl);
+      if (publicStats?.live === true) {
+        partial = { ...mergeLiveStats(partial, publicStats), source: publicStats.source, http_status: publicStats.http_status };
+        if (partial.posts !== null) return partial;
       }
     } else lastReason = responseReason(response, 'web_profile_info');
   } catch (err) {
     lastReason = `web_profile_info_${err.code || 'request_failed'}`;
   }
-
-  try {
-    const response = await axios.get(`https://www.instagram.com/${encodeURIComponent(safeUsername)}/`, requestConfig(safeUsername, proxyUrl, false, cookies));
-    lastStatus = response.status;
-    const parsed = parseProfileHtml(response.data);
-    if (parsed?.live === false) return { ...parsed, source: 'profile_html', http_status: response.status };
-    if (parsed?.live === true) return { ...mergeLiveStats(partial, parsed), source: 'profile_html', http_status: response.status };
-    lastReason = responseReason(response, 'profile_html');
-  } catch (err) {
-    lastReason = `profile_html_${err.code || 'request_failed'}`;
-  }
-
   if (partial?.live === true) return { ...partial, reason: 'post_count_unavailable' };
   return unknownResult(lastReason, { source: 'instagram', http_status: lastStatus });
 };
-
 const maskProxy = (proxyUrl) => proxyUrl
   ? proxyUrl.replace(/\/\/([^:@]+):([^@]+)@/, '//$1:***@')
   : 'direct';
