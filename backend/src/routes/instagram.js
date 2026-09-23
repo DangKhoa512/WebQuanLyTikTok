@@ -5,6 +5,7 @@ const apiKeyAuth = require('../middleware/apiKeyAuth');
 const router = express.Router();
 
 router.post('/import-api', apiKeyAuth, controller.importApi);
+router.post('/reg/report', apiKeyAuth, controller.reportRegOnly);
 router.post('/job/get-account', apiKeyAuth, controller.getAccount);
 router.all('/job/device-account-count', apiKeyAuth, controller.checkDeviceAccountCount);
 router.all('/job/check-limit', apiKeyAuth, controller.checkDeviceAccountCount);

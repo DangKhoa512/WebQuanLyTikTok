@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const controller = require('../controllers/facebookController');
 const jwtAuth = require('../middleware/jwtAuth');
 const apiKeyAuth = require('../middleware/apiKeyAuth');
@@ -6,6 +6,7 @@ const apiKeyAuth = require('../middleware/apiKeyAuth');
 const router = express.Router();
 
 router.post('/import-api', apiKeyAuth, controller.importFromApi);
+router.post('/reg/report', apiKeyAuth, controller.reportRegOnly);
 router.post('/job/get-account', apiKeyAuth, controller.getJobForPhone);
 router.post('/job/get-login-success-account', apiKeyAuth, controller.getLoginSuccessJobForPhone);
 router.post('/job/report', apiKeyAuth, controller.report);

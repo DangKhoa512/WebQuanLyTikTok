@@ -423,7 +423,7 @@ const syncRegAccountToJob = async (regAccount) => {
   return { created: false, account: jobAccount };
 };
 
-const importFacebookAccounts = async ({ text, owner_username, kind = 'job', status = 'CHO_LOGIN', groupId = null, device_id = null }) => {
+const importFacebookAccounts = async ({ text, owner_username, kind = 'job', status = 'CHO_LOGIN', groupId = null, device_id = null, syncToJob = true }) => {
   const lines = splitLines(text);
   const result = { total: lines.length, created: 0, updated: 0, duplicated: 0, invalid: 0, job_created: 0, job_updated: 0 };
 
@@ -479,7 +479,7 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
       await account.update(duplicateUpdate);
     }
 
-    if (kind === 'reg' && status === 'LOGIN_THANH_CONG') {
+    if (syncToJob && kind === 'reg' && status === 'LOGIN_THANH_CONG') {
       const jobSync = await syncRegAccountToJob(account);
       if (jobSync.created) result.job_created += 1;
       else result.job_updated += 1;
@@ -704,6 +704,37 @@ const importFromApi = async (req, res, next) => {
   }
 };
 
+const reportRegOnly = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const status = normalizeStatus(req.body.status || req.query.status, 'LOGIN_THANH_CONG');
+    const text = req.body.text || req.body.accounts || req.body.data || req.body.account || '';
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
+    const groupId = await resolveGroupId({
+      group_id: req.body.group_id || req.query.group_id,
+      group_name: req.body.group_name || req.query.group_name,
+      owner_username,
+      kind: 'reg',
+    });
+    const result = await importFacebookAccounts({
+      text,
+      owner_username,
+      kind: 'reg',
+      status,
+      groupId,
+      device_id,
+      syncToJob: false,
+    });
+    return success(res, {
+      ...result,
+      reported: result.total - result.invalid,
+      kept_in_reg: result.total - result.invalid,
+      synced_to_job: 0,
+    }, `Da bao cao ${result.total - result.invalid}/${result.total} account Facebook Reg, khong chuyen sang Job`);
+  } catch (err) {
+    next(err);
+  }
+};
 const releaseStaleFacebookLocks = async ({ owner_username, groupId, status, releaseStatus, failReason = null }) => {
   const staleWhere = {
     owner_username,
@@ -2358,6 +2389,7 @@ module.exports = {
   list,
   importFromDashboard,
   importFromApi,
+  reportRegOnly,
   getJobForPhone,
   getLoginSuccessJobForPhone,
   report,
