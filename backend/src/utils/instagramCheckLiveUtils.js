@@ -165,7 +165,13 @@ const parseProfileHtml = (html) => {
   const metaPosts = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Posts?|bài viết|publications?|publicaciones|publicações)/i);
   if (metaFollowers || metaFollowing || metaPosts) return { live: true, posts: humanNumberOrNull(metaPosts?.[1]), followers: humanNumberOrNull(metaFollowers?.[1]), following: humanNumberOrNull(metaFollowing?.[1]) };
   const lower = normalized.toLowerCase();
-  if (lower.includes("sorry, this page isn't available") || lower.includes('page may have been removed') || lower.includes('the link you followed may be broken')) return dieResult('profile_page_not_found');
+  if (lower.includes("sorry, this page isn't available")
+      || lower.includes("this profile isn't available")
+      || lower.includes("profile isn't available")
+      || lower.includes("this account isn't available")
+      || lower.includes('page may have been removed')
+      || lower.includes('account may have been removed')
+      || lower.includes('the link you followed may be broken')) return dieResult('profile_page_not_found');
   return null;
 };
 const responseUrl = (response) => response?.request?.res?.responseUrl || response?.config?.url || '';
