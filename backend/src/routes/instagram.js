@@ -14,6 +14,7 @@ router.post('/job/add-job', apiKeyAuth, controller.addInstagramJobCount);
 router.get('/trash', jwtAuth, controller.listTrash);
 router.post('/trash/restore', jwtAuth, controller.restore);
 router.post('/trash/delete', jwtAuth, controller.deleteTrash);
+router.post('/check-live', jwtAuth, controller.checkLive);
 router.get('/', jwtAuth, controller.list);
 router.post('/import', jwtAuth, controller.importDashboard);
 router.post('/bulk-get', jwtAuth, controller.bulkGet);

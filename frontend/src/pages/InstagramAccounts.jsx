@@ -4,6 +4,8 @@ import Pagination from '../components/Pagination';
 import AccountGroupPicker from '../components/AccountGroupPicker';
 import { toast } from '../components/Toast';
 import { copyText } from '../services/clipboard';
+import { loadCheckLiveSettings } from '../services/checkLiveSettings';
+import { checkLiveInBatches } from '../services/checkLiveRunner';
 
 const TABS = [
   { value: '', icon: '📋', label: 'Tất cả', color: '#64748b' },
@@ -35,6 +37,7 @@ const STATUS_COLOR = {
 const LIVE_COLOR = { live: '#10b981', die: '#ef4444', unknown: '#94a3b8' };
 const fmt = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '-';
 const short = (value, n = 25) => value ? (String(value).length > n ? String(value).slice(0, n) + '...' : String(value)) : '-';
+const fmtNumber = (value) => value == null ? '-' : Number(value).toLocaleString('vi-VN');
 const groupType = (kind) => kind === 'reg' ? 'instagram_reg' : 'instagram_job';
 
 function ImportInstagram({ kind, groups, onClose, onDone, onGroupsChanged }) {
@@ -68,6 +71,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
   const [rows,setRows]=useState([]),[pagination,setPagination]=useState(null),[counts,setCounts]=useState({}),[machines,setMachines]=useState([]),[groups,setGroups]=useState([]);
   const [page,setPage]=useState(1),[limit,setLimit]=useState(50),[status,setStatus]=useState(''),[q,setQ]=useState(''),[groupId,setGroupId]=useState(''),[device,setDevice]=useState(''),[dateFrom,setDateFrom]=useState(''),[dateTo,setDateTo]=useState(''),[liveStatus,setLiveStatus]=useState('');
   const [sort,setSort]=useState({field:null,direction:'asc'}),[selected,setSelected]=useState(new Set()),[loading,setLoading]=useState(false),[importing,setImporting]=useState(false);
+  const [checking,setChecking]=useState(false),[checkProgress,setCheckProgress]=useState(null);
   const [trash,setTrash]=useState(false),[trashCount,setTrashCount]=useState(0),[machineView,setMachineView]=useState(false);
   const [bulkStatus,setBulkStatus]=useState(''),[bulkGroup,setBulkGroup]=useState('');
   const params=useMemo(()=>({kind,page,limit,status,q,group_id:groupId,device_id:device||undefined,live_status:liveStatus||undefined,date_from:dateFrom||undefined,date_to:dateTo||undefined,sort_by:sort.field||undefined,sort_order:sort.direction}),[kind,page,limit,status,q,groupId,device,dateFrom,dateTo,liveStatus,sort]);
@@ -78,6 +82,18 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
   const reset=()=>setSelected(new Set());
   const toggleAll=()=>setSelected((s)=>{const n=new Set(s);rows.forEach((r)=>all?n.delete(r.id):n.add(r.id));return n;});
   const action=async(fn,confirmText)=>{if(!ids.length)return toast.warn('Chọn account trước');if(confirmText&&!confirm(confirmText))return;try{const r=await fn();toast.success(r.message);reset();load();}catch(e){toast.error(e.message);}};
+  const handleCheckLive=async()=>{
+    const targetIds=ids.length?ids:rows.map((row)=>row.id);
+    if(!targetIds.length)return toast.warn('Không có account Instagram để kiểm tra');
+    setChecking(true);setCheckProgress({done:0,total:targetIds.length,live:0,die:0,unknown:0});
+    try{
+      const result=await checkLiveInBatches('/instagram/check-live',targetIds,loadCheckLiveSettings(),setCheckProgress);
+      toast.success(`Đã check ${targetIds.length} account: ${result.live} live, ${result.die} die, ${result.unknown} unknown`);
+      reset();await load();
+    }catch(e){toast.error(e.message||'Check live Instagram thất bại');}
+    finally{setChecking(false);setCheckProgress(null);}
+  };
+  const sortHeader=(field,label)=><th><button type="button" className={'ig-sort-th'+(sort.field===field?' active':'')} onClick={()=>setSort((current)=>({field,direction:current.field===field&&current.direction==='asc'?'desc':'asc'}))}><span>{label}</span><span>{sort.field===field?(sort.direction==='asc'?'▲':'▼'):'↕'}</span></button></th>;
   const switchTrash=()=>{setTrash((v)=>!v);setPage(1);setMachineView(false);reset();};
   const setFilter=(setter,value)=>{setter(value);setPage(1);reset();};
   const statusColor=(value)=>value==='LOGIN_THANH_CONG'||value==='DA_CHAY_XONG'?'#059669':value==='LOGIN_FAIL'||value==='ACCOUNT_DIE'?'#dc2626':'#7c3aed';
@@ -160,6 +176,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
         <div style={{background:'#0f172a',borderRadius:12,padding:'.75rem 1.25rem',marginBottom:'1rem',boxShadow:'0 4px 16px rgba(0,0,0,.3)',border:'1px solid rgba(255,255,255,.07)',display:'flex',alignItems:'center',gap:'.75rem',flexWrap:'wrap'}}>
           <div style={{display:'flex',alignItems:'center',gap:'.5rem',fontSize:'.85rem',color:'#cbd5e1'}}><span>Instagram</span><span style={{color:'#f9a8d4',fontWeight:800}}>session</span><span style={{color:'#93c5fd',fontWeight:800}}>account</span></div>
           <div style={{flex:1}} />
+          {!trash && <button className="btn btn-sm" style={{background:'#0ea5e9',color:'#fff'}} disabled={checking||loading||!rows.length} onClick={handleCheckLive}>{checking?`Đang check ${checkProgress?.done||0}/${checkProgress?.total||0}`:(ids.length?'Check live đã chọn':'Check live trang này')}</button>}
           {ids.length>0 && <span style={{background:'#ec4899',borderRadius:20,color:'#fff',padding:'.25rem .75rem',fontWeight:800,fontSize:'.82rem'}}>{ids.length} đã chọn</span>}
           {!trash && ids.length>0 && <>
             {isReg && <button className="btn btn-sm" style={{background:'#8b5cf6',color:'#fff'}} onClick={()=>action(()=>instagramApi.bulkSyncToJob(ids),'Chuyển sang Instagram Job?')}>Chuyển sang Instagram Job</button>}
@@ -174,8 +191,8 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
 
         <div className="card" style={{padding:0,overflow:'hidden'}}>
           <div className="card-header"><h3>{trash ? 'Thùng rác Instagram Job' : 'Danh sách account'}</h3><span style={{color:'#64748b',fontSize:'.8rem'}}>{pagination?.total || 0} account {loading ? '- đang tải...' : ''}</span></div>
-          <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th style={{width:40}}><input type="checkbox" checked={all} onChange={toggleAll}/></th><th>STT</th><th>TÀI KHOẢN</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>NHÓM</th><th><button type="button" className={'ig-sort-th' + (sort.field==='device_id'?' active':'')} onClick={()=>setSort((s)=>({field:'device_id',direction:s.field==='device_id'&&s.direction==='asc'?'desc':'asc'}))}><span>MÁY</span><span>{sort.field==='device_id'?(sort.direction==='asc'?'▲':'▼'):'↕'}</span></button></th><th>TRẠNG THÁI</th><th>LIVE</th><th>LOCK</th><th>LOGIN AT</th><th>{trash ? 'NGÀY XÓA' : 'NGÀY XONG'}</th></tr></thead><tbody>
-            {!rows.length ? <tr><td colSpan={13} style={{textAlign:'center',color:'#94a3b8',padding:36}}>{trash ? 'Thùng rác đang trống' : 'Chưa có account Instagram'}</td></tr> : rows.map((r,i)=>{const sc=STATUS_COLOR[r.status]||{bg:'rgba(100,116,139,.1)',color:'#64748b'};return <tr key={r.id} className={'ig-row' + (selected.has(r.id)?' row-selected':'')}><td><input type="checkbox" checked={selected.has(r.id)} onChange={()=>setSelected((s)=>{const n=new Set(s);n.has(r.id)?n.delete(r.id):n.add(r.id);return n;})}/></td><td style={{color:'#94a3b8'}}>{(page-1)*limit+i+1}</td><td><strong>{r.uid}</strong></td><td>{short(r.password,18)}</td><td>{short(r.two_fa,18)}</td><td title={r.cookies||''}>{short(r.cookies,26)}</td><td>{groups.find((g)=>String(g.id)===String(r.group_id))?.name||'-'}</td><td>{r.device_id||'-'}</td><td><span style={{background:sc.bg,color:sc.color,borderRadius:6,padding:'.2rem .5rem',fontSize:'.72rem',fontWeight:800,whiteSpace:'nowrap'}}>{STATUS_META[r.status]?.label||r.status||'-'}</span></td><td style={{color:LIVE_COLOR[r.live_status]||'#94a3b8',fontWeight:700}}>{r.live_status||'unknown'}</td><td>{r.locked_by?r.locked_by+' - '+fmt(r.locked_at):'-'}</td><td>{fmt(r.login_at)}</td><td>{fmt(trash?r.trashed_at:r.completed_at)}</td></tr>;})}
+          <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th style={{width:40}}><input type="checkbox" checked={all} onChange={toggleAll}/></th><th>STT</th><th>TÀI KHOẢN</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>NHÓM</th><th><button type="button" className={'ig-sort-th' + (sort.field==='device_id'?' active':'')} onClick={()=>setSort((s)=>({field:'device_id',direction:s.field==='device_id'&&s.direction==='asc'?'desc':'asc'}))}><span>MÁY</span><span>{sort.field==='device_id'?(sort.direction==='asc'?'▲':'▼'):'↕'}</span></button></th><th>TRẠNG THÁI</th><th>LIVE</th>{sortHeader('post_count','POST')}{sortHeader('followers','FOLLOWERS')}{sortHeader('following','FOLLOWING')}{sortHeader('last_live_check_at','CHECK CUỐI')}<th>LOCK</th><th>LOGIN AT</th><th>{trash ? 'NGÀY XÓA' : 'NGÀY XONG'}</th></tr></thead><tbody>
+            {!rows.length ? <tr><td colSpan={17} style={{textAlign:'center',color:'#94a3b8',padding:36}}>{trash ? 'Thùng rác đang trống' : 'Chưa có account Instagram'}</td></tr> : rows.map((r,i)=>{const sc=STATUS_COLOR[r.status]||{bg:'rgba(100,116,139,.1)',color:'#64748b'};return <tr key={r.id} className={'ig-row' + (selected.has(r.id)?' row-selected':'')}><td><input type="checkbox" checked={selected.has(r.id)} onChange={()=>setSelected((s)=>{const n=new Set(s);n.has(r.id)?n.delete(r.id):n.add(r.id);return n;})}/></td><td style={{color:'#94a3b8'}}>{(page-1)*limit+i+1}</td><td><strong>{r.uid}</strong></td><td>{short(r.password,18)}</td><td>{short(r.two_fa,18)}</td><td title={r.cookies||''}>{short(r.cookies,26)}</td><td>{groups.find((g)=>String(g.id)===String(r.group_id))?.name||'-'}</td><td>{r.device_id||'-'}</td><td><span style={{background:sc.bg,color:sc.color,borderRadius:6,padding:'.2rem .5rem',fontSize:'.72rem',fontWeight:800,whiteSpace:'nowrap'}}>{STATUS_META[r.status]?.label||r.status||'-'}</span></td><td style={{color:LIVE_COLOR[r.live_status]||'#94a3b8',fontWeight:700}}>{r.live_status||'unknown'}</td><td style={{color:'#db2777',fontWeight:750}}>{fmtNumber(r.post_count)}</td><td style={{color:'#2563eb',fontWeight:750}}>{fmtNumber(r.followers)}</td><td style={{color:'#7c3aed',fontWeight:750}}>{fmtNumber(r.following)}</td><td style={{color:'#64748b',whiteSpace:'nowrap'}}>{fmt(r.last_live_check_at)}</td><td>{r.locked_by?r.locked_by+' - '+fmt(r.locked_at):'-'}</td><td>{fmt(r.login_at)}</td><td>{fmt(trash?r.trashed_at:r.completed_at)}</td></tr>;})}
           </tbody></table></div>
         </div>
         <Pagination pagination={pagination} onPageChange={(p)=>{setPage(p);reset();}} />

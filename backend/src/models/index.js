@@ -20,5 +20,6 @@ const FacebookJobDailyStat = require('./FacebookJobDailyStat');
 const FacebookRegPageReport = require('./FacebookRegPageReport');
 const FacebookNurtureAssignment = require('./FacebookNurtureAssignment');
 const FacebookNurtureLog = require('./FacebookNurtureLog');
+const PlatformMachineDailyStat = require('./PlatformMachineDailyStat');
 
-module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, InstagramAccount, InstagramJobDailyStat, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat, FacebookRegPageReport, FacebookNurtureAssignment, FacebookNurtureLog };
+module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, InstagramAccount, InstagramJobDailyStat, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat, FacebookRegPageReport, FacebookNurtureAssignment, FacebookNurtureLog, PlatformMachineDailyStat };

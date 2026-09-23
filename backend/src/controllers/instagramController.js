@@ -5,7 +5,8 @@ const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs } = require('../services/instagramJobStatService');
-const { getInstagramLoginLimitSettings } = require('../services/settingsService');
+const { getInstagramLoginLimitSettings, getFacebookCheckProxySettings } = require('../services/settingsService');
+const { batchCheckInstagram } = require('../utils/instagramCheckLiveUtils');
 
 const STATUSES = ['CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE'];
 const FINAL_STATUSES = ['LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE'];
@@ -108,7 +109,7 @@ const list = async (req, res, next) => {
     }
     const countWhere = { ...where };
     if (status) where.status = status;
-    const sortBy = ['device_id','updated_at','created_at'].includes(req.query.sort_by) ? req.query.sort_by : null;
+    const sortBy = ['device_id','updated_at','created_at','post_count','followers','following','last_live_check_at'].includes(req.query.sort_by) ? req.query.sort_by : null;
     const direction = String(req.query.sort_order).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     let order = [['updated_at','DESC'],['id','DESC']];
     if (sortBy === 'device_id') order = [[sequelize.literal("CASE WHEN device_id IS NULL OR device_id='' THEN 1 ELSE 0 END"),'ASC'],[sequelize.fn('CHAR_LENGTH',sequelize.col('device_id')),direction],['device_id',direction],['id','DESC']];
@@ -227,6 +228,41 @@ const addInstagramJobCount = async (req,res,next) => {
   } catch(err){next(err);}
 };
 const idsFrom = (req) => Array.isArray(req.body.ids)?[...new Set(req.body.ids.map(Number).filter((id)=>id>0))]:[];
+const checkLive = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map((id) => parseInt(id, 10)).filter(Boolean) : [];
+    const where = { owner_username };
+    if (ids.length) where.id = { [Op.in]: ids };
+    const kind = normalizeKind(req.body.kind || req.query.kind, '');
+    if (kind) where.kind = kind;
+    const accounts = await InstagramAccount.findAll({
+      where,
+      order: [['id', 'ASC']],
+      limit: ids.length ? undefined : 500,
+    });
+
+    const savedSettings = await getFacebookCheckProxySettings(owner_username);
+    const requestProxies = Array.isArray(req.body.proxies) ? req.body.proxies.map((item) => String(item || '').trim()).filter(Boolean) : [];
+    const proxies = requestProxies.length ? requestProxies : (savedSettings.proxies || []);
+    const concurrency = Math.min(Math.max(parseInt(req.body.concurrency, 10) || savedSettings.concurrency || 20, 1), 40);
+    const delayMs = Math.min(Math.max(parseInt(req.body.delay_ms, 10) || 0, 0), 10_000);
+    const checked = await batchCheckInstagram(accounts, proxies, concurrency, delayMs);
+    const live = checked.results.filter((row) => row.result === 'live').length;
+    const die = checked.results.filter((row) => row.result === 'die').length;
+    const unknown = checked.results.length - live - die;
+    return success(res, {
+      live,
+      die,
+      unknown,
+      concurrency: checked.concurrency,
+      proxy_count: checked.proxy_count,
+      results: checked.results,
+    }, 'Check live Instagram thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
 const bulkGet=async(req,res,next)=>{try{const ids=idsFrom(req);if(!ids.length)return error(res,'Can truyen ids',400);const rows=await InstagramAccount.unscoped().findAll({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req)},order:[['id','ASC']]});return success(res,{text:rows.map(format).join('\n'),count:rows.length},'Lay account Instagram thanh cong');}catch(err){next(err);}};
 const bulkSync=async(req,res,next)=>{try{const ids=idsFrom(req);const rows=await InstagramAccount.findAll({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'reg'}});let created=0,updated=0;for(const row of rows){const result=await syncRegToJob(row);if(result.created)created++;else updated++;}return success(res,{created,updated,skipped:ids.length-rows.length},'Chuyen Instagram sang Job thanh cong');}catch(err){next(err);}};
 const bulkMove=async(req,res,next)=>{try{const ids=idsFrom(req);const kind=normalizeKind(req.body.kind);const group=await AccountGroup.findOne({where:{id:Number(req.body.group_id),owner_username:ownerFromAdmin(req),account_type:groupType(kind)}});if(!group)return error(res,'Nhom Instagram khong hop le',404);const [affected]=await InstagramAccount.update({group_id:group.id},{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req)}});return success(res,{affected,group},'Da chuyen nhom Instagram');}catch(err){next(err);}};
@@ -237,4 +273,4 @@ const listTrash=async(req,res,next)=>{try{const owner_username=ownerFromAdmin(re
 const restore=async(req,res,next)=>{try{const ids=idsFrom(req);const [restored]=await InstagramAccount.unscoped().update({trashed_at:null,status:'CHO_LOGIN',locked_by:null,locked_at:null,login_get_count:0},{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'job',trashed_at:{[Op.ne]:null}}});return success(res,{restored},'Khoi phuc Instagram thanh cong');}catch(err){next(err);}};
 const deleteTrash=async(req,res,next)=>{try{const ids=idsFrom(req);const deleted=await InstagramAccount.unscoped().destroy({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'job',trashed_at:{[Op.ne]:null}}});return success(res,{deleted},'Xoa vinh vien Instagram thanh cong');}catch(err){next(err);}};
 
-module.exports={list,importDashboard,importApi,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};
+module.exports={list,importDashboard,importApi,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,checkLive,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};

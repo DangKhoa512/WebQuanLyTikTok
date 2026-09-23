@@ -186,6 +186,29 @@ const startServer = async () => {
     }
     try {
       await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS platform_machine_daily_stats (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL,
+          platform ENUM('facebook','instagram') NOT NULL,
+          device_id VARCHAR(255) NOT NULL,
+          stat_date DATE NOT NULL,
+          live_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+          die_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+          report_count INT UNSIGNED NOT NULL DEFAULT 0,
+          last_reported_at DATETIME NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_platform_machine_daily (owner_username, platform, device_id, stat_date),
+          KEY idx_platform_machine_range (owner_username, platform, stat_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      logger.info('platform_machine_daily_stats table ready');
+    } catch (e) {
+      logger.warn('Migration platform_machine_daily_stats table skipped:', e.message);
+    }
+    try {
+      await sequelize.query(`
         CREATE TABLE IF NOT EXISTS machine_api_configs (
           id INT UNSIGNED NOT NULL AUTO_INCREMENT,
           owner_username VARCHAR(100) NOT NULL DEFAULT 'admin',
@@ -231,6 +254,20 @@ const startServer = async () => {
       ['ALTER TABLE facebook_accounts ADD COLUMN nurture_scenario_id VARCHAR(100) NULL', 'facebook_accounts nurture_scenario_id column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN last_nurture_at DATETIME NULL', 'facebook_accounts last_nurture_at column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN nurture_count INT UNSIGNED NOT NULL DEFAULT 0', 'facebook_accounts nurture_count column added'],
+    ]) {
+      try {
+        await sequelize.query(sql);
+        logger.info(label);
+      } catch (e) {
+        logger.warn('Migration ' + label + ' skipped:', e.message);
+      }
+    }
+    for (const [sql, label] of [
+      ['ALTER TABLE instagram_accounts ADD COLUMN post_count INT UNSIGNED NULL', 'instagram_accounts post_count column added'],
+      ['ALTER TABLE instagram_accounts ADD COLUMN followers INT UNSIGNED NULL', 'instagram_accounts followers column added'],
+      ['ALTER TABLE instagram_accounts ADD COLUMN following INT UNSIGNED NULL', 'instagram_accounts following column added'],
+      ['ALTER TABLE instagram_accounts ADD COLUMN last_live_check_at DATETIME NULL', 'instagram_accounts last_live_check_at column added'],
+      ['ALTER TABLE instagram_accounts ADD INDEX idx_instagram_live_status (owner_username, kind, live_status)', 'instagram_accounts live status index ready'],
     ]) {
       try {
         await sequelize.query(sql);

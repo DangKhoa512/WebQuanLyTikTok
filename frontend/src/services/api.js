@@ -211,6 +211,9 @@ export const instagramApi = {
   restoreTrash: (ids) => api.post('/instagram/trash/restore', { ids }),
   deleteTrash: (ids) => api.post('/instagram/trash/delete', { ids }),
 };
+export const machineStatusApi = {
+  getStats: (params = {}) => api.get('/machine-status/stats', { params }),
+};
 export const accountGroupApi = {
   getAll: (account_type, job_type = null) => api.get('/account-groups', { params: { account_type, job_type } }),
   create: (account_type, name, note = '', job_type = null) => api.post('/account-groups', { account_type, name, note, job_type }),
