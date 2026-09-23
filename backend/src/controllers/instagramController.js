@@ -269,7 +269,9 @@ const checkLive = async (req, res, next) => {
 
     const savedSettings = await getFacebookCheckProxySettings(owner_username);
     const requestProxies = Array.isArray(req.body.proxies) ? req.body.proxies.map((item) => String(item || '').trim()).filter(Boolean) : [];
-    const proxies = requestProxies.length ? requestProxies : (savedSettings.proxies || []);
+    const savedProxies = Array.isArray(savedSettings.proxies) ? savedSettings.proxies : [];
+    const proxies = savedProxies.length ? savedProxies : requestProxies;
+    const proxySource = savedProxies.length ? 'settings' : requestProxies.length ? 'request' : 'direct';
     const concurrency = Math.min(Math.max(parseInt(req.body.concurrency, 10) || savedSettings.concurrency || 20, 1), 40);
     const delayMs = Math.min(Math.max(parseInt(req.body.delay_ms, 10) || 0, 0), 10_000);
     const checked = await batchCheckInstagram(accounts, proxies, concurrency, delayMs);
@@ -282,6 +284,10 @@ const checkLive = async (req, res, next) => {
       unknown,
       concurrency: checked.concurrency,
       proxy_count: checked.proxy_count,
+      proxy_configured_count: checked.proxy_configured_count,
+      invalid_proxy_count: checked.invalid_proxy_count,
+      proxy_source: proxySource,
+      proxy_used: checked.proxy_count > 0,
       results: checked.results,
     }, 'Check live Instagram thanh cong');
   } catch (err) {
