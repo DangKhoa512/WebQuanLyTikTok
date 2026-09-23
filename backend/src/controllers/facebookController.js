@@ -370,7 +370,7 @@ const resolveJobGroupIdForRequest = async (req, owner_username) => {
   return null;
 };
 
-const syncRegAccountToJob = async (regAccount) => {
+const syncRegAccountToJob = async (regAccount, { toWaitingLogin = false } = {}) => {
   const source = hydrateFacebookData(regAccount);
   const now = new Date();
   const defaults = {
@@ -391,10 +391,10 @@ const syncRegAccountToJob = async (regAccount) => {
     page_token_error: source.page_token_error,
     owner_username: source.owner_username,
     kind: 'job',
-    device_id: source.device_id,
-    status: 'LOGIN_THANH_CONG',
+    device_id: toWaitingLogin ? null : source.device_id,
+    status: toWaitingLogin ? 'CHO_LOGIN' : 'LOGIN_THANH_CONG',
     live_status: source.live_status || 'unknown',
-    login_at: now,
+    login_at: toWaitingLogin ? null : now,
     note: 'Tu dong dong bo tu Facebook Reg',
   };
 
@@ -411,7 +411,19 @@ const syncRegAccountToJob = async (regAccount) => {
   if (source.last_page_check_at) update.page_count = defaults.page_count;
 
   const preserveWorkflow = ['DANG_LOGIN', 'DANG_LAM', 'DA_CHAY_XONG'].includes(jobAccount.status);
-  if (!preserveWorkflow) {
+  if (toWaitingLogin) {
+    Object.assign(update, {
+      status: 'CHO_LOGIN',
+      device_id: null,
+      locked_by: null,
+      locked_at: null,
+      login_get_count: 0,
+      completed_at: null,
+      login_at: null,
+      fail_reason: null,
+      trashed_at: null,
+    });
+  } else if (!preserveWorkflow) {
     update.status = 'LOGIN_THANH_CONG';
     update.device_id = source.device_id;
     update.locked_by = null;
@@ -423,7 +435,7 @@ const syncRegAccountToJob = async (regAccount) => {
   return { created: false, account: jobAccount };
 };
 
-const importFacebookAccounts = async ({ text, owner_username, kind = 'job', status = 'CHO_LOGIN', groupId = null, device_id = null, syncToJob = true }) => {
+const importFacebookAccounts = async ({ text, owner_username, kind = 'job', status = 'CHO_LOGIN', groupId = null, device_id = null, syncToJob = true, jobSyncMode = 'login_success' }) => {
   const lines = splitLines(text);
   const result = { total: lines.length, created: 0, updated: 0, duplicated: 0, invalid: 0, job_created: 0, job_updated: 0 };
 
@@ -457,6 +469,11 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
           page_token_error: null,
         });
         result.updated += 1;
+        if (syncToJob && kind === 'reg' && status === 'LOGIN_THANH_CONG') {
+          const jobSync = await syncRegAccountToJob(account, { toWaitingLogin: jobSyncMode === 'waiting_login' });
+          if (jobSync.created) result.job_created += 1;
+          else result.job_updated += 1;
+        }
         continue;
       }
 
@@ -480,7 +497,7 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
     }
 
     if (syncToJob && kind === 'reg' && status === 'LOGIN_THANH_CONG') {
-      const jobSync = await syncRegAccountToJob(account);
+      const jobSync = await syncRegAccountToJob(account, { toWaitingLogin: jobSyncMode === 'waiting_login' });
       if (jobSync.created) result.job_created += 1;
       else result.job_updated += 1;
     }
@@ -723,14 +740,15 @@ const reportRegOnly = async (req, res, next) => {
       status,
       groupId,
       device_id,
-      syncToJob: false,
+      syncToJob: true,
+      jobSyncMode: 'waiting_login',
     });
     return success(res, {
       ...result,
       reported: result.total - result.invalid,
       kept_in_reg: result.total - result.invalid,
-      synced_to_job: 0,
-    }, `Da bao cao ${result.total - result.invalid}/${result.total} account Facebook Reg, khong chuyen sang Job`);
+      synced_to_job: result.job_created + result.job_updated,
+    }, `Da bao cao ${result.total - result.invalid}/${result.total} account Facebook Reg va chuyen sang Job Cho Login`);
   } catch (err) {
     next(err);
   }
