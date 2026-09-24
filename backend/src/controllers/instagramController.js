@@ -59,16 +59,23 @@ const resolveGroup = async ({ owner_username, kind, group_id, group_name }) => {
   const [group] = await AccountGroup.findOrCreate({ where: { owner_username, account_type: groupType(kind), name }, defaults: { owner_username, account_type: groupType(kind), name } });
   return group.id;
 };
-const syncRegToJob = async (source) => {
+const syncRegToJob = async (source, { toWaitingLogin = false } = {}) => {
   const data = serialize(source);
-  const defaults = { raw_data: data.raw_data, uid: data.uid, password: data.password, two_fa: data.two_fa, cookies: data.cookies, owner_username: data.owner_username, kind: 'job', group_id: null, device_id: data.device_id, status: 'LOGIN_THANH_CONG', live_status: data.live_status || 'unknown', login_at: new Date() };
+  const now = new Date();
+  const defaults = { raw_data: data.raw_data, uid: data.uid, password: data.password, two_fa: data.two_fa, cookies: data.cookies, owner_username: data.owner_username, kind: 'job', group_id: null, device_id: toWaitingLogin ? null : data.device_id, status: toWaitingLogin ? 'CHO_LOGIN' : 'LOGIN_THANH_CONG', live_status: data.live_status || 'unknown', login_at: toWaitingLogin ? null : now };
   const [account, created] = await InstagramAccount.unscoped().findOrCreate({ where: { owner_username: data.owner_username, kind: 'job', uid: data.uid }, defaults });
   if (!created) {
-    await account.update({ raw_data: data.raw_data, password: data.password, two_fa: data.two_fa, cookies: data.cookies, device_id: data.device_id || account.device_id, ...(account.status === 'CHO_LOGIN' ? { status: 'LOGIN_THANH_CONG', login_at: new Date() } : {}) });
+    const update = { raw_data: data.raw_data, password: data.password, two_fa: data.two_fa, cookies: data.cookies };
+    if (toWaitingLogin) {
+      Object.assign(update, { status: 'CHO_LOGIN', device_id: null, locked_by: null, locked_at: null, login_get_count: 0, completed_at: null, login_at: null, fail_reason: null, trashed_at: null });
+    } else if (account.status === 'CHO_LOGIN') {
+      Object.assign(update, { status: 'LOGIN_THANH_CONG', device_id: data.device_id || account.device_id, locked_by: null, locked_at: null, completed_at: null, login_at: now });
+    } else if (data.device_id) update.device_id = data.device_id;
+    await account.update(update);
   }
   return { account, created };
 };
-const importRows = async ({ text, owner_username, kind, status, group_id, device_id, syncToJob = true }) => {
+const importRows = async ({ text, owner_username, kind, status, group_id, device_id, syncToJob = true, jobSyncMode = 'login_success' }) => {
   const lines = String(text || '').split(/[\r\n]+/).map((line) => line.trim()).filter(Boolean);
   const result = { total: lines.length, created: 0, updated: 0, invalid: 0, job_created: 0, job_updated: 0 };
   for (const line of lines) {
@@ -76,15 +83,15 @@ const importRows = async ({ text, owner_username, kind, status, group_id, device
     if (!parsed) { result.invalid += 1; continue; }
     const defaults = { ...parsed, owner_username, kind, status, group_id };
     if (device_id) defaults.device_id = device_id;
-    if (kind === 'reg') defaults.login_at = new Date();
+    if (kind === 'reg' && status === 'LOGIN_THANH_CONG') defaults.login_at = new Date();
     const [account, created] = await InstagramAccount.unscoped().findOrCreate({ where: { owner_username, kind, uid: parsed.uid }, defaults });
     if (created) result.created += 1;
     else {
-      await account.update({ raw_data: parsed.raw_data, uid: parsed.uid, password: parsed.password ?? account.password, ...(parsed.two_fa ? { two_fa: parsed.two_fa } : {}), ...(parsed.cookies ? { cookies: parsed.cookies } : {}), status, group_id: group_id ?? account.group_id, ...(device_id ? { device_id } : {}), ...(kind === 'reg' ? { login_at: new Date() } : {}) });
+      await account.update({ raw_data: parsed.raw_data, uid: parsed.uid, password: parsed.password ?? account.password, ...(parsed.two_fa ? { two_fa: parsed.two_fa } : {}), ...(parsed.cookies ? { cookies: parsed.cookies } : {}), status, group_id: group_id ?? account.group_id, ...(device_id ? { device_id } : {}), ...(kind === 'reg' && status === 'LOGIN_THANH_CONG' ? { login_at: new Date() } : {}), ...(kind === 'reg' && status === 'CHO_LOGIN' ? { login_at: null } : {}) });
       result.updated += 1;
     }
     if (syncToJob && kind === 'reg' && status === 'LOGIN_THANH_CONG') {
-      const synced = await syncRegToJob(account);
+      const synced = await syncRegToJob(account, { toWaitingLogin: jobSyncMode === 'waiting_login' });
       if (synced.created) result.job_created += 1; else result.job_updated += 1;
     }
   }
@@ -157,14 +164,15 @@ const reportRegOnly = async (req,res,next) => {
       status,
       group_id,
       device_id,
-      syncToJob: false,
+      syncToJob: true,
+      jobSyncMode: 'waiting_login',
     });
     return success(res, {
       ...result,
       reported: result.total - result.invalid,
       kept_in_reg: result.total - result.invalid,
-      synced_to_job: 0,
-    }, `Da bao cao ${result.total - result.invalid}/${result.total} account Instagram Reg, khong chuyen sang Job`);
+      synced_to_job: result.job_created + result.job_updated,
+    }, `Da bao cao ${result.total - result.invalid}/${result.total} account Instagram Reg va chuyen sang Job Cho Login`);
   } catch (err) {
     next(err);
   }
@@ -411,7 +419,7 @@ const checkLive = async (req, res, next) => {
 const bulkGet=async(req,res,next)=>{try{const ids=idsFrom(req);if(!ids.length)return error(res,'Can truyen ids',400);const rows=await InstagramAccount.unscoped().findAll({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req)},order:[['id','ASC']]});return success(res,{text:rows.map(format).join('\n'),count:rows.length},'Lay account Instagram thanh cong');}catch(err){next(err);}};
 const bulkSync=async(req,res,next)=>{try{const ids=idsFrom(req);const rows=await InstagramAccount.findAll({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'reg'}});let created=0,updated=0;for(const row of rows){const result=await syncRegToJob(row);if(result.created)created++;else updated++;}return success(res,{created,updated,skipped:ids.length-rows.length},'Chuyen Instagram sang Job thanh cong');}catch(err){next(err);}};
 const bulkMove=async(req,res,next)=>{try{const ids=idsFrom(req);const kind=normalizeKind(req.body.kind);const group=await AccountGroup.findOne({where:{id:Number(req.body.group_id),owner_username:ownerFromAdmin(req),account_type:groupType(kind)}});if(!group)return error(res,'Nhom Instagram khong hop le',404);const [affected]=await InstagramAccount.update({group_id:group.id},{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req)}});return success(res,{affected,group},'Da chuyen nhom Instagram');}catch(err){next(err);}};
-const bulkAction=async(req,res,next)=>{try{const ids=idsFrom(req);const status=normalizeStatus(req.body.status||req.body.action,'');if(!ids.length||!status)return error(res,'Du lieu khong hop le',400);const update={status};if(['CHO_LOGIN','LOGIN_THANH_CONG'].includes(status)){update.locked_by=null;update.locked_at=null;update.login_get_count=0;update.completed_at=null;}if(status==='LOGIN_THANH_CONG')update.login_at=new Date();if(FINAL_STATUSES.includes(status)){update.locked_by=null;update.locked_at=null;update.completed_at=new Date();}const [affected]=await InstagramAccount.update(update,{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),nurture_status:{[Op.ne]:'DANG_NUOI'}}});return success(res,{affected},'Da doi trang thai Instagram');}catch(err){next(err);}};
+const bulkAction=async(req,res,next)=>{try{const ids=idsFrom(req);const status=normalizeStatus(req.body.status||req.body.action,'');if(!ids.length||!status)return error(res,'Du lieu khong hop le',400);const update={status};if(['CHO_LOGIN','LOGIN_THANH_CONG'].includes(status)){update.locked_by=null;update.locked_at=null;update.login_get_count=0;update.completed_at=null;}if(status==='CHO_LOGIN')update.login_at=null;if(status==='LOGIN_THANH_CONG')update.login_at=new Date();if(FINAL_STATUSES.includes(status)){update.locked_by=null;update.locked_at=null;update.completed_at=new Date();}const [affected]=await InstagramAccount.update(update,{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),nurture_status:{[Op.ne]:'DANG_NUOI'}}});return success(res,{affected},'Da doi trang thai Instagram');}catch(err){next(err);}};
 const bulkDelete=async(req,res,next)=>{try{const ids=idsFrom(req),owner_username=ownerFromAdmin(req);const rows=await InstagramAccount.findAll({where:{id:{[Op.in]:ids},owner_username}});const jobIds=rows.filter((r)=>r.kind==='job').map((r)=>r.id),regIds=rows.filter((r)=>r.kind==='reg').map((r)=>r.id);let trashed=0,deleted=0;if(jobIds.length)[trashed]=await InstagramAccount.update({trashed_at:new Date(),locked_by:null,locked_at:null},{where:{id:{[Op.in]:jobIds},owner_username}});if(regIds.length)deleted=await InstagramAccount.destroy({where:{id:{[Op.in]:regIds},owner_username}});return success(res,{trashed,deleted},'Da xoa Instagram');}catch(err){next(err);}};
 
 const listTrash=async(req,res,next)=>{try{const owner_username=ownerFromAdmin(req),page=Math.max(Number(req.query.page)||1,1),limit=Math.min(Math.max(Number(req.query.limit)||50,1),2000);const where={owner_username,kind:'job',trashed_at:{[Op.ne]:null}};const q=nullify(req.query.q);if(q)where[Op.or]=[{uid:{[Op.like]:'%'+q+'%'}},{device_id:{[Op.like]:'%'+q+'%'}}];const direction=String(req.query.sort_order).toLowerCase()==='asc'?'ASC':'DESC';let order=[['trashed_at','DESC'],['id','DESC']];if(req.query.sort_by==='device_id')order=[[sequelize.fn('CHAR_LENGTH',sequelize.col('device_id')),direction],['device_id',direction]];else if(req.query.sort_by==='trashed_at')order=[['trashed_at',direction]];const result=await InstagramAccount.unscoped().findAndCountAll({where,order,limit,offset:(page-1)*limit});return success(res,{accounts:result.rows.map(serialize),pagination:{page,limit,total:result.count,totalPages:Math.ceil(result.count/limit)||1}},'Lay thung rac Instagram');}catch(err){next(err);}};
