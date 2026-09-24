@@ -10,6 +10,7 @@ const USER_AGENTS = [
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const jitter = (base, pct = 0.35) => base + Math.floor(Math.random() * base * pct);
+const randomDelay = (min, max) => min + Math.floor(Math.random() * (Math.max(max, min) - min + 1));
 const randomItem = (items) => items[Math.floor(Math.random() * items.length)];
 const numberOrNull = (value) => {
   const parsed = Number(value);
@@ -52,9 +53,16 @@ const buildHeaders = (username, json = true, cookies = null) => {
     'User-Agent': randomItem(USER_AGENTS),
     Accept: json ? '*/*' : 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+    Connection: 'keep-alive',
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
+    'Sec-Fetch-Dest': json ? 'empty' : 'document',
+    'Sec-Fetch-Mode': json ? 'cors' : 'navigate',
+    'Sec-Fetch-Site': 'same-origin',
     Referer: `https://www.instagram.com/${encodeURIComponent(username)}/`,
     ...(cookieText ? { Cookie: cookieText } : {}),
     ...(json ? {
+      Origin: 'https://www.instagram.com',
       'X-IG-App-ID': '936619743392459',
       'X-ASBD-ID': '129477',
       'X-Requested-With': 'XMLHttpRequest',
@@ -100,7 +108,7 @@ const parseProfileUser = (user) => {
   };
 };
 
-const isNotFoundMessage = (value) => /user\s*(?:not\s*found|doesn'?t\s*exist)|no user found|không tìm thấy người dùng/i.test(String(value || ''));
+const isNotFoundMessage = (value) => /user\s*(?:not\s*found|doesn'?t\s*exist)|no users? found|unable to find (?:this )?user|invalid user|profile (?:was )?not found|requested (?:resource|user) (?:was )?not found|không tìm thấy người dùng/i.test(String(value || ''));
 const parseProfileJson = (input) => {
   let payload = input;
   if (typeof payload === 'string') {
@@ -123,7 +131,7 @@ const parseProfileJson = (input) => {
     || (payload.data?.xdt_api__v1__users__web_profile_info
       && Object.prototype.hasOwnProperty.call(payload.data.xdt_api__v1__users__web_profile_info, 'user')
       && payload.data.xdt_api__v1__users__web_profile_info.user === null);
-  const message = payload.message || payload.error?.message || payload.errors?.[0]?.message || payload.status;
+  const message = payload.message || payload.error?.message || payload.error?.title || payload.errors?.[0]?.message || payload.status;
   if (explicitNull || isNotFoundMessage(message) || payload.status === 'not_found') return dieResult('user_not_found');
   return null;
 };
@@ -141,6 +149,25 @@ const parseProfileHtml = (html) => {
     .replace(/\\u003e/gi, '>')
     .replace(/&#x27;|&#39;/gi, "'");
   for (let index = 0; index < 2; index += 1) normalized = normalized.replace(/\\"/g, '"');
+  const visibleProfileText = normalized
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .toLowerCase();
+  if (visibleProfileText.includes("sorry, this page isn't available")
+      || visibleProfileText.includes("this profile isn't available")
+      || visibleProfileText.includes("profile isn't available")
+      || visibleProfileText.includes("this account isn't available")
+      || visibleProfileText.includes('page may have been removed')
+      || visibleProfileText.includes('account may have been removed')
+      || visibleProfileText.includes('the link you followed may be broken')
+      || visibleProfileText.includes("sorry, we couldn't find this page")
+      || visibleProfileText.includes('page not found')
+      || visibleProfileText.includes('rất tiếc, trang này hiện không khả dụng')
+      || visibleProfileText.includes('liên kết bạn theo dõi có thể bị hỏng')) return dieResult('profile_page_not_found');
+  if (/"(?:xdt_api__v1__users__web_profile_info|graphql|profile_page)"\s*:\s*\{[\s\S]{0,500}?"user"\s*:\s*null/i.test(normalized)
+      || /"message"\s*:\s*"(?:user not found|no user found|unable to find (?:this )?user|profile not found)"/i.test(normalized)) {
+    return dieResult('profile_user_null');
+  }
   const pick = (patterns, text = normalized) => {
     for (const pattern of patterns) {
       const match = text.match(pattern);
@@ -164,17 +191,16 @@ const parseProfileHtml = (html) => {
   const metaFollowing = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Following|đang theo dõi)/i);
   const metaPosts = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Posts?|bài viết|publications?|publicaciones|publicações)/i);
   if (metaFollowers || metaFollowing || metaPosts) return { live: true, posts: humanNumberOrNull(metaPosts?.[1]), followers: humanNumberOrNull(metaFollowers?.[1]), following: humanNumberOrNull(metaFollowing?.[1]) };
-  const lower = normalized.toLowerCase();
-  if (lower.includes("sorry, this page isn't available")
-      || lower.includes("this profile isn't available")
-      || lower.includes("profile isn't available")
-      || lower.includes("this account isn't available")
-      || lower.includes('page may have been removed')
-      || lower.includes('account may have been removed')
-      || lower.includes('the link you followed may be broken')) return dieResult('profile_page_not_found');
   return null;
+
 };
 const responseUrl = (response) => response?.request?.res?.responseUrl || response?.config?.url || '';
+const isLoginWallHtml = (html) => {
+  const value = String(html || '');
+  return /<title>\s*(?:Login|Log in)[^<]*Instagram\s*<\/title>/i.test(value)
+    || /<form[^>]+action=["'][^"']*\/accounts\/login\/ajax\/?["']/i.test(value)
+    || (/<input[^>]+name=["']username["']/i.test(value) && /<input[^>]+name=["']password["']/i.test(value));
+};
 const responseReason = (response, source) => {
   const status = Number(response?.status) || 0;
   const url = responseUrl(response);
@@ -198,7 +224,7 @@ const mergeLiveStats = (base, extra) => ({
   verified: extra?.verified ?? base?.verified ?? false,
 });
 
-const fetchPublicPostStats = async (username, userId, proxyUrl) => {
+const fetchPublicPostStats = async (username, userId, proxyUrl, cookies = null) => {
   const endpoints = [
     { url: `https://www.instagram.com/${encodeURIComponent(username)}/?__a=1&__d=dis`, source: 'profile_json' },
     ...(userId ? [{ url: `https://i.instagram.com/api/v1/users/${encodeURIComponent(userId)}/info/`, source: 'mobile_user_info' }] : []),
@@ -206,8 +232,11 @@ const fetchPublicPostStats = async (username, userId, proxyUrl) => {
   ];
   for (const endpoint of endpoints) {
     try {
-      const response = await axios.get(endpoint.url, requestConfig(username, proxyUrl, true, null));
-      const parsed = parseProfileJson(response.data);
+      const response = await axios.get(endpoint.url, requestConfig(username, proxyUrl, true, cookies));
+      if ((response.status === 404 || response.status === 410) && !partial && !/\/accounts\/login|\/challenge\//i.test(responseUrl(response))) {
+      return { ...dieResult('web_profile_info_404'), source: 'web_profile_info', http_status: response.status };
+    }
+    const parsed = parseProfileJson(response.data);
       if (parsed?.live === true && parsed.posts !== null) {
         return { ...parsed, source: endpoint.source, http_status: response.status };
       }
@@ -227,7 +256,7 @@ const fetchPublicPostStats = async (username, userId, proxyUrl) => {
   }
   return null;
 };
-const fetchProfileHtml = async (username, proxyUrl) => {
+const fetchProfileHtml = async (username, proxyUrl, cookies = null) => {
   const endpoints = [
     { url: `https://www.instagram.com/${encodeURIComponent(username)}/?hl=en`, source: 'profile_html', definitiveDie: true },
     { url: `https://www.instagram.com/${encodeURIComponent(username)}/embed/?hl=en`, source: 'profile_embed_html', definitiveDie: false },
@@ -236,7 +265,17 @@ const fetchProfileHtml = async (username, proxyUrl) => {
   let last = unknownResult('profile_html_unavailable');
   for (const endpoint of endpoints) {
     try {
-      const response = await axios.get(endpoint.url, requestConfig(username, proxyUrl, false, null));
+      const response = await axios.get(endpoint.url, requestConfig(username, proxyUrl, false, cookies));
+      const finalUrl = responseUrl(response);
+      if (/\/accounts\/login|\/challenge\//i.test(finalUrl) || isLoginWallHtml(response.data)) {
+        last = unknownResult(responseReason(response, endpoint.source), { source: endpoint.source, http_status: response.status });
+        continue;
+      }
+      if ((response.status === 404 || response.status === 410) && endpoint.definitiveDie) return { ...dieResult('profile_http_404'), source: endpoint.source, http_status: response.status };
+      if ([401, 403, 429].includes(response.status) || response.status >= 500) {
+        last = unknownResult(responseReason(response, endpoint.source), { source: endpoint.source, http_status: response.status });
+        continue;
+      }
       const parsed = parseProfileHtml(response.data);
       if (parsed?.live === false && endpoint.definitiveDie) return { ...parsed, source: endpoint.source, http_status: response.status };
       if (parsed?.live === true) {
@@ -250,14 +289,14 @@ const fetchProfileHtml = async (username, proxyUrl) => {
   return partial || last;
 };
 
-const checkInstagramProfile = async (username, proxyUrl = null) => {
+const checkInstagramProfile = async (username, proxyUrl = null, cookies = null) => {
   const safeUsername = String(username || '').trim().replace(/^@/, '');
   if (!safeUsername) return unknownResult('missing_username');
-  await sleep(jitter(50, 0.8));
+  await sleep(randomDelay(250, 750));
   let partial = null;
   let lastReason = 'no_profile_data';
   let lastStatus = null;
-  const htmlProfile = await fetchProfileHtml(safeUsername, proxyUrl);
+  const htmlProfile = await fetchProfileHtml(safeUsername, proxyUrl, cookies);
   if (htmlProfile?.live === false) return htmlProfile;
   if (htmlProfile?.live === true) {
     partial = htmlProfile;
@@ -268,14 +307,17 @@ const checkInstagramProfile = async (username, proxyUrl = null) => {
   }
   try {
     const endpoint = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(safeUsername)}`;
-    const response = await axios.get(endpoint, requestConfig(safeUsername, proxyUrl, true, null));
+    const response = await axios.get(endpoint, requestConfig(safeUsername, proxyUrl, true, cookies));
     lastStatus = response.status;
+    if ((response.status === 404 || response.status === 410) && !partial && !/\/accounts\/login|\/challenge\//i.test(responseUrl(response))) {
+      return { ...dieResult('web_profile_info_404'), source: 'web_profile_info', http_status: response.status };
+    }
     const parsed = parseProfileJson(response.data);
     if (parsed?.live === false && !partial) return { ...parsed, source: 'web_profile_info', http_status: response.status };
     if (parsed?.live === true) {
       partial = { ...mergeLiveStats(partial, parsed), source: 'web_profile_info', http_status: response.status };
       if (partial.posts !== null) return partial;
-      const publicStats = await fetchPublicPostStats(safeUsername, partial.user_id, proxyUrl);
+      const publicStats = await fetchPublicPostStats(safeUsername, partial.user_id, proxyUrl, cookies);
       if (publicStats?.live === true) {
         partial = { ...mergeLiveStats(partial, publicStats), source: publicStats.source, http_status: publicStats.http_status };
         if (partial.posts !== null) return partial;
@@ -298,8 +340,31 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
   const workerCount = Math.min(Math.max(parseInt(concurrency, 10) || 20, 1), 40);
   const delay = Math.min(Math.max(parseInt(delayMs, 10) || 0, 0), 10_000);
   const results = [];
+  const proxyStates = proxyPool.map((proxy) => ({ proxy, cooldownUntil: 0 }));
   let proxyIndex = 0;
-  const nextProxy = () => proxyPool.length ? proxyPool[proxyIndex++ % proxyPool.length] : null;
+  const nextProxy = (excluded = null) => {
+    if (!proxyStates.length) return null;
+    const now = Date.now();
+    let fallback = null;
+    for (let offset = 0; offset < proxyStates.length; offset += 1) {
+      const state = proxyStates[proxyIndex++ % proxyStates.length];
+      if (state.proxy === excluded && proxyStates.length > 1) continue;
+      if (!fallback || state.cooldownUntil < fallback.cooldownUntil) fallback = state;
+      if (state.cooldownUntil <= now) return state.proxy;
+    }
+    return fallback?.proxy || proxyStates[proxyIndex++ % proxyStates.length].proxy;
+  };
+  const markProxyResult = (proxyUrl, stats) => {
+    if (!proxyUrl) return;
+    const state = proxyStates.find((item) => item.proxy === proxyUrl);
+    if (!state) return;
+    const status = Number(stats?.http_status) || 0;
+    const reason = String(stats?.reason || '');
+    if (status === 429 || /rate_limited/i.test(reason)) state.cooldownUntil = Date.now() + 30_000;
+    else if (status === 403 || /forbidden/i.test(reason)) state.cooldownUntil = Date.now() + 15_000;
+    else if (/ECONNRESET|ETIMEDOUT|request_failed/i.test(reason)) state.cooldownUntil = Date.now() + 10_000;
+    else if (stats?.live === true || stats?.live === false) state.cooldownUntil = 0;
+  };
 
   for (let index = 0; index < accounts.length; index += workerCount) {
     const batch = accounts.slice(index, index + workerCount);
@@ -311,8 +376,12 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         attempts += 1;
         stats = await checkInstagramProfile(account.uid, proxyUrl, account.cookies || null);
+        markProxyResult(proxyUrl, stats);
         if (stats.live === true || stats.live === false) break;
-        if (attempt + 1 < maxAttempts) proxyUrl = nextProxy();
+        if (attempt + 1 < maxAttempts) {
+          await sleep(randomDelay(350, 900));
+          proxyUrl = nextProxy(proxyUrl);
+        }
       }
 
       const result = stats.live === true ? 'live' : stats.live === false ? 'die' : 'unknown';
