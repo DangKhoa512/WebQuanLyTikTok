@@ -20,7 +20,7 @@ const NAV = [
   { to: '/jobs',            icon: '⚡', label: 'JOB' },
   { to: '/facebook-reg',    icon: <FacebookLogo />, label: 'Facebook Reg' },
   { to: '/facebook-jobs',   icon: <FacebookLogo />, label: 'Facebook Job' },
-  { to: '/facebook-nurture', icon: '🌱', label: 'Facebook Nuôi' },
+  { to: '/facebook-nurture', icon: '🌱', label: 'Nuôi Account' },
   { to: '/hotmails',        icon: '📧', label: 'Hotmail' },
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
   { to: '/chrome-khang-stats', icon: '📊', label: 'Trạng Thái Máy' },

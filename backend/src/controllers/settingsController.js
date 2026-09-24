@@ -20,6 +20,8 @@ const {
   saveFacebookRegPageWaitSettings,
   getFacebookNurtureSettings,
   saveFacebookNurtureSettings,
+  getInstagramNurtureSettings,
+  saveInstagramNurtureSettings,
 } = require('../services/settingsService');
 
 const getEligibility = async (req, res, next) => {
@@ -339,4 +341,18 @@ const updateFacebookNurture = async (req, res, next) => {
   }
 };
 
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookNurture, updateFacebookNurture };
+const getInstagramNurture = async (req, res, next) => {
+  try {
+    const settings = await getInstagramNurtureSettings(ownerFromAdmin(req));
+    return success(res, { settings }, 'Lay cau hinh nuoi Instagram thanh cong');
+  } catch (err) { next(err); }
+};
+
+const updateInstagramNurture = async (req, res, next) => {
+  try {
+    if (!Array.isArray(req.body.scenarios)) return error(res, 'scenarios phai la danh sach', 400);
+    const settings = await saveInstagramNurtureSettings(ownerFromAdmin(req), req.body);
+    return success(res, { settings }, 'Da luu cau hinh nuoi Instagram');
+  } catch (err) { next(err); }
+};
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture };

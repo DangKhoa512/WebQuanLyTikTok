@@ -10,6 +10,7 @@ const MACHINE_API_KEYS_KEY = 'machine_api_keys';
 const FACEBOOK_CHECK_PROXIES_KEY = 'facebook_check_proxies';
 const FACEBOOK_REG_PAGE_WAIT_KEY = 'facebook_reg_page_wait_hours';
 const FACEBOOK_NURTURE_KEY = 'facebook_nurture';
+const INSTAGRAM_NURTURE_KEY = 'instagram_nurture';
 const DEFAULT_MACHINE_API_KEYS = [
   'WEB',
   'CAPTCHA_TDS',
@@ -32,6 +33,11 @@ const DEFAULT_JOB_ACCOUNT_DAILY_LIMIT = parseInt(process.env.JOB_ACCOUNT_DAILY_L
 const DEFAULT_FACEBOOK_CHECK_CONCURRENCY = 20;
 const DEFAULT_FACEBOOK_REG_PAGE_WAIT_HOURS = 8;
 const DEFAULT_FACEBOOK_NURTURE = {
+  active_scenario_id: null,
+  cooldown_hours: 24,
+  scenarios: [],
+};
+const DEFAULT_INSTAGRAM_NURTURE = {
   active_scenario_id: null,
   cooldown_hours: 24,
   scenarios: [],
@@ -136,6 +142,44 @@ const normalizeFacebookNurture = (data = {}) => {
   };
 };
 
+const normalizeInstagramNurture = (data = {}) => {
+  const parsedCooldownHours = parseInt(data.cooldown_hours, 10);
+  const cooldown_hours = Number.isInteger(parsedCooldownHours)
+    ? Math.min(Math.max(parsedCooldownHours, 1), 720)
+    : DEFAULT_INSTAGRAM_NURTURE.cooldown_hours;
+  const source = Array.isArray(data.scenarios) ? data.scenarios.slice(0, 50) : [];
+  const usedIds = new Set();
+  const scenarios = source.map((scenario, index) => {
+    const rawId = String(scenario?.id || `scenario-${index + 1}`).trim().slice(0, 100);
+    let id = rawId || `scenario-${index + 1}`;
+    let duplicateSuffix = index + 1;
+    while (usedIds.has(id)) {
+      id = `${(rawId || 'scenario').slice(0, 90)}-${duplicateSuffix}`;
+      duplicateSuffix += 1;
+    }
+    usedIds.add(id);
+    const actions = {
+      newfeed: normalizeNurtureRange(scenario?.actions?.newfeed),
+      reels: normalizeNurtureRange(scenario?.actions?.reels),
+      story: normalizeNurtureRange(scenario?.actions?.story || scenario?.actions?.str),
+    };
+    return {
+      id,
+      name: String(scenario?.name || `Kich ban ${index + 1}`).trim().slice(0, 100) || `Kich ban ${index + 1}`,
+      total_duration_seconds: {
+        min: Object.values(actions).reduce((sum, action) => sum + (action.enabled ? action.min : 0), 0),
+        max: Object.values(actions).reduce((sum, action) => sum + (action.enabled ? action.max : 0), 0),
+      },
+      actions,
+    };
+  });
+  const requestedActiveId = String(data.active_scenario_id || '').trim();
+  return {
+    active_scenario_id: scenarios.some((scenario) => scenario.id === requestedActiveId) ? requestedActiveId : null,
+    cooldown_hours,
+    scenarios,
+  };
+};
 const getSetting = async (owner_username, setting_key) => {
   const row = await AppSetting.findOne({ where: { owner_username, setting_key } });
   if (!row) return null;
@@ -272,6 +316,18 @@ const saveFacebookNurtureSettings = async (owner_username = 'admin', data = {}) 
   return normalized;
 };
 
+const getInstagramNurtureSettings = async (owner_username = 'admin') => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, INSTAGRAM_NURTURE_KEY);
+  return normalizeInstagramNurture(stored || DEFAULT_INSTAGRAM_NURTURE);
+};
+
+const saveInstagramNurtureSettings = async (owner_username = 'admin', data = {}) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const normalized = normalizeInstagramNurture(data);
+  await saveSetting(owner, INSTAGRAM_NURTURE_KEY, normalized);
+  return normalized;
+};
 module.exports = {
   DEFAULT_ELIGIBILITY,
   DEFAULT_CHROME_KHANG_DAILY_LIMIT,
@@ -280,6 +336,7 @@ module.exports = {
   DEFAULT_JOB_ACCOUNT_DAILY_LIMIT,
   DEFAULT_MACHINE_API_KEYS,
   DEFAULT_FACEBOOK_NURTURE,
+  DEFAULT_INSTAGRAM_NURTURE,
   getEligibilitySettings,
   saveEligibilitySettings,
   getChromeKhangLimitSettings,
@@ -298,4 +355,6 @@ module.exports = {
   saveFacebookRegPageWaitSettings,
   getFacebookNurtureSettings,
   saveFacebookNurtureSettings,
+  getInstagramNurtureSettings,
+  saveInstagramNurtureSettings,
 };

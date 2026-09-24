@@ -25,5 +25,7 @@ router.get('/facebook-reg-page-wait', ctrl.getFacebookRegPageWait);
 router.put('/facebook-reg-page-wait', ctrl.updateFacebookRegPageWait);
 router.get('/facebook-nurture', ctrl.getFacebookNurture);
 router.put('/facebook-nurture', ctrl.updateFacebookNurture);
+router.get('/instagram-nurture', ctrl.getInstagramNurture);
+router.put('/instagram-nurture', ctrl.updateInstagramNurture);
 
 module.exports = router;

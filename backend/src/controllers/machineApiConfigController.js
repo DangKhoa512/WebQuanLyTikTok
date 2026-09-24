@@ -1,10 +1,11 @@
 const { Op } = require('sequelize');
 const MachineApiConfig = require('../models/MachineApiConfig');
 const FacebookNurtureAssignment = require('../models/FacebookNurtureAssignment');
+const InstagramNurtureAssignment = require('../models/InstagramNurtureAssignment');
 const sequelize = require('../config/database');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
-const { DEFAULT_MACHINE_API_KEYS, getMachineApiKeys, saveMachineApiKeys, getFacebookNurtureSettings } = require('../services/settingsService');
+const { DEFAULT_MACHINE_API_KEYS, getMachineApiKeys, saveMachineApiKeys, getFacebookNurtureSettings, getInstagramNurtureSettings } = require('../services/settingsService');
 
 const COMMON_DEVICE_ID = '__COMMON__';
 const MACHINE_MARKER_KEY = '__MACHINE__';
@@ -251,6 +252,17 @@ const getForDevice = async (req, res, next) => {
         scenario: activeNurture,
       };
     }
+    const instagramNurture = await getInstagramNurtureSettings(owner_username);
+    const activeInstagramNurture = instagramNurture.scenarios.find(
+      (scenario) => scenario.id === instagramNurture.active_scenario_id
+    );
+    if (activeInstagramNurture && Object.values(activeInstagramNurture.actions).some((action) => action.enabled)) {
+      configs.INSTAGRAM_NURTURE = {
+        active_scenario_id: activeInstagramNurture.id,
+        cooldown_hours: instagramNurture.cooldown_hours,
+        scenario: activeInstagramNurture,
+      };
+    }
 
     if (!Object.values(configs).some((value) => (
       typeof value === 'object' ? value !== null : String(value || '').trim()
@@ -336,6 +348,33 @@ const getRandomNurtureScenario = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const getRandomInstagramNurtureScenario = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = normalizeDeviceId(req.params.device_id || req.query.device_id);
+    if (!device_id) return error(res, 'Thieu device_id', 400);
+    const settings = await getInstagramNurtureSettings(owner_username);
+    const scenarios = settings.scenarios.filter((scenario) => Object.values(scenario.actions || {}).some((action) => action.enabled));
+    if (!scenarios.length) return res.json({ status: false, value: {}, message: 'Chua co kich ban Instagram nao duoc bat' });
+    const result = await sequelize.transaction(async (transaction) => {
+      const assignments = await InstagramNurtureAssignment.findAll({ where: { owner_username }, order: [['id','ASC']], transaction, lock: transaction.LOCK.UPDATE });
+      const current = assignments.find((row) => row.device_id === device_id) || null;
+      const eligibleIds = new Set(scenarios.map((scenario) => scenario.id));
+      const counts = new Map(scenarios.map((scenario) => [scenario.id, 0]));
+      assignments.forEach((row) => { if (eligibleIds.has(row.scenario_id)) counts.set(row.scenario_id, (counts.get(row.scenario_id) || 0) + 1); });
+      let candidates = scenarios;
+      if (scenarios.length > 1 && current && eligibleIds.has(current.scenario_id)) candidates = scenarios.filter((scenario) => scenario.id !== current.scenario_id);
+      const minimumUsage = Math.min(...candidates.map((scenario) => counts.get(scenario.id) || 0));
+      const balanced = candidates.filter((scenario) => (counts.get(scenario.id) || 0) === minimumUsage);
+      const scenario = balanced[Math.floor(Math.random() * balanced.length)];
+      const previous_scenario_id = current?.scenario_id || null;
+      if (current) await current.update({ scenario_id: scenario.id }, { transaction });
+      else await InstagramNurtureAssignment.create({ owner_username, device_id, scenario_id: scenario.id }, { transaction });
+      return { scenario, previous_scenario_id, assigned_devices: (counts.get(scenario.id) || 0) + (previous_scenario_id === scenario.id ? 0 : 1) };
+    });
+    return res.json({ status: true, value: { device_id, ...result, available_scenarios: scenarios.length, cooldown_hours: settings.cooldown_hours } });
+  } catch (err) { next(err); }
+};
 module.exports = {
   COMMON_DEVICE_ID,
   DEFAULT_KEYS,
@@ -349,4 +388,5 @@ module.exports = {
   deleteConfigKey,
   getForDevice,
   getRandomNurtureScenario,
+  getRandomInstagramNurtureScenario,
 };

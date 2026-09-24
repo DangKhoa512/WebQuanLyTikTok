@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { facebookApi } from '../services/api';
+import { facebookApi, instagramApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
 
@@ -25,6 +25,7 @@ const short = (value, max = 24) => {
 };
 
 export default function FacebookNurture() {
+  const [platform, setPlatform] = useState('facebook');
   const [rows, setRows] = useState([]);
   const [logs, setLogs] = useState([]);
   const [counts, setCounts] = useState({});
@@ -38,13 +39,15 @@ export default function FacebookNurture() {
   const [selected, setSelected] = useState(new Set());
   const [resetting, setResetting] = useState(false);
 
+  const platformApi = platform === 'instagram' ? instagramApi : facebookApi;
+  const platformName = platform === 'instagram' ? 'Instagram' : 'Facebook';
   const params = useMemo(() => ({ page, limit, status, q }), [page, limit, status, q]);
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [accountRes, logRes] = await Promise.all([
-        facebookApi.getNurtureAccounts(params),
-        facebookApi.getNurtureLogs({ page: 1, limit: 20 }),
+        platformApi.getNurtureAccounts(params),
+        platformApi.getNurtureLogs({ page: 1, limit: 20 }),
       ]);
       setRows(accountRes.data?.accounts || []);
       setCounts(accountRes.data?.status_counts || {});
@@ -52,14 +55,14 @@ export default function FacebookNurture() {
       setCooldownHours(accountRes.data?.cooldown_hours || 24);
       setLogs(logRes.data?.logs || []);
     } catch (err) {
-      toast.error(err.message || 'Không tải được dữ liệu Facebook Nuôi');
+      toast.error(err.message || `Không tải được dữ liệu ${platformName} Nuôi`);
     } finally {
       setLoading(false);
     }
-  }, [params]);
+  }, [params, platform, platformApi, platformName]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setSelected(new Set()); }, [page, limit, status, q]);
+  useEffect(() => { setSelected(new Set()); }, [page, limit, status, q, platform]);
   const total = Object.values(counts).reduce((sum, value) => sum + (Number(value) || 0), 0);
   const selectedIds = [...selected];
   const allChecked = rows.length > 0 && rows.every((row) => selected.has(row.id));
@@ -85,7 +88,7 @@ export default function FacebookNurture() {
     if (!confirm('Reset ' + selectedIds.length + ' account về Chưa nuôi?' + warning + '\nLịch sử và tổng số lần nuôi vẫn được giữ lại.')) return;
     setResetting(true);
     try {
-      const res = await facebookApi.resetNurtureAccounts(selectedIds);
+      const res = await platformApi.resetNurtureAccounts(selectedIds);
       toast.success(res.message || 'Đã reset trạng thái nuôi');
       setSelected(new Set());
       await fetchData();
@@ -100,12 +103,16 @@ export default function FacebookNurture() {
     <div className="page">
       <div className="page-header">
         <div>
-          <h1>🌱 Facebook Nuôi</h1>
-          <div className="subtitle">Chỉ lấy account Facebook Job đã login thành công, khóa theo máy và theo dõi từng phiên nuôi.</div>
+          <h1>🌱 {platformName} Nuôi</h1>
+          <div className="subtitle">Chỉ lấy account {platformName} Job đã login thành công, khóa theo máy và theo dõi từng phiên nuôi.</div>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchData} disabled={loading}>
           {loading ? 'Đang tải...' : '🔄 Làm mới'}
         </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '.55rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        {['facebook','instagram'].map((item) => <button key={item} type="button" className="btn btn-sm" onClick={() => { setPlatform(item); setStatus(''); setPage(1); setSelected(new Set()); }} style={{ background: platform === item ? '#10b981' : '#fff', color: platform === item ? '#fff' : '#334155', border: `1px solid ${platform === item ? '#10b981' : '#cbd5e1'}`, fontWeight: 800 }}>{item === 'facebook' ? 'Facebook' : 'Instagram'}</button>)}
       </div>
 
       <div style={{ display: 'flex', gap: '.55rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -162,7 +169,7 @@ export default function FacebookNurture() {
             </thead>
             <tbody>
               {!rows.length ? (
-                <tr><td colSpan={11} style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>Chưa có account Facebook Nuôi</td></tr>
+                <tr><td colSpan={11} style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>Chưa có account {platformName} Nuôi</td></tr>
               ) : rows.map((row, index) => {
                 const current = STATUS_STYLE[row.nurture_status] || STATUS_STYLE.CHUA_NUOI;
                 return (

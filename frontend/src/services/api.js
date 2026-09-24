@@ -132,6 +132,8 @@ export const settingsApi = {
   updateFacebookRegPageWait: (hours) => api.put('/settings/facebook-reg-page-wait', { hours }),
   getFacebookNurture: () => api.get('/settings/facebook-nurture'),
   updateFacebookNurture: (settings) => api.put('/settings/facebook-nurture', settings),
+  getInstagramNurture: () => api.get('/settings/instagram-nurture'),
+  updateInstagramNurture: (settings) => api.put('/settings/instagram-nurture', settings),
 };
 
 
@@ -210,6 +212,9 @@ export const instagramApi = {
   getTrash: (params) => api.get('/instagram/trash', { params }),
   restoreTrash: (ids) => api.post('/instagram/trash/restore', { ids }),
   deleteTrash: (ids) => api.post('/instagram/trash/delete', { ids }),
+  getNurtureAccounts: (params) => api.get('/instagram/nurture/accounts', { params }),
+  getNurtureLogs: (params) => api.get('/instagram/nurture/logs', { params }),
+  resetNurtureAccounts: (ids) => api.post('/instagram/nurture/reset', { ids }),
 };
 export const machineStatusApi = {
   getStats: (params = {}) => api.get('/machine-status/stats', { params }),

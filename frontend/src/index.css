@@ -956,6 +956,16 @@ select.form-control { cursor: pointer; }
   font-family: 'Segoe UI', Arial, sans-serif;
 }
 
+.settings-right-column {
+  position: sticky;
+  top: 1rem;
+  min-width: 0;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding-right: .25rem;
+  scrollbar-width: thin;
+}
+
 .settings-left-column .card h3 {
   color: #0f172a !important;
   font-weight: 800 !important;
@@ -1065,5 +1075,12 @@ select.form-control { cursor: pointer; }
 @media (max-width: 1180px) {
   .settings-columns {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-right-column {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 }

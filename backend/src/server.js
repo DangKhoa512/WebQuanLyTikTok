@@ -263,11 +263,20 @@ const startServer = async () => {
       }
     }
     for (const [sql, label] of [
+      ['ALTER TABLE instagram_accounts ADD COLUMN nurture_status ENUM(\'CHUA_NUOI\',\'DANG_NUOI\',\'DA_NUOI\',\'NUOI_FAIL\') NOT NULL DEFAULT \'CHUA_NUOI\'', 'instagram_accounts nurture_status column added'],
+      ['ALTER TABLE instagram_accounts ADD COLUMN nurture_locked_by VARCHAR(255) NULL', 'instagram_accounts nurture_locked_by column added'],
+      ['ALTER TABLE instagram_accounts ADD COLUMN nurture_locked_at DATETIME NULL', 'instagram_accounts nurture_locked_at column added'],
+      ['ALTER TABLE instagram_accounts ADD COLUMN nurture_run_id VARCHAR(100) NULL', 'instagram_accounts nurture_run_id column added'],
+      ['ALTER TABLE instagram_accounts ADD COLUMN nurture_scenario_id VARCHAR(100) NULL', 'instagram_accounts nurture_scenario_id column added'],
+      ['ALTER TABLE instagram_accounts ADD COLUMN last_nurture_at DATETIME NULL', 'instagram_accounts last_nurture_at column added'],
+      ['ALTER TABLE instagram_accounts ADD COLUMN nurture_count INT UNSIGNED NOT NULL DEFAULT 0', 'instagram_accounts nurture_count column added'],
       ['ALTER TABLE instagram_accounts ADD COLUMN post_count INT UNSIGNED NULL', 'instagram_accounts post_count column added'],
       ['ALTER TABLE instagram_accounts ADD COLUMN followers INT UNSIGNED NULL', 'instagram_accounts followers column added'],
       ['ALTER TABLE instagram_accounts ADD COLUMN following INT UNSIGNED NULL', 'instagram_accounts following column added'],
       ['ALTER TABLE instagram_accounts ADD COLUMN last_live_check_at DATETIME NULL', 'instagram_accounts last_live_check_at column added'],
       ['ALTER TABLE instagram_accounts ADD INDEX idx_instagram_live_status (owner_username, kind, live_status)', 'instagram_accounts live status index ready'],
+      ['ALTER TABLE instagram_accounts ADD INDEX idx_instagram_nurture_pick (owner_username, device_id, nurture_status)', 'instagram_accounts nurture pick index ready'],
+      ['ALTER TABLE instagram_accounts ADD INDEX idx_instagram_nurture_lock (owner_username, nurture_locked_by)', 'instagram_accounts nurture lock index ready'],
     ]) {
       try {
         await sequelize.query(sql);
