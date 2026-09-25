@@ -28,6 +28,7 @@ const MAX_LOGIN_GET_COUNT = 3;
 const REG_PAGE_MAX_PAGES = 15;
 const REG_PAGE_COOLDOWN_HOURS = 24;
 const NURTURE_STATUSES = ['CHUA_NUOI', 'DANG_NUOI', 'DA_NUOI', 'NUOI_FAIL'];
+const NURTURE_ELIGIBLE_ACCOUNT_STATUSES = ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'];
 const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Ho_Chi_Minh',
   year: 'numeric',
@@ -464,6 +465,11 @@ const syncRegAccountToJob = async (regAccount, { toWaitingLogin = false } = {}) 
       login_at: null,
       fail_reason: null,
       trashed_at: null,
+      nurture_status: sequelize.literal("CASE WHEN nurture_status = 'DANG_NUOI' THEN 'NUOI_FAIL' ELSE nurture_status END"),
+      nurture_locked_by: null,
+      nurture_locked_at: null,
+      nurture_run_id: null,
+      nurture_scenario_id: null,
     });
   } else if (!preserveWorkflow) {
     update.status = 'LOGIN_THANH_CONG';
@@ -534,6 +540,11 @@ const importFacebookAccounts = async ({ text, owner_username, kind = 'job', stat
         duplicateUpdate.login_get_count = 0;
         duplicateUpdate.login_at = null;
         duplicateUpdate.completed_at = null;
+        duplicateUpdate.nurture_status = sequelize.literal("CASE WHEN nurture_status = 'DANG_NUOI' THEN 'NUOI_FAIL' ELSE nurture_status END");
+        duplicateUpdate.nurture_locked_by = null;
+        duplicateUpdate.nurture_locked_at = null;
+        duplicateUpdate.nurture_run_id = null;
+        duplicateUpdate.nurture_scenario_id = null;
       }
       await account.update(duplicateUpdate);
     }
@@ -1074,11 +1085,32 @@ const getNurtureAccount = async (req, res, next) => {
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
+
+      // Du lieu cu co the van con lock nuoi sau khi account da bi chuyen ve Cho Login.
+      // Huy phien cu ngay trong API de account khong bi resume sai trang thai.
+      await FacebookAccount.update({
+        nurture_status: 'NUOI_FAIL',
+        nurture_locked_by: null,
+        nurture_locked_at: null,
+        nurture_run_id: null,
+        nurture_scenario_id: null,
+      }, {
+        where: {
+          owner_username,
+          kind: 'job',
+          nurture_status: 'DANG_NUOI',
+          nurture_locked_by: device_id,
+          status: { [Op.notIn]: NURTURE_ELIGIBLE_ACCOUNT_STATUSES },
+        },
+        transaction,
+      });
+
       let account = await FacebookAccount.findOne({
         where: {
           owner_username,
           kind: 'job',
           device_id,
+          status: { [Op.in]: NURTURE_ELIGIBLE_ACCOUNT_STATUSES },
           nurture_status: 'DANG_NUOI',
           nurture_locked_by: device_id,
         },
@@ -1101,7 +1133,7 @@ const getNurtureAccount = async (req, res, next) => {
           owner_username,
           kind: 'job',
           device_id,
-          status: 'LOGIN_THANH_CONG',
+          status: { [Op.in]: NURTURE_ELIGIBLE_ACCOUNT_STATUSES },
           nurture_locked_by: null,
           reg_page_locked_by: null,
           cookies: { [Op.ne]: null },
@@ -2190,6 +2222,11 @@ const bulkAction = async (req, res, next) => {
       update.locked_at = null;
       update.login_get_count = 0;
       update.completed_at = null;
+      update.nurture_status = sequelize.literal("CASE WHEN nurture_status = 'DANG_NUOI' THEN 'NUOI_FAIL' ELSE nurture_status END");
+      update.nurture_locked_by = null;
+      update.nurture_locked_at = null;
+      update.nurture_run_id = null;
+      update.nurture_scenario_id = null;
     } else if (status === 'LOGIN_THANH_CONG') {
       update.locked_by = null;
       update.locked_at = null;
