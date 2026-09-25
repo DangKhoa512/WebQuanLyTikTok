@@ -299,6 +299,8 @@ function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [sort, setSort] = useState({ field: 'device_id', direction: 'asc' });
+  const fullMachines = machines.filter((machine) => machine.full).length;
+  const totalMachinePages = machines.reduce((sum, machine) => sum + Number(machine.pages || 0), 0);
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -342,7 +344,9 @@ function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
         <div>
           <h3>🖥️ Quản lý account theo máy</h3>
           <div style={{ color: '#64748b', fontSize: '.78rem', marginTop: '.2rem' }}>
-            {machines.length} máy đã có account{selectedDevice ? ' · Đang xem ' + selectedDevice : ''}
+            {machines.length} máy có account đăng nhập thành công{selectedDevice ? ' · Đang xem ' + selectedDevice : ''}
+            {' · '}<strong style={{ color: '#059669' }}>{fullMachines} máy đủ limit</strong>
+            {' · '}<strong style={{ color: '#0369a1' }}>{totalMachinePages.toLocaleString('vi-VN')} Page</strong>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '.55rem', flexWrap: 'wrap' }}>
@@ -357,14 +361,14 @@ function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
         <table className="data-table">
           <thead><tr>
             <SortableTh field="device_id" label="MÁY" sort={sort} onSort={handleSort} />
-            <SortableTh field="total" label="ACCOUNT" sort={sort} onSort={handleSort} />
+            <SortableTh field="used" label="ĐANG GIỮ / LIMIT" sort={sort} onSort={handleSort} />
             <SortableTh field="waiting_login" label="CHỜ LOGIN" sort={sort} onSort={handleSort} />
             <SortableTh field="logging_in" label="ĐANG LOGIN" sort={sort} onSort={handleSort} />
             <SortableTh field="login_success" label="LOGIN THÀNH CÔNG" sort={sort} onSort={handleSort} />
             <SortableTh field="working" label="ĐANG LÀM" sort={sort} onSort={handleSort} />
             <SortableTh field="done" label="ĐÃ XONG" sort={sort} onSort={handleSort} />
             <SortableTh field="failed" label="FAIL / DIE" sort={sort} onSort={handleSort} />
-            <SortableTh field="pages" label="PAGE" sort={sort} onSort={handleSort} />
+            <SortableTh field="pages" label="PAGE TRONG MÁY" sort={sort} onSort={handleSort} />
             <SortableTh field="last_updated_at" label="CẬP NHẬT CUỐI" sort={sort} onSort={handleSort} />
           </tr></thead>
           <tbody>
@@ -372,16 +376,17 @@ function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
               <tr><td colSpan={10} style={{ textAlign: 'center', color: '#94a3b8', padding: 28 }}>Chưa có máy phù hợp</td></tr>
             ) : visibleMachines.map((machine) => {
               const active = selectedDevice === machine.device_id;
+              const full = Boolean(machine.full);
               return (
-                <tr key={machine.device_id} onClick={() => onSelect(active ? '' : machine.device_id)} style={{ cursor: 'pointer', background: active ? 'rgba(37,99,235,.10)' : undefined }}>
-                  <td><strong style={{ color: active ? '#2563eb' : '#0f172a' }}>{machine.device_id}</strong></td>
-                  <td style={{ color: '#7c3aed', fontWeight: 800 }}>{machine.total}</td>
+                <tr key={machine.device_id} onClick={() => onSelect(active ? '' : machine.device_id)} style={{ cursor: 'pointer', background: full ? 'rgba(209,250,229,.72)' : active ? 'rgba(37,99,235,.10)' : undefined, boxShadow: full ? 'inset 4px 0 #10b981' : undefined }}>
+                  <td><div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}><strong style={{ color: full ? '#047857' : active ? '#2563eb' : '#0f172a' }}>{machine.device_id}</strong>{full && <span style={{ background: '#059669', color: '#fff', borderRadius: 999, padding: '2px 7px', fontSize: '.65rem', fontWeight: 900 }}>ĐỦ LIMIT</span>}</div></td>
+                  <td><div style={{ display: 'inline-flex', flexDirection: 'column', minWidth: 82, borderRadius: 8, padding: '4px 9px', background: full ? '#d1fae5' : '#ede9fe', color: full ? '#047857' : '#6d28d9' }}><strong style={{ fontSize: '.92rem' }}>{machine.used}/{machine.limit}</strong><span style={{ fontSize: '.66rem', fontWeight: 700 }}>{machine.total} acc thành công</span></div></td>
                   <td>{machine.waiting_login}</td><td>{machine.logging_in}</td>
                   <td style={{ color: '#059669', fontWeight: 750 }}>{machine.login_success}</td>
                   <td style={{ color: '#7c3aed', fontWeight: 750 }}>{machine.working}</td>
                   <td style={{ color: '#2563eb', fontWeight: 750 }}>{machine.done}</td>
                   <td style={{ color: '#ef4444', fontWeight: 750 }}>{machine.failed}</td>
-                  <td style={{ color: '#0284c7', fontWeight: 800 }}>{machine.pages}</td>
+                  <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 54, justifyContent: 'center', borderRadius: 8, padding: '5px 10px', background: Number(machine.pages) > 0 ? '#cffafe' : '#f1f5f9', color: Number(machine.pages) > 0 ? '#0e7490' : '#64748b', fontSize: '.92rem', fontWeight: 900 }}>📄 {machine.pages}</span></td>
                   <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{fmt(machine.last_updated_at)}</td>
                 </tr>
               );

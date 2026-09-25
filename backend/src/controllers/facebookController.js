@@ -640,6 +640,7 @@ const list = async (req, res, next) => {
           'device_id',
           [FacebookAccount.sequelize.fn('COUNT', FacebookAccount.sequelize.col('id')), 'total'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status IN ('LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG') AND (live_status <> 'die' OR live_status IS NULL) THEN 1 ELSE 0 END")), 'successful_total'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status IN ('DANG_LOGIN','LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG') AND (live_status <> 'die' OR live_status IS NULL) THEN 1 ELSE 0 END")), 'used_limit'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'CHO_LOGIN' THEN 1 ELSE 0 END")), 'waiting_login'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'DANG_LOGIN' THEN 1 ELSE 0 END")), 'logging_in'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'LOGIN_THANH_CONG' THEN 1 ELSE 0 END")), 'login_success'],
@@ -653,11 +654,16 @@ const list = async (req, res, next) => {
         group: ['device_id'],
         raw: true,
       });
+      const machineLimit = (await getFacebookLoginLimitSettings(owner_username)).limit;
       machine_stats = machineRows
         .filter((row) => nullify(row.device_id) && Number(row.successful_total) > 0)
         .map((row) => ({
           device_id: row.device_id,
           total: Number(row.successful_total) || 0,
+          used: Number(row.used_limit) || 0,
+          limit: machineLimit,
+          remaining: Math.max(machineLimit - (Number(row.used_limit) || 0), 0),
+          full: (Number(row.used_limit) || 0) >= machineLimit,
           waiting_login: Number(row.waiting_login) || 0,
           logging_in: Number(row.logging_in) || 0,
           login_success: Number(row.login_success) || 0,
