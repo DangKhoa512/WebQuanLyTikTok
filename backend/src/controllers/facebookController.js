@@ -344,7 +344,7 @@ const countDeviceFacebookLoginActive = async ({ owner_username, device_id, group
   const where = {
     owner_username,
     kind: 'job',
-    status: { [Op.in]: ['DANG_LOGIN', 'LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
+    status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
     [Op.and]: [
       { [Op.or]: [{ device_id }, { locked_by: device_id }] },
       { [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }] },
@@ -640,7 +640,7 @@ const list = async (req, res, next) => {
           'device_id',
           [FacebookAccount.sequelize.fn('COUNT', FacebookAccount.sequelize.col('id')), 'total'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status IN ('LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG') AND (live_status <> 'die' OR live_status IS NULL) THEN 1 ELSE 0 END")), 'successful_total'],
-          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status IN ('DANG_LOGIN','LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG') AND (live_status <> 'die' OR live_status IS NULL) THEN 1 ELSE 0 END")), 'used_limit'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status IN ('LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG') AND (live_status <> 'die' OR live_status IS NULL) THEN 1 ELSE 0 END")), 'used_limit'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'CHO_LOGIN' THEN 1 ELSE 0 END")), 'waiting_login'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'DANG_LOGIN' THEN 1 ELSE 0 END")), 'logging_in'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'LOGIN_THANH_CONG' THEN 1 ELSE 0 END")), 'login_success'],
