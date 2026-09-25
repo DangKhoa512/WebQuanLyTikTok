@@ -179,6 +179,13 @@ export const hotmailApi = {
   bulkDelete: (ids) => api.post('/hotmails/bulk-delete', { ids }),
 };
 
+export const emailOtpApi = {
+  getAll: (params) => api.get('/email-otps', { params }),
+  create: (data) => api.post('/email-otps', data),
+  bulkStatus: (ids, status) => api.post('/email-otps/bulk-status', { ids, status }),
+  bulkDelete: (ids) => api.post('/email-otps/bulk-delete', { ids }),
+};
+
 export const facebookApi = {
   getAll: (params) => api.get('/facebook', { params }),
   import: (text, kind = 'job', status = 'CHO_LOGIN', group_id = null) => api.post('/facebook/import', { text, kind, status, group_id }),

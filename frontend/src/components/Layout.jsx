@@ -22,6 +22,7 @@ const NAV = [
   { to: '/facebook-jobs',   icon: <FacebookLogo />, label: 'Facebook Job' },
   { to: '/facebook-nurture', icon: '🌱', label: 'Nuôi Account' },
   { to: '/hotmails',        icon: '📧', label: 'Hotmail' },
+  { to: '/email-otps',      icon: '✉️', label: 'Email OTP' },
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
   { to: '/chrome-khang-stats', icon: '📊', label: 'Trạng Thái Máy' },
   { to: '/machine-api-configs', icon: '\uD83D\uDD0C', label: 'API M\u00e1y' },

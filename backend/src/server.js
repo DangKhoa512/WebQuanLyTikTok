@@ -540,6 +540,49 @@ const startServer = async () => {
 
     try {
       await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS email_otp_orders (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL,
+          site VARCHAR(100) NOT NULL,
+          gmail VARCHAR(255) NOT NULL,
+          order_id VARCHAR(255) NOT NULL,
+          otp_history LONGTEXT NULL,
+          use_count INT UNSIGNED NOT NULL DEFAULT 0,
+          status ENUM('PENDING','PAUSED','DONE') NOT NULL DEFAULT 'PENDING',
+          source_device_id VARCHAR(255) NULL,
+          last_used_at DATETIME NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_email_otp_owner_site_order (owner_username, site, order_id),
+          KEY idx_email_otp_owner_status (owner_username, status),
+          KEY idx_email_otp_gmail (gmail)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS email_otp_device_uses (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          owner_username VARCHAR(100) NOT NULL,
+          email_order_id INT UNSIGNED NOT NULL,
+          device_id VARCHAR(255) NOT NULL,
+          otp VARCHAR(1000) NULL,
+          source ENUM('PURCHASED','CLAIMED') NOT NULL DEFAULT 'CLAIMED',
+          used_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_email_otp_use_order_device (email_order_id, device_id),
+          KEY idx_email_otp_use_owner_device (owner_username, device_id),
+          KEY idx_email_otp_use_order (email_order_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      logger.info('email_otp tables ready');
+    } catch (e) {
+      logger.warn('Migration email_otp tables skipped:', e.message);
+    }
+
+    try {
+      await sequelize.query(`
         CREATE TABLE IF NOT EXISTS job_account_daily_logs (
           id INT UNSIGNED NOT NULL AUTO_INCREMENT,
           owner_username VARCHAR(100) NOT NULL,

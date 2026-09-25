@@ -26,6 +26,7 @@ router.use('/jobs', apiLimiter, require('./jobs'));
 router.use('/facebook', apiLimiter, require('./facebook'));
 router.use('/instagram', apiLimiter, require('./instagram'));
 router.use('/hotmails', apiLimiter, require('./hotmail'));
+router.use('/email-otps', apiLimiter, require('./emailOtp'));
 
 // Export — JWT required, no strict rate limit (file downloads)
 router.use('/export',   require('./export'));

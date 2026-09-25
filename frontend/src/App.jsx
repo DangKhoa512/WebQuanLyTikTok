@@ -19,6 +19,7 @@ import FacebookAccounts from './pages/FacebookAccounts';
 import FacebookRegStats from './pages/FacebookRegStats';
 import FacebookNurture from './pages/FacebookNurture';
 import HotmailAccounts from './pages/HotmailAccounts';
+import EmailOtpAccounts from './pages/EmailOtpAccounts';
 
 export default function App() {
   return (
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="facebook-jobs"    element={<FacebookAccounts kind="job" />} />
             <Route path="facebook-nurture" element={<FacebookNurture />} />
             <Route path="hotmails"         element={<HotmailAccounts />} />
+            <Route path="email-otps"       element={<EmailOtpAccounts />} />
             <Route path="used-accounts"    element={<UsedAccounts />} />
             <Route path="users"            element={<Users />} />
           </Route>
