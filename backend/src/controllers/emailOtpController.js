@@ -6,6 +6,7 @@ const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 
 const STATUSES = ['PENDING', 'PAUSED', 'DONE'];
+const LOCK_TIMEOUT_MIN = parseInt(process.env.EMAIL_OTP_LOCK_TIMEOUT_MIN, 10) || 30;
 
 const nullify = (value) => {
   const normalized = String(value ?? '').trim();
@@ -59,7 +60,7 @@ const saveReport = async ({ owner_username, payload, source = 'PURCHASED' }) => 
   if (!payload.order_id) throw Object.assign(new Error('Can truyen id_oder'), { statusCode: 400 });
 
   return sequelize.transaction(async (transaction) => {
-    const [order, created] = await EmailOtpOrder.findOrCreate({
+    const [foundOrder, created] = await EmailOtpOrder.findOrCreate({
       where: { owner_username, site: payload.site, order_id: payload.order_id },
       defaults: {
         owner_username,
@@ -74,6 +75,7 @@ const saveReport = async ({ owner_username, payload, source = 'PURCHASED' }) => 
       },
       transaction,
     });
+    const order = await EmailOtpOrder.findByPk(foundOrder.id, { transaction, lock: transaction.LOCK.UPDATE });
 
     let newDeviceUse = false;
     if (payload.device_id) {
@@ -97,8 +99,9 @@ const saveReport = async ({ owner_username, payload, source = 'PURCHASED' }) => 
       }
     }
 
-    const currentCount = Number(order.use_count) || 0;
-    const nextCount = Math.max(payload.solan, currentCount + (newDeviceUse ? 1 : 0));
+    // So lan duoc tinh theo so request bao cao: ban ghi moi = 1, moi lan gui lai +1.
+    const nextCount = (Number(order.use_count) || 0) + 1;
+    const refreshOwnLock = payload.device_id && order.locked_by === payload.device_id;
     await order.update({
       gmail: payload.gmail,
       otp_history: appendOtpHistory(order.otp_history, payload.otp_history),
@@ -106,6 +109,7 @@ const saveReport = async ({ owner_username, payload, source = 'PURCHASED' }) => 
       status: 'PENDING',
       source_device_id: order.source_device_id || payload.device_id,
       ...(payload.device_id ? { last_used_at: new Date() } : {}),
+      ...(refreshOwnLock ? { locked_at: new Date() } : {}),
     }, { transaction });
     return { order, created, new_device_use: newDeviceUse };
   });
@@ -147,11 +151,37 @@ const getForPhone = async (req, res, next) => {
       return error(res, 'Can truyen device_id', 400);
     }
 
+    const now = new Date();
+    const expiredAt = new Date(now.getTime() - LOCK_TIMEOUT_MIN * 60 * 1000);
+    await EmailOtpOrder.update({ locked_by: null, locked_at: null }, {
+      where: { owner_username, status: 'PENDING', locked_at: { [Op.lt]: expiredAt } },
+      transaction,
+    });
+
+    // May goi lai trong thoi gian lock luon nhan dung Email dang su dung.
+    const active = await EmailOtpOrder.findOne({
+      where: { owner_username, status: 'PENDING', locked_by: device_id },
+      order: [['locked_at', 'DESC'], ['id', 'DESC']],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (active) {
+      await active.update({ locked_at: now, last_used_at: now }, { transaction });
+      await transaction.commit();
+      return success(res, {
+        email: serialize(active),
+        device_id,
+        resumed: true,
+        lock_timeout_min: LOCK_TIMEOUT_MIN,
+      }, 'Tiep tuc Email OTP Pending dang lock');
+    }
+
     const escapedDevice = sequelize.escape(device_id);
     const order = await EmailOtpOrder.findOne({
       where: {
         owner_username,
         status: 'PENDING',
+        locked_by: null,
         [Op.and]: literal(`NOT EXISTS (SELECT 1 FROM email_otp_device_uses AS used_email WHERE used_email.email_order_id = EmailOtpOrder.id AND used_email.device_id = ${escapedDevice})`),
       },
       order: [['last_used_at', 'ASC'], ['id', 'ASC']],
@@ -162,7 +192,7 @@ const getForPhone = async (req, res, next) => {
 
     if (!order) {
       await transaction.commit();
-      return success(res, { email: null, device_id }, 'Khong con Email Pending ma may nay chua su dung');
+      return success(res, { email: null, device_id, resumed: false }, 'Khong con Email Pending kha dung cho may nay');
     }
 
     await EmailOtpDeviceUse.create({
@@ -170,18 +200,22 @@ const getForPhone = async (req, res, next) => {
       email_order_id: order.id,
       device_id,
       source: 'CLAIMED',
-      used_at: new Date(),
+      used_at: now,
     }, { transaction });
-    await order.update({ use_count: (Number(order.use_count) || 0) + 1, last_used_at: new Date() }, { transaction });
+    await order.update({ locked_by: device_id, locked_at: now, last_used_at: now }, { transaction });
     await transaction.commit();
 
-    return success(res, { email: serialize(order), device_id }, 'Lay Email OTP Pending thanh cong');
+    return success(res, {
+      email: serialize(order),
+      device_id,
+      resumed: false,
+      lock_timeout_min: LOCK_TIMEOUT_MIN,
+    }, 'Lay Email OTP Pending thanh cong');
   } catch (err) {
     if (!transaction.finished) await transaction.rollback();
     next(err);
   }
 };
-
 const list = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
@@ -232,7 +266,7 @@ const bulkStatus = async (req, res, next) => {
     const status = normalizeStatus(req.body.status, '');
     if (!ids.length) return error(res, 'Can chon Email', 400);
     if (!status) return error(res, 'Trang thai khong hop le', 400);
-    const [affected] = await EmailOtpOrder.update({ status }, { where: { id: { [Op.in]: ids }, owner_username: ownerFromAdmin(req) } });
+    const [affected] = await EmailOtpOrder.update({ status, locked_by: null, locked_at: null }, { where: { id: { [Op.in]: ids }, owner_username: ownerFromAdmin(req) } });
     return success(res, { affected }, `Da cap nhat ${affected} Email sang ${status}`);
   } catch (err) { next(err); }
 };

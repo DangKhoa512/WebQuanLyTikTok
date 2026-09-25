@@ -550,13 +550,16 @@ const startServer = async () => {
           use_count INT UNSIGNED NOT NULL DEFAULT 0,
           status ENUM('PENDING','PAUSED','DONE') NOT NULL DEFAULT 'PENDING',
           source_device_id VARCHAR(255) NULL,
+          locked_by VARCHAR(255) NULL,
+          locked_at DATETIME NULL,
           last_used_at DATETIME NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           PRIMARY KEY (id),
           UNIQUE KEY uq_email_otp_owner_site_order (owner_username, site, order_id),
           KEY idx_email_otp_owner_status (owner_username, status),
-          KEY idx_email_otp_gmail (gmail)
+          KEY idx_email_otp_gmail (gmail),
+          KEY idx_email_otp_locked_by (locked_by)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
       await sequelize.query(`
@@ -577,6 +580,18 @@ const startServer = async () => {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
       logger.info('email_otp tables ready');
+      for (const [sql, label] of [
+        ['ALTER TABLE email_otp_orders ADD COLUMN locked_by VARCHAR(255) NULL', 'email_otp_orders locked_by'],
+        ['ALTER TABLE email_otp_orders ADD COLUMN locked_at DATETIME NULL', 'email_otp_orders locked_at'],
+        ['ALTER TABLE email_otp_orders ADD INDEX idx_email_otp_locked_by (locked_by)', 'email_otp_orders locked_by index'],
+      ]) {
+        try {
+          await sequelize.query(sql);
+          logger.info(label + ' ready');
+        } catch (migrationError) {
+          logger.warn('Migration ' + label + ' skipped:', migrationError.message);
+        }
+      }
     } catch (e) {
       logger.warn('Migration email_otp tables skipped:', e.message);
     }

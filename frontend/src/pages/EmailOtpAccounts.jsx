@@ -22,7 +22,7 @@ const short = (value, length = 28) => {
 const totalCounts = (counts) => Object.values(counts || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
 
 function AddEmailModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ site: 'SHOPMAILMMO', gmail: '', id_oder: '', otp_history: '', solan: 1, device_id: '' });
+  const [form, setForm] = useState({ site: 'SHOPMAILMMO', gmail: '', id_oder: '', otp_history: '', device_id: '' });
   const [saving, setSaving] = useState(false);
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const save = async () => {
@@ -56,7 +56,7 @@ function AddEmailModal({ onClose, onSaved }) {
         </div>
         <div className="filter-row">
           <div className="filter-group" style={{ flex: 1 }}><label>OTP ban đầu</label><input value={form.otp_history} onChange={(e) => set('otp_history', e.target.value)} placeholder="127412" /></div>
-          <div className="filter-group"><label>Số lần</label><input type="number" min="0" value={form.solan} onChange={(e) => set('solan', Number(e.target.value))} /></div>
+          <div style={{ alignSelf: 'end', color: '#64748b', fontSize: '.78rem', paddingBottom: 10 }}>Số lần tự động cộng theo mỗi báo cáo.</div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
           <button className="btn btn-secondary" onClick={onClose}>Đóng</button>
@@ -150,10 +150,10 @@ export default function EmailOtpAccounts() {
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="card-header"><h3>Danh sách Email OTP</h3><span style={{ color: '#64748b', fontSize: '.8rem' }}>{pagination?.total || 0} email {loading ? '• đang tải...' : ''}</span></div>
-        <div style={{ overflowX: 'auto' }}><table className="data-table"><thead><tr><th><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th><th>STT</th><th>Site</th><th>Gmail</th><th>ID order</th><th>OTP history</th><th>Số lần</th><th>Máy đã dùng</th><th>Trạng thái</th><th>Cập nhật cuối</th></tr></thead><tbody>
-          {!rows.length ? <tr><td colSpan="10" style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>Chưa có dữ liệu Email OTP</td></tr> : rows.map((row, index) => {
+        <div style={{ overflowX: 'auto' }}><table className="data-table"><thead><tr><th><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th><th>STT</th><th>Site</th><th>Gmail</th><th>ID order</th><th>OTP history</th><th>Số lần</th><th>Máy đã dùng</th><th>Đang lock</th><th>Trạng thái</th><th>Cập nhật cuối</th></tr></thead><tbody>
+          {!rows.length ? <tr><td colSpan="11" style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>Chưa có dữ liệu Email OTP</td></tr> : rows.map((row, index) => {
             const meta = STATUS_META[row.status] || STATUS_META.PENDING;
-            return <tr key={row.id} className={`email-otp-row${selected.has(row.id) ? ' selected' : ''}`}><td><input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleOne(row.id)} /></td><td>{(page - 1) * limit + index + 1}</td><td><strong>{row.site}</strong></td><td title={row.gmail}><strong>{short(row.gmail, 30)}</strong></td><td title={row.order_id}>{short(row.order_id, 20)}</td><td className="otp-code">{short(row.otp_history, 32)}</td><td><strong style={{ color: '#2563eb', fontSize: '.95rem' }}>{row.solan}</strong></td><td title={row.used_devices || ''}><strong>{row.used_device_count || 0}</strong><div style={{ color: '#64748b', fontSize: '.72rem', marginTop: 2 }}>{short(row.used_devices, 28)}</div></td><td><span style={{ display: 'inline-block', borderRadius: 7, padding: '4px 8px', background: meta.bg, color: meta.color, fontWeight: 800, whiteSpace: 'nowrap' }}>{meta.label}</span></td><td style={{ whiteSpace: 'nowrap' }}>{fmt(row.updated_at)}</td></tr>;
+            return <tr key={row.id} className={`email-otp-row${selected.has(row.id) ? ' selected' : ''}`}><td><input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleOne(row.id)} /></td><td>{(page - 1) * limit + index + 1}</td><td><strong>{row.site}</strong></td><td title={row.gmail}><strong>{short(row.gmail, 30)}</strong></td><td title={row.order_id}>{short(row.order_id, 20)}</td><td className="otp-code">{short(row.otp_history, 32)}</td><td><strong style={{ color: '#2563eb', fontSize: '.95rem' }}>{row.solan}</strong></td><td title={row.used_devices || ''}><strong>{row.used_device_count || 0}</strong><div style={{ color: '#64748b', fontSize: '.72rem', marginTop: 2 }}>{short(row.used_devices, 28)}</div></td><td>{row.locked_by ? <><strong style={{ color: '#7c3aed' }}>🔒 {row.locked_by}</strong><div style={{ color: '#64748b', fontSize: '.72rem' }}>{fmt(row.locked_at)}</div></> : '—'}</td><td><span style={{ display: 'inline-block', borderRadius: 7, padding: '4px 8px', background: meta.bg, color: meta.color, fontWeight: 800, whiteSpace: 'nowrap' }}>{meta.label}</span></td><td style={{ whiteSpace: 'nowrap' }}>{fmt(row.updated_at)}</td></tr>;
           })}
         </tbody></table></div>
       </div>

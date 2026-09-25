@@ -15,6 +15,8 @@ const EmailOtpOrder = sequelize.define('EmailOtpOrder', {
     defaultValue: 'PENDING',
   },
   source_device_id: { type: DataTypes.STRING(255), allowNull: true },
+  locked_by: { type: DataTypes.STRING(255), allowNull: true },
+  locked_at: { type: DataTypes.DATE, allowNull: true },
   last_used_at: { type: DataTypes.DATE, allowNull: true },
 }, {
   tableName: 'email_otp_orders',
@@ -25,6 +27,7 @@ const EmailOtpOrder = sequelize.define('EmailOtpOrder', {
     { unique: true, name: 'uq_email_otp_owner_site_order', fields: ['owner_username', 'site', 'order_id'] },
     { name: 'idx_email_otp_owner_status', fields: ['owner_username', 'status'] },
     { name: 'idx_email_otp_gmail', fields: ['gmail'] },
+    { name: 'idx_email_otp_locked_by', fields: ['locked_by'] },
   ],
 });
 
