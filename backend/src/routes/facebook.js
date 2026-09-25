@@ -8,6 +8,8 @@ const router = express.Router();
 router.post('/import-api', apiKeyAuth, controller.importFromApi);
 router.post('/reg/report', apiKeyAuth, controller.reportRegOnly);
 router.post('/job/get-account', apiKeyAuth, controller.getJobForPhone);
+router.all('/job/device-account-count', apiKeyAuth, controller.checkDeviceAccountCount);
+router.all('/job/check-limit', apiKeyAuth, controller.checkDeviceAccountCount);
 router.post('/job/get-login-success-account', apiKeyAuth, controller.getLoginSuccessJobForPhone);
 router.post('/job/report', apiKeyAuth, controller.report);
 router.post('/job/page-report', apiKeyAuth, controller.reportPageJob);

@@ -354,6 +354,48 @@ const countDeviceFacebookLoginActive = async ({ owner_username, device_id, group
   return FacebookAccount.count({ where, transaction });
 };
 
+const getDeviceFacebookAccountSummary = async ({ owner_username, device_id, groupId = null }) => {
+  const deviceWhere = {
+    owner_username,
+    kind: 'job',
+    [Op.or]: [{ device_id }, { locked_by: device_id }],
+  };
+  if (groupId) deviceWhere.group_id = groupId;
+  const activeLiveWhere = {
+    ...deviceWhere,
+    [Op.and]: [{ [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }] }],
+  };
+  const [rows, used, loginSuccess] = await Promise.all([
+    FacebookAccount.findAll({
+      attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+      where: deviceWhere,
+      group: ['status'],
+      raw: true,
+    }),
+    countDeviceFacebookLoginActive({ owner_username, device_id, groupId }),
+    FacebookAccount.count({
+      where: {
+        ...activeLiveWhere,
+        status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
+      },
+    }),
+  ]);
+  const status_counts = Object.fromEntries(rows.map((row) => [row.status, Number(row.count) || 0]));
+  const total = Object.values(status_counts).reduce((sum, value) => sum + value, 0);
+  const settings = await getFacebookLoginLimitSettings(owner_username);
+  return {
+    device_id,
+    group_id: groupId || null,
+    total,
+    login_success: loginSuccess,
+    pending_login: status_counts.DANG_LOGIN || 0,
+    used,
+    limit: settings.limit,
+    remaining: Math.max(settings.limit - used, 0),
+    full: used >= settings.limit,
+    status_counts,
+  };
+};
 const resolveJobGroupIdForRequest = async (req, owner_username) => {
   const rawGroupId = req.body.group_id ?? req.query.group_id;
   const groupId = parseInt(rawGroupId, 10);
@@ -597,24 +639,25 @@ const list = async (req, res, next) => {
         attributes: [
           'device_id',
           [FacebookAccount.sequelize.fn('COUNT', FacebookAccount.sequelize.col('id')), 'total'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status IN ('LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG') AND (live_status <> 'die' OR live_status IS NULL) THEN 1 ELSE 0 END")), 'successful_total'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'CHO_LOGIN' THEN 1 ELSE 0 END")), 'waiting_login'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'DANG_LOGIN' THEN 1 ELSE 0 END")), 'logging_in'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'LOGIN_THANH_CONG' THEN 1 ELSE 0 END")), 'login_success'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'DANG_LAM' THEN 1 ELSE 0 END")), 'working'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status = 'DA_CHAY_XONG' THEN 1 ELSE 0 END")), 'done'],
           [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status IN ('LOGIN_FAIL','ACCOUNT_DIE') THEN 1 ELSE 0 END")), 'failed'],
-          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.col('page_count')), 'pages'],
-          [FacebookAccount.sequelize.fn('MAX', FacebookAccount.sequelize.col('updated_at')), 'last_updated_at'],
+          [FacebookAccount.sequelize.fn('SUM', FacebookAccount.sequelize.literal("CASE WHEN status IN ('LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG') AND (live_status <> 'die' OR live_status IS NULL) THEN page_count ELSE 0 END")), 'pages'],
+          [FacebookAccount.sequelize.fn('MAX', FacebookAccount.sequelize.literal("CASE WHEN status IN ('LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG') AND (live_status <> 'die' OR live_status IS NULL) THEN updated_at ELSE NULL END")), 'last_updated_at'],
         ],
         where: { owner_username, kind: 'job' },
         group: ['device_id'],
         raw: true,
       });
       machine_stats = machineRows
-        .filter((row) => nullify(row.device_id))
+        .filter((row) => nullify(row.device_id) && Number(row.successful_total) > 0)
         .map((row) => ({
           device_id: row.device_id,
-          total: Number(row.total) || 0,
+          total: Number(row.successful_total) || 0,
           waiting_login: Number(row.waiting_login) || 0,
           logging_in: Number(row.logging_in) || 0,
           login_success: Number(row.login_success) || 0,
@@ -872,6 +915,19 @@ const getJobForPhone = async (req, res, next) => {
   }
 };
 
+const checkDeviceAccountCount = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    const groupId = await resolveJobGroupIdForRequest(req, owner_username);
+    if (groupId === false) return error(res, 'Nhom Facebook JOB khong hop le', 400);
+    const summary = await getDeviceFacebookAccountSummary({ owner_username, device_id, groupId });
+    return success(res, summary, summary.full ? 'Full limit' : 'Available slots');
+  } catch (err) {
+    next(err);
+  }
+};
 const getLoginSuccessJobForPhone = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
@@ -2409,6 +2465,7 @@ module.exports = {
   importFromApi,
   reportRegOnly,
   getJobForPhone,
+  checkDeviceAccountCount,
   getLoginSuccessJobForPhone,
   report,
   checkLive,
