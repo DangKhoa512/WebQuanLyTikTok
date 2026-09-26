@@ -186,7 +186,7 @@ const findClaim = async ({ req, owner_username, device_id, transaction, lock = f
   const where = { owner_username, device_id };
   if (Number.isInteger(claimId)) where.id = claimId;
   else if (facebookUid) where.facebook_uid = facebookUid;
-  else return null;
+  else where.status = 'DANG_REG';
   return InstagramFacebookRegClaim.findOne({
     where,
     order: [['id', 'DESC']],
@@ -209,6 +209,21 @@ const report = async (req, res, next) => {
     if (!reportStatus) {
       await transaction.rollback();
       return error(res, 'Trang thai bao cao phai la REG_XONG hoac REG_FAIL', 400);
+    }
+
+    const requestedClaimId = parseInt(req.body?.claim_id || req.query?.claim_id, 10);
+    const requestedFacebookUid = nullify(req.body?.facebook_uid || req.query?.facebook_uid);
+    const hasClaimReference = Number.isInteger(requestedClaimId) || Boolean(requestedFacebookUid);
+    if (!hasClaimReference && reportStatus === 'REG_XONG' && payload.uid) {
+      const completedClaim = await InstagramFacebookRegClaim.findOne({
+        where: { owner_username, device_id, instagram_uid: payload.uid, status: 'REG_XONG' },
+        order: [['completed_at', 'DESC'], ['id', 'DESC']],
+        transaction,
+      });
+      if (completedClaim) {
+        await transaction.commit();
+        return success(res, { claim: completedClaim.toJSON(), already_reported: true }, 'Luot Reg Instagram da duoc bao cao truoc do');
+      }
     }
 
     const claim = await findClaim({ req, owner_username, device_id, transaction, lock: true });
