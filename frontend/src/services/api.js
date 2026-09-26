@@ -209,6 +209,7 @@ export const facebookApi = {
 
 export const instagramApi = {
   getAll: (params) => api.get('/instagram', { params }),
+  getFacebookRegClaims: (params) => api.get('/instagram/reg/facebook/claims', { params }),
   addJob: (device_id, web, jobs = 0, xu = 0) => api.post('/instagram/job/add-job', { device_id, web, jobs, xu }),
   import: (text, kind = 'job', status = 'CHO_LOGIN', group_id = null) => api.post('/instagram/import', { text, kind, status, group_id }),
   bulkGet: (ids) => api.post('/instagram/bulk-get', { ids }),

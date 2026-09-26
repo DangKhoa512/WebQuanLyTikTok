@@ -1,11 +1,17 @@
 const express = require('express');
 const controller = require('../controllers/instagramController');
+const facebookRegController = require('../controllers/instagramFacebookRegController');
 const jwtAuth = require('../middleware/jwtAuth');
 const apiKeyAuth = require('../middleware/apiKeyAuth');
 const router = express.Router();
 
 router.post('/import-api', apiKeyAuth, controller.importApi);
 router.post('/reg/report', apiKeyAuth, controller.reportRegOnly);
+router.post('/reg/facebook/get-account', apiKeyAuth, facebookRegController.getAccount);
+router.post('/reg/facebook/report', apiKeyAuth, facebookRegController.report);
+router.post('/reg/facebook/release', apiKeyAuth, facebookRegController.release);
+router.all('/reg/facebook/device-status', apiKeyAuth, facebookRegController.deviceStatus);
+router.get('/reg/facebook/claims', jwtAuth, facebookRegController.listClaims);
 router.post('/job/get-account', apiKeyAuth, controller.getAccount);
 router.all('/job/device-account-count', apiKeyAuth, controller.checkDeviceAccountCount);
 router.all('/job/check-limit', apiKeyAuth, controller.checkDeviceAccountCount);

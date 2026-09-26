@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { instagramApi, accountGroupApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import AccountGroupPicker from '../components/AccountGroupPicker';
+import InstagramFacebookRegClaims from '../components/InstagramFacebookRegClaims';
 import { toast } from '../components/Toast';
 import { copyText } from '../services/clipboard';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
@@ -74,6 +75,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
   const [checking,setChecking]=useState(false),[checkProgress,setCheckProgress]=useState(null);
   const [trash,setTrash]=useState(false),[trashCount,setTrashCount]=useState(0),[machineView,setMachineView]=useState(false);
   const [bulkStatus,setBulkStatus]=useState(''),[bulkGroup,setBulkGroup]=useState('');
+  const [regView,setRegView]=useState('accounts');
   const params=useMemo(()=>({kind,page,limit,status,q,group_id:groupId,device_id:device||undefined,live_status:liveStatus||undefined,date_from:dateFrom||undefined,date_to:dateTo||undefined,soak_days:soakDays||undefined,sort_by:sort.field||undefined,sort_order:sort.direction}),[kind,page,limit,status,q,groupId,device,dateFrom,dateTo,soakDays,liveStatus,sort]);
   const loadGroups=useCallback(async()=>{try{const r=await accountGroupApi.getAll(groupType(kind));setGroups(r.data?.groups||[]);}catch(e){toast.error(e.message);}},[kind]);
   const load=useCallback(async()=>{setLoading(true);try{const r=trash?await instagramApi.getTrash(params):await instagramApi.getAll(params);setRows(r.data?.accounts||[]);setPagination(r.data?.pagination||null);if(!trash){setCounts(r.data?.status_counts||{});setMachines(r.data?.machine_stats||[]);setTrashCount(r.data?.trash_count||0);}else setTrashCount(r.data?.pagination?.total||0);}catch(e){toast.error(e.message);}finally{setLoading(false);}},[params,trash]);
@@ -119,19 +121,23 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
           <div className="subtitle">{isReg ? 'Quản lý account Instagram do máy push lên sau khi reg/login.' : 'Phone job lấy account Instagram, khóa lock theo máy và báo cáo trạng thái.'}</div>
         </div>
         <div style={{display:'flex',gap:'.75rem',flexWrap:'wrap'}}>
+          {isReg && <>
+            <button type="button" className={regView === 'accounts' ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>setRegView('accounts')}>Danh sách account</button>
+            <button type="button" className={regView === 'facebook' ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>setRegView('facebook')}>Reg IG bằng Facebook</button>
+          </>}
           {!isReg && !trash && <>
             <button type="button" className={!machineView ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>setMachineView(false)}>Danh sách account</button>
             <button type="button" className={machineView ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>setMachineView(true)}>Theo máy ({machines.length})</button>
           </>}
           {!isReg && <button type="button" className="btn btn-secondary btn-sm" onClick={switchTrash}>{trash ? 'Quay lại Instagram Job' : 'Thùng rác (' + trashCount + ')'}</button>}
-          {!trash && <button type="button" className="btn btn-primary btn-sm" onClick={()=>setImporting(true)}>Import</button>}
-          <button type="button" className="btn btn-secondary btn-sm" disabled={loading} onClick={load}>{loading ? 'Đang tải...' : 'Làm mới'}</button>
+          {!trash && (!isReg || regView === 'accounts') && <button type="button" className="btn btn-primary btn-sm" onClick={()=>setImporting(true)}>Import</button>}
+          {(!isReg || regView === 'accounts') && <button type="button" className="btn btn-secondary btn-sm" disabled={loading} onClick={load}>{loading ? 'Đang tải...' : 'Làm mới'}</button>}
         </div>
       </div>
 
       {platformSwitch && <div style={{marginBottom:'1rem'}}>{platformSwitch}</div>}
 
-      {isReg && !trash && <div className="ig-stat-grid">
+      {isReg && !trash && regView === 'accounts' && <div className="ig-stat-grid">
         <div className="stat-card" style={{borderLeftColor:'#ec4899'}}>
           <div className="stat-icon" style={{background:'rgba(236,72,153,.14)',color:'#db2777'}}>IG</div>
           <div className="stat-info"><div className="stat-value">{total}</div><div className="stat-title">Tổng Account</div></div>
@@ -147,7 +153,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
         <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setFilter(setDevice,'')}>Bỏ lọc máy</button>
       </div>}
 
-      {!trash && !machineView && <div className="ig-status-tabs">
+      {!trash && !machineView && (!isReg || regView === 'accounts') && <div className="ig-status-tabs">
         {tabs.map((tab)=><button key={tab.value || 'all'} type="button" onClick={()=>setFilter(setStatus,tab.value)} style={{
           background:status===tab.value ? tab.color : 'rgba(255,255,255,.06)',
           color:status===tab.value ? '#fff' : '#64748b',
@@ -156,7 +162,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
         }}>{tab.icon} {tab.label} ({tab.value ? counts[tab.value] || 0 : total})</button>)}
       </div>}
 
-      {!trash && machineView ? <div className="card" style={{padding:0,overflow:'hidden',marginBottom:'1rem'}}>
+      {isReg && regView === 'facebook' ? <InstagramFacebookRegClaims /> : !trash && machineView ? <div className="card" style={{padding:0,overflow:'hidden',marginBottom:'1rem'}}>
         <div className="card-header" style={{gap:'.75rem',flexWrap:'wrap'}}>
           <div><h3>🖥️ Quản lý account theo máy</h3><div style={{color:'#64748b',fontSize:'.78rem',marginTop:'.2rem'}}>{machines.length} máy đã có account</div></div>
           <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Tìm tên máy..." style={{width:210,maxWidth:'100%',border:'1px solid #cbd5e1',borderRadius:8,padding:'.45rem .75rem'}} />
