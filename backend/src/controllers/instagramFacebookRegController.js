@@ -111,11 +111,12 @@ const getAccount = async (req, res, next) => {
       lock: transaction.LOCK.UPDATE,
     });
     if (active && Number(active.get_count) < MAX_GET_COUNT) {
-      await active.update({ get_count: Number(active.get_count) + 1, locked_at: now }, { transaction });
       const account = await FacebookAccount.unscoped().findOne({
         where: { id: active.facebook_account_id, owner_username, kind: 'job', trashed_at: null }, transaction,
       });
-      if (account) {
+      const belongsToDevice = account && String(account.device_id || '').trim().toLowerCase() === device_id.toLowerCase();
+      if (belongsToDevice) {
+        await active.update({ get_count: Number(active.get_count) + 1, locked_at: now }, { transaction });
         await transaction.commit();
         return success(res, {
           claim_id: active.id,
@@ -127,7 +128,10 @@ const getAccount = async (req, res, next) => {
           account: serializeFacebook(account),
         }, 'Lay account Facebook de reg Instagram thanh cong');
       }
-      await active.update({ status: 'REG_FAIL', fail_reason: 'Account Facebook khong con ton tai', completed_at: now, locked_at: null }, { transaction });
+      const reason = account
+        ? `Account Facebook khong con thuoc may ${device_id}; hien thuoc may ${account.device_id || '-'}`
+        : 'Account Facebook khong con ton tai';
+      await active.update({ status: 'REG_FAIL', fail_reason: reason, completed_at: now, locked_at: null }, { transaction });
     } else if (active) {
       await active.update({ status: 'REG_FAIL', fail_reason: `May da get qua ${MAX_GET_COUNT} lan nhung chua bao cao`, completed_at: now, locked_at: null }, { transaction });
     }
@@ -137,6 +141,7 @@ const getAccount = async (req, res, next) => {
       where: {
         owner_username,
         kind: 'job',
+        device_id,
         status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
         live_status: { [Op.ne]: 'die' },
         cookies: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] },
@@ -152,7 +157,7 @@ const getAccount = async (req, res, next) => {
     });
     if (!account) {
       await transaction.commit();
-      return success(res, { claim_id: null, device_id, resumed: false, account: null }, 'Khong con account Facebook du dieu kien de reg Instagram');
+      return success(res, { claim_id: null, device_id, resumed: false, account: null }, 'Khong con account Facebook du dieu kien trong may nay de reg Instagram');
     }
 
     const claim = await InstagramFacebookRegClaim.create({
@@ -253,6 +258,22 @@ const report = async (req, res, next) => {
     if (!payload.uid) {
       await transaction.rollback();
       return error(res, 'Can truyen account Instagram theo dinh dang tai_khoan|mat_khau|2fa|cookies', 400);
+    }
+
+    const sourceAccount = await FacebookAccount.unscoped().findOne({
+      where: { id: claim.facebook_account_id, owner_username, kind: 'job', trashed_at: null },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    const sourceBelongsToDevice = sourceAccount
+      && String(sourceAccount.device_id || '').trim().toLowerCase() === device_id.toLowerCase();
+    if (!sourceBelongsToDevice) {
+      const reason = sourceAccount
+        ? `Account Facebook khong con thuoc may ${device_id}; hien thuoc may ${sourceAccount.device_id || '-'}`
+        : 'Account Facebook nguon khong con ton tai';
+      await claim.update({ status: 'REG_FAIL', fail_reason: reason, completed_at: now, locked_at: null }, { transaction });
+      await transaction.commit();
+      return error(res, reason, 409);
     }
 
     const accountDefaults = (kind) => ({
