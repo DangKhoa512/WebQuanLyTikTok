@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post('/report', apiKeyAuth, controller.reportFromPhone);
 router.post('/get', apiKeyAuth, controller.getForPhone);
+router.post('/report-done', apiKeyAuth, controller.reportDone);
 
 router.get('/', jwtAuth, controller.list);
 router.post('/', jwtAuth, controller.createFromDashboard);

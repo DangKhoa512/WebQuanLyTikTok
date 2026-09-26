@@ -33,7 +33,7 @@ const otpValues = (value) => {
   if (Array.isArray(value)) return value.flatMap(otpValues);
   const text = nullify(value);
   if (!text) return [];
-  return text.split(/[\r\n,|]+/).map((item) => item.trim()).filter(Boolean);
+  return text.split(/[\s,|]+/).map((item) => item.trim()).filter(Boolean);
 };
 const appendOtpHistory = (existing, incoming) => {
   const values = [...otpValues(existing), ...otpValues(incoming)];
@@ -51,6 +51,14 @@ const serialize = (row) => {
   const data = row?.toJSON ? row.toJSON() : { ...row };
   data.id_oder = data.order_id;
   data.solan = Number(data.use_count) || 0;
+  return data;
+};
+const serializeForPhone = (row) => {
+  const data = serialize(row);
+  data.otp_history_all = data.otp_history;
+  const history = otpValues(data.otp_history);
+  data.otp_history = history.length ? history[history.length - 1] : null;
+  data.otp_latest = data.otp_history;
   return data;
 };
 
@@ -169,11 +177,11 @@ const getForPhone = async (req, res, next) => {
       await active.update({ locked_at: now, last_used_at: now }, { transaction });
       await transaction.commit();
       return success(res, {
-        email: serialize(active),
+        email: serializeForPhone(active),
         device_id,
         resumed: true,
         lock_timeout_min: LOCK_TIMEOUT_MIN,
-      }, 'Tiep tuc Email OTP Pending dang lock');
+      }, 'Lay Email OTP Pending thanh cong');
     }
 
     const escapedDevice = sequelize.escape(device_id);
@@ -206,7 +214,7 @@ const getForPhone = async (req, res, next) => {
     await transaction.commit();
 
     return success(res, {
-      email: serialize(order),
+      email: serializeForPhone(order),
       device_id,
       resumed: false,
       lock_timeout_min: LOCK_TIMEOUT_MIN,
@@ -215,6 +223,44 @@ const getForPhone = async (req, res, next) => {
     if (!transaction.finished) await transaction.rollback();
     next(err);
   }
+};
+const reportDone = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
+    const id = parseInt(req.body.id || req.query.id, 10);
+    const order_id = nullify(req.body.id_oder || req.body.id_order || req.body.order_id || req.query.id_oder || req.query.id_order || req.query.order_id);
+    const gmail = normalizeEmail(req.body.gmail || req.body.email || req.query.gmail || req.query.email);
+    const site = normalizeSite(req.body.site || req.query.site);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    if (!Number.isInteger(id) && !order_id && !gmail) return error(res, 'Can truyen id, id_oder hoac gmail', 400);
+
+    const where = { owner_username };
+    if (Number.isInteger(id)) where.id = id;
+    else if (order_id) {
+      where.order_id = order_id;
+      if (site) where.site = site;
+    } else where.gmail = gmail;
+
+    const account = await EmailOtpOrder.findOne({ where, order: [['id', 'DESC']] });
+    if (!account) return error(res, 'Khong tim thay Email OTP', 404);
+    if (account.status === 'DONE') {
+      return success(res, { email: serialize(account), device_id, already_done: true }, 'Email OTP da o trang thai DONE');
+    }
+    if (account.locked_by !== device_id) {
+      return error(res, account.locked_by
+        ? `Email OTP dang duoc lock boi may ${account.locked_by}`
+        : 'Email OTP khong duoc lock boi may nay', 409);
+    }
+
+    await account.update({
+      status: 'DONE',
+      locked_by: null,
+      locked_at: null,
+      last_used_at: new Date(),
+    });
+    return success(res, { email: serialize(account), device_id, already_done: false }, 'Da dong Email OTP thanh cong');
+  } catch (err) { next(err); }
 };
 const list = async (req, res, next) => {
   try {
@@ -292,4 +338,4 @@ const bulkDelete = async (req, res, next) => {
   }
 };
 
-module.exports = { reportFromPhone, getForPhone, list, createFromDashboard, bulkStatus, bulkDelete };
+module.exports = { reportFromPhone, getForPhone, reportDone, list, createFromDashboard, bulkStatus, bulkDelete };
