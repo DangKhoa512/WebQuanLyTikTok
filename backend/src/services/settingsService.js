@@ -11,6 +11,7 @@ const FACEBOOK_CHECK_PROXIES_KEY = 'facebook_check_proxies';
 const FACEBOOK_REG_PAGE_WAIT_KEY = 'facebook_reg_page_wait_hours';
 const FACEBOOK_NURTURE_KEY = 'facebook_nurture';
 const INSTAGRAM_NURTURE_KEY = 'instagram_nurture';
+const INSTAGRAM_FACEBOOK_REG_KEY = 'instagram_facebook_reg';
 const DEFAULT_MACHINE_API_KEYS = [
   'WEB',
   'CAPTCHA_TDS',
@@ -32,6 +33,7 @@ const DEFAULT_INSTAGRAM_LOGIN_MACHINE_LIMIT = parseInt(process.env.INSTAGRAM_LOG
 const DEFAULT_JOB_ACCOUNT_DAILY_LIMIT = parseInt(process.env.JOB_ACCOUNT_DAILY_LIMIT, 10) || 20;
 const DEFAULT_FACEBOOK_CHECK_CONCURRENCY = 20;
 const DEFAULT_FACEBOOK_REG_PAGE_WAIT_HOURS = 8;
+const DEFAULT_INSTAGRAM_FACEBOOK_REG = { reuse_hours: 24, max_instagram_per_facebook: 1 };
 const DEFAULT_FACEBOOK_NURTURE = {
   active_scenario_id: null,
   cooldown_hours: 24,
@@ -87,6 +89,14 @@ const normalizeFacebookRegPageWait = (data = {}) => {
   return { hours };
 };
 
+const normalizeInstagramFacebookReg = (data = {}) => {
+  const parsedHours = parseInt(data.reuse_hours, 10);
+  const parsedLimit = parseInt(data.max_instagram_per_facebook, 10);
+  return {
+    reuse_hours: Number.isInteger(parsedHours) ? Math.min(Math.max(parsedHours, 0), 720) : DEFAULT_INSTAGRAM_FACEBOOK_REG.reuse_hours,
+    max_instagram_per_facebook: Number.isInteger(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : DEFAULT_INSTAGRAM_FACEBOOK_REG.max_instagram_per_facebook,
+  };
+};
 const normalizeNurtureRange = (data = {}) => {
   const parsedMin = parseInt(data.min, 10);
   const parsedMax = parseInt(data.max, 10);
@@ -303,6 +313,18 @@ const saveFacebookRegPageWaitSettings = async (owner_username = 'admin', data = 
   return normalized;
 };
 
+const getInstagramFacebookRegSettings = async (owner_username = 'admin') => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, INSTAGRAM_FACEBOOK_REG_KEY);
+  return normalizeInstagramFacebookReg(stored || DEFAULT_INSTAGRAM_FACEBOOK_REG);
+};
+
+const saveInstagramFacebookRegSettings = async (owner_username = 'admin', data = {}) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const normalized = normalizeInstagramFacebookReg(data);
+  await saveSetting(owner, INSTAGRAM_FACEBOOK_REG_KEY, normalized);
+  return normalized;
+};
 const getFacebookNurtureSettings = async (owner_username = 'admin') => {
   const owner = normalizeOwner(owner_username) || defaultOwner();
   const stored = await getSetting(owner, FACEBOOK_NURTURE_KEY);
@@ -337,6 +359,7 @@ module.exports = {
   DEFAULT_MACHINE_API_KEYS,
   DEFAULT_FACEBOOK_NURTURE,
   DEFAULT_INSTAGRAM_NURTURE,
+  DEFAULT_INSTAGRAM_FACEBOOK_REG,
   getEligibilitySettings,
   saveEligibilitySettings,
   getChromeKhangLimitSettings,
@@ -353,6 +376,8 @@ module.exports = {
   saveFacebookCheckProxySettings,
   getFacebookRegPageWaitSettings,
   saveFacebookRegPageWaitSettings,
+  getInstagramFacebookRegSettings,
+  saveInstagramFacebookRegSettings,
   getFacebookNurtureSettings,
   saveFacebookNurtureSettings,
   getInstagramNurtureSettings,

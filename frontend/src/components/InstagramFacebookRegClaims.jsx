@@ -26,6 +26,8 @@ export default function InstagramFacebookRegClaims() {
   const [pagination, setPagination] = useState(null);
   const [counts, setCounts] = useState({});
   const [deviceCount, setDeviceCount] = useState(0);
+  const [regSettings, setRegSettings] = useState({ reuse_hours:24, max_instagram_per_facebook:1 });
+  const [resettingId, setResettingId] = useState(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
   const [status, setStatus] = useState('');
@@ -49,6 +51,7 @@ export default function InstagramFacebookRegClaims() {
       setRows(response.data?.claims || []);
       setCounts(response.data?.status_counts || {});
       setDeviceCount(response.data?.device_count || 0);
+      setRegSettings(response.data?.reg_settings || { reuse_hours:24, max_instagram_per_facebook:1 });
       setPagination(response.data?.pagination || null);
     } catch (err) {
       toast.error(err.message || 'Không tải được lịch sử Reg IG bằng Facebook');
@@ -59,6 +62,19 @@ export default function InstagramFacebookRegClaims() {
 
   useEffect(() => { load(); }, [load]);
 
+  const resetEligibility = async (row) => {
+    if (!confirm(`Mở lại Facebook ${row.facebook_uid} để Reg Instagram từ đầu chu kỳ?`)) return;
+    setResettingId(row.id);
+    try {
+      const response = await instagramApi.resetFacebookRegEligibility({ claim_id:row.id });
+      toast.success(response.message || 'Đã reset chu kỳ Reg IG');
+      await load();
+    } catch (err) {
+      toast.error(err.message || 'Reset chu kỳ Reg IG thất bại');
+    } finally {
+      setResettingId(null);
+    }
+  };
   const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
   const filterStatus = (value) => { setStatus(value); setPage(1); };
   const clearFilters = () => { setQ(''); setStatus(''); setPage(1); setLimit(50); setSort({ field:'created_at', direction:'desc' }); };
@@ -92,6 +108,14 @@ export default function InstagramFacebookRegClaims() {
       <SummaryCard label="Máy đã tham gia" value={deviceCount} icon="MÁY" color="#0ea5e9" active={false} onClick={() => {}} />
     </div>
 
+    <div style={{ display:'flex', alignItems:'center', gap:'.75rem', flexWrap:'wrap', marginBottom:'1rem', padding:'.75rem 1rem', border:'1px solid rgba(219,39,119,.18)', borderRadius:10, background:'rgba(236,72,153,.055)', color:'#475569', fontSize:'.8rem' }}>
+      <strong style={{ color:'#be185d' }}>Cấu hình đang áp dụng:</strong>
+      <span>Mở lại sau <b>{number(regSettings.reuse_hours)} giờ</b></span>
+      <span>·</span>
+      <span>Tối đa <b>{number(regSettings.max_instagram_per_facebook)} IG / 1 Facebook</b> trong mỗi chu kỳ</span>
+      <span>·</span>
+      <span>Reset thủ công sẽ mở ngay và bắt đầu chu kỳ mới.</span>
+    </div>
     <div className="card" style={{ marginBottom:'1rem', overflow:'visible' }}>
       <div className="filter-bar" style={{ margin:0, boxShadow:'none' }}><div className="filter-row">
         <div className="filter-group" style={{ minWidth:260, flex:'1 1 320px' }}><label>Tìm máy / UID Facebook / tài khoản IG</label><input value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="Reg4, UID Facebook, username IG..." /></div>
@@ -105,9 +129,9 @@ export default function InstagramFacebookRegClaims() {
     <div className="card" style={{ padding:0, overflow:'hidden' }}>
       <div className="card-header"><div><h3>🔗 Lượt Reg Instagram bằng Facebook</h3><div style={{ color:'#64748b', fontSize:'.76rem', marginTop:'.2rem' }}>Theo dõi máy đang giữ account Facebook và account Instagram đã tạo</div></div><span style={{ color:'#64748b', fontSize:'.8rem' }}>{number(pagination?.total)} lượt {loading ? '- đang tải...' : ''}</span></div>
       <div style={{ overflowX:'auto' }}><table className="data-table ig-fb-claim-table"><thead><tr>
-        <th>STT</th>{sortHeader('device_id','MÁY')}{sortHeader('facebook_uid','UID FACEBOOK')}{sortHeader('instagram_uid','ACCOUNT IG')}{sortHeader('status','TRẠNG THÁI')}{sortHeader('get_count','LẦN GET')}<th>EMAIL ORDER</th>{sortHeader('locked_at','LOCK LÚC')}{sortHeader('created_at','BẮT ĐẦU')}{sortHeader('completed_at','HOÀN TẤT')}<th>GHI CHÚ / LỖI</th>
+        <th>STT</th>{sortHeader('device_id','MÁY')}{sortHeader('facebook_uid','UID FACEBOOK')}{sortHeader('instagram_uid','ACCOUNT IG')}{sortHeader('status','TRẠNG THÁI')}{sortHeader('get_count','LẦN GET')}<th>EMAIL ORDER</th>{sortHeader('locked_at','LOCK LÚC')}{sortHeader('created_at','BẮT ĐẦU')}{sortHeader('completed_at','HOÀN TẤT')}<th>CHU KỲ</th><th>GHI CHÚ / LỖI</th><th>THAO TÁC</th>
       </tr></thead><tbody>
-        {!rows.length ? <tr><td colSpan={11} style={{ textAlign:'center', color:'#94a3b8', padding:38 }}>{loading ? 'Đang tải dữ liệu...' : 'Chưa có lượt Reg Instagram bằng Facebook'}</td></tr> : rows.map((row, index) => {
+        {!rows.length ? <tr><td colSpan={13} style={{ textAlign:'center', color:'#94a3b8', padding:38 }}>{loading ? 'Đang tải dữ liệu...' : 'Chưa có lượt Reg Instagram bằng Facebook'}</td></tr> : rows.map((row, index) => {
           const meta = CLAIM_STATUS[row.status] || { label:row.status || '-', color:'#64748b', bg:'rgba(100,116,139,.12)' };
           return <tr key={row.id}>
             <td style={{ color:'#94a3b8' }}>{(page - 1) * limit + index + 1}</td>
@@ -120,7 +144,9 @@ export default function InstagramFacebookRegClaims() {
             <td style={{ whiteSpace:'nowrap', color:'#64748b' }}>{fmt(row.locked_at)}</td>
             <td style={{ whiteSpace:'nowrap', color:'#64748b' }}>{fmt(row.created_at)}</td>
             <td style={{ whiteSpace:'nowrap', color:row.completed_at ? '#059669' : '#94a3b8' }}>{fmt(row.completed_at)}</td>
+            <td style={{ whiteSpace:'nowrap' }}>{row.eligibility_reset_at ? <span className="ig-fb-claim-status" style={{ color:'#0284c7', background:'rgba(14,165,233,.11)' }}>Đã reset {fmt(row.eligibility_reset_at)}</span> : row.status === 'REG_XONG' ? <span style={{ color:'#7c3aed', fontWeight:750 }}>Đang tính limit</span> : '-'}</td>
             <td title={row.fail_reason || ''} style={{ color:row.fail_reason ? '#dc2626' : '#94a3b8', maxWidth:260 }}>{short(row.fail_reason, 44)}</td>
+            <td>{row.status === 'REG_XONG' && !row.eligibility_reset_at ? <button type="button" className="btn btn-secondary btn-sm" disabled={resettingId === row.id} onClick={() => resetEligibility(row)}>{resettingId === row.id ? 'Đang reset...' : 'Reset mở lại'}</button> : '-'}</td>
           </tr>;
         })}
       </tbody></table></div>

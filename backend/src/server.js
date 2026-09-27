@@ -963,6 +963,12 @@ const startServer = async () => {
       logger.warn('Migration chrome legacy format skipped:', e.message);
     }
 
+    try {
+      await sequelize.query('ALTER TABLE instagram_facebook_reg_claims ADD COLUMN eligibility_reset_at DATETIME NULL');
+      logger.info('instagram_facebook_reg_claims eligibility reset column added');
+    } catch (e) {
+      logger.warn('Migration Instagram Facebook reg reset column skipped:', e.message);
+    }
     // 3. Start background jobs
     startCronJobs();
 

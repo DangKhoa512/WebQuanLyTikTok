@@ -5,6 +5,7 @@ const InstagramAccount = require('../models/InstagramAccount');
 const InstagramFacebookRegClaim = require('../models/InstagramFacebookRegClaim');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
+const { getInstagramFacebookRegSettings } = require('../services/settingsService');
 
 const LOCK_TIMEOUT_MIN = Math.max(parseInt(process.env.INSTAGRAM_FACEBOOK_REG_LOCK_TIMEOUT_MIN, 10) || 30, 1);
 const MAX_GET_COUNT = Math.max(parseInt(process.env.INSTAGRAM_FACEBOOK_REG_MAX_GET_COUNT, 10) || 3, 1);
@@ -102,6 +103,7 @@ const getAccount = async (req, res, next) => {
       return error(res, 'Can truyen device_id', 400);
     }
 
+    const regSettings = await getInstagramFacebookRegSettings(owner_username);
     await expireStaleClaims(owner_username, transaction);
     const now = new Date();
     const active = await InstagramFacebookRegClaim.findOne({
@@ -125,6 +127,7 @@ const getAccount = async (req, res, next) => {
           get_count: active.get_count,
           max_get_count: MAX_GET_COUNT,
           lock_timeout_min: LOCK_TIMEOUT_MIN,
+          reg_settings: regSettings,
           account: serializeFacebook(account),
         }, 'Lay account Facebook de reg Instagram thanh cong');
       }
@@ -148,7 +151,11 @@ const getAccount = async (req, res, next) => {
         locked_by: null,
         reg_page_locked_by: null,
         nurture_locked_by: null,
-        [Op.and]: literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS igfrc WHERE igfrc.owner_username = ${escapedOwner} AND igfrc.facebook_account_id = FacebookAccount.id AND igfrc.status IN ('DANG_REG','REG_XONG'))`),
+        [Op.and]: [
+          literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS active_claim WHERE active_claim.owner_username = ${escapedOwner} AND active_claim.facebook_account_id = FacebookAccount.id AND active_claim.status = 'DANG_REG')`),
+          literal(`(SELECT COUNT(*) FROM instagram_facebook_reg_claims AS success_claim WHERE success_claim.owner_username = ${escapedOwner} AND success_claim.facebook_account_id = FacebookAccount.id AND success_claim.status = 'REG_XONG' AND success_claim.eligibility_reset_at IS NULL) < ${regSettings.max_instagram_per_facebook}`),
+          literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS cooldown_claim WHERE cooldown_claim.owner_username = ${escapedOwner} AND cooldown_claim.facebook_account_id = FacebookAccount.id AND cooldown_claim.status = 'REG_XONG' AND cooldown_claim.eligibility_reset_at IS NULL AND cooldown_claim.completed_at > ${sequelize.escape(new Date(now.getTime() - regSettings.reuse_hours * 60 * 60 * 1000))})`),
+        ],
       },
       order: [['login_at', 'DESC'], ['id', 'DESC']],
       transaction,
@@ -157,7 +164,7 @@ const getAccount = async (req, res, next) => {
     });
     if (!account) {
       await transaction.commit();
-      return success(res, { claim_id: null, device_id, resumed: false, account: null }, 'Khong con account Facebook du dieu kien trong may nay de reg Instagram');
+      return success(res, { claim_id: null, device_id, resumed: false, reg_settings: regSettings, account: null }, 'Khong con account Facebook du dieu kien trong may nay de reg Instagram');
     }
 
     const claim = await InstagramFacebookRegClaim.create({
@@ -177,6 +184,7 @@ const getAccount = async (req, res, next) => {
       get_count: 1,
       max_get_count: MAX_GET_COUNT,
       lock_timeout_min: LOCK_TIMEOUT_MIN,
+      reg_settings: regSettings,
       account: serializeFacebook(account),
     }, 'Lay account Facebook de reg Instagram thanh cong');
   } catch (err) {
@@ -401,6 +409,62 @@ const deviceStatus = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const resetEligibility = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const claimIds = [...new Set([
+      ...(Array.isArray(req.body?.claim_ids) ? req.body.claim_ids : []),
+      req.body?.claim_id,
+    ].map((value) => parseInt(value, 10)).filter(Number.isInteger))];
+    const facebookUids = [...new Set([
+      ...(Array.isArray(req.body?.facebook_uids) ? req.body.facebook_uids : []),
+      req.body?.facebook_uid,
+    ].map(nullify).filter(Boolean))];
+    if (!claimIds.length && !facebookUids.length) {
+      await transaction.rollback();
+      return error(res, 'Can truyen claim_id hoac facebook_uid can reset', 400);
+    }
+
+    const selectedWhere = { owner_username, status: 'REG_XONG' };
+    const selectors = [];
+    if (claimIds.length) selectors.push({ id: { [Op.in]: claimIds } });
+    if (facebookUids.length) selectors.push({ facebook_uid: { [Op.in]: facebookUids } });
+    selectedWhere[Op.or] = selectors;
+    const selectedClaims = await InstagramFacebookRegClaim.findAll({
+      attributes: ['facebook_account_id', 'facebook_uid'],
+      where: selectedWhere,
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    const accountIds = [...new Set(selectedClaims.map((row) => row.facebook_account_id).filter(Boolean))];
+    if (!accountIds.length) {
+      await transaction.rollback();
+      return error(res, 'Khong tim thay luot Reg thanh cong de reset', 404);
+    }
+
+    const resetAt = new Date();
+    const [affected] = await InstagramFacebookRegClaim.update({ eligibility_reset_at: resetAt }, {
+      where: {
+        owner_username,
+        facebook_account_id: { [Op.in]: accountIds },
+        status: 'REG_XONG',
+        eligibility_reset_at: null,
+      },
+      transaction,
+    });
+    await transaction.commit();
+    return success(res, {
+      affected,
+      account_count: accountIds.length,
+      facebook_uids: [...new Set(selectedClaims.map((row) => row.facebook_uid))],
+      reset_at: resetAt,
+    }, 'Da reset chu ky Reg Instagram cua Facebook account');
+  } catch (err) {
+    if (!transaction.finished) await transaction.rollback();
+    next(err);
+  }
+};
 const listClaims = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
@@ -419,6 +483,7 @@ const listClaims = async (req, res, next) => {
       { instagram_uid: { [Op.like]: `%${q}%` } },
       { email_order_id: { [Op.like]: `%${q}%` } },
     ];
+    const reg_settings = await getInstagramFacebookRegSettings(owner_username);
     const [result, countRows, deviceCount] = await Promise.all([
       InstagramFacebookRegClaim.findAndCountAll({
         where,
@@ -440,9 +505,10 @@ const listClaims = async (req, res, next) => {
       claims: result.rows.map((row) => row.toJSON()),
       status_counts,
       device_count: Number(deviceCount) || 0,
+      reg_settings,
       pagination: { page, limit, total: result.count, totalPages: Math.ceil(result.count / limit) || 1 },
     }, 'Lay danh sach luot Reg Instagram bang Facebook thanh cong');
   } catch (err) { next(err); }
 };
 
-module.exports = { getAccount, report, release, deviceStatus, listClaims };
+module.exports = { getAccount, report, release, deviceStatus, resetEligibility, listClaims };

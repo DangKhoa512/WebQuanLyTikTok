@@ -14,6 +14,7 @@ const InstagramFacebookRegClaim = sequelize.define('InstagramFacebookRegClaim', 
   email_order_id: { type: DataTypes.STRING(255), allowNull: true },
   fail_reason: { type: DataTypes.STRING(1000), allowNull: true },
   completed_at: { type: DataTypes.DATE, allowNull: true },
+  eligibility_reset_at: { type: DataTypes.DATE, allowNull: true },
 }, {
   tableName: 'instagram_facebook_reg_claims',
   timestamps: true,

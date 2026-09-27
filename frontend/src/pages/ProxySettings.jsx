@@ -29,6 +29,8 @@ export default function ProxySettings() {
   const [savingInstagramLimitUser, setSavingInstagramLimitUser] = useState('');
   const [jobAccountDailyLimit, setJobAccountDailyLimit] = useState(20);
   const [facebookRegPageWaitHours, setFacebookRegPageWaitHours] = useState(8);
+  const [instagramFacebookReuseHours, setInstagramFacebookReuseHours] = useState(24);
+  const [instagramPerFacebookLimit, setInstagramPerFacebookLimit] = useState(1);
   const [userJobAccountDailyLimits, setUserJobAccountDailyLimits] = useState([]);
   const [savingJobLimitUser, setSavingJobLimitUser] = useState('');
   const [savingOwnJobLimit, setSavingOwnJobLimit] = useState(false);
@@ -67,6 +69,14 @@ export default function ProxySettings() {
         if (Number.isInteger(hours)) setFacebookRegPageWaitHours(hours);
       })
       .catch((err) => toast.error(err.message || 'Không tải được thời gian chờ reg Page'));
+    settingsApi.getInstagramFacebookReg()
+      .then((res) => {
+        if (!mounted) return;
+        const settings = res.data?.settings || {};
+        if (Number.isInteger(settings.reuse_hours)) setInstagramFacebookReuseHours(settings.reuse_hours);
+        if (Number.isInteger(settings.max_instagram_per_facebook)) setInstagramPerFacebookLimit(settings.max_instagram_per_facebook);
+      })
+      .catch((err) => toast.error(err.message || 'Không tải được cấu hình Reg IG bằng Facebook'));
     settingsApi.getChromeKhangLimit()
       .then((res) => {
         if (!mounted) return;
@@ -137,6 +147,7 @@ export default function ProxySettings() {
           settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10)),
           settingsApi.updateFacebookCheckProxies(proxies, parseInt(concurrency, 10)),
           settingsApi.updateFacebookRegPageWait(parseInt(facebookRegPageWaitHours, 10)),
+          settingsApi.updateInstagramFacebookReg(parseInt(instagramFacebookReuseHours, 10), parseInt(instagramPerFacebookLimit, 10)),
         ]);
       })
       .then(() => toast.success('Đã lưu cài đặt'))
@@ -156,11 +167,14 @@ export default function ProxySettings() {
     setInstagramLoginLimit(10);
     setJobAccountDailyLimit(20);
     setFacebookRegPageWaitHours(8);
+    setInstagramFacebookReuseHours(24);
+    setInstagramPerFacebookLimit(1);
     saveCheckLiveSettings({ proxies: '', concurrency: 20, delayMs: 200, batchSize: 60 });
     Promise.all([
       settingsApi.updateEligibility(4, 20),
       settingsApi.updateFacebookCheckProxies('', 20),
       settingsApi.updateFacebookRegPageWait(8),
+      settingsApi.updateInstagramFacebookReg(24, 1),
     ])
       .then(() => toast.success('Đã reset cài đặt'))
       .catch((err) => toast.error(err.message || 'Reset cài đặt thất bại'));
@@ -735,6 +749,30 @@ export default function ProxySettings() {
           </div>
         </div>
 
+        <div className="card">
+          <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
+            Instagram Reg bằng Facebook
+          </h3>
+          <div style={{ color: '#64748b', fontSize: '.78rem', marginBottom: '.85rem' }}>
+            Sau khi Reg IG thành công, Facebook account chỉ được lấy lại khi đủ thời gian chờ và chưa đạt limit trong chu kỳ. Có thể mở lại ngay bằng nút Reset tại trang Instagram Reg.
+          </div>
+          <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <label style={{ display: 'grid', gap: '.4rem', color: '#94a3b8', fontSize: '.78rem', fontWeight: 700 }}>
+              Mở lại sau
+              <span style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+                <input type="number" min={0} max={720} value={instagramFacebookReuseHours} onChange={(e) => setInstagramFacebookReuseHours(e.target.value)} style={{ width: 120, boxSizing: 'border-box', background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '.55rem .75rem', fontWeight: 700 }} />
+                <span>giờ</span>
+              </span>
+            </label>
+            <label style={{ display: 'grid', gap: '.4rem', color: '#94a3b8', fontSize: '.78rem', fontWeight: 700 }}>
+              Limit IG / 1 Facebook
+              <span style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+                <input type="number" min={1} max={100} value={instagramPerFacebookLimit} onChange={(e) => setInstagramPerFacebookLimit(e.target.value)} style={{ width: 120, boxSizing: 'border-box', background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '.55rem .75rem', fontWeight: 700 }} />
+                <span>account IG</span>
+              </span>
+            </label>
+          </div>
+        </div>
         {/* Proxy pool */}
         <div className="card">
           <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>

@@ -130,6 +130,8 @@ export const settingsApi = {
   updateFacebookCheckProxies: (proxies, concurrency) => api.put('/settings/facebook-check-proxies', { proxies, concurrency }),
   getFacebookRegPageWait: () => api.get('/settings/facebook-reg-page-wait'),
   updateFacebookRegPageWait: (hours) => api.put('/settings/facebook-reg-page-wait', { hours }),
+  getInstagramFacebookReg: () => api.get('/settings/instagram-facebook-reg'),
+  updateInstagramFacebookReg: (reuse_hours, max_instagram_per_facebook) => api.put('/settings/instagram-facebook-reg', { reuse_hours, max_instagram_per_facebook }),
   getFacebookNurture: () => api.get('/settings/facebook-nurture'),
   updateFacebookNurture: (settings) => api.put('/settings/facebook-nurture', settings),
   getInstagramNurture: () => api.get('/settings/instagram-nurture'),
@@ -210,6 +212,7 @@ export const facebookApi = {
 export const instagramApi = {
   getAll: (params) => api.get('/instagram', { params }),
   getFacebookRegClaims: (params) => api.get('/instagram/reg/facebook/claims', { params }),
+  resetFacebookRegEligibility: (data) => api.post('/instagram/reg/facebook/reset', data),
   addJob: (device_id, web, jobs = 0, xu = 0) => api.post('/instagram/job/add-job', { device_id, web, jobs, xu }),
   import: (text, kind = 'job', status = 'CHO_LOGIN', group_id = null) => api.post('/instagram/import', { text, kind, status, group_id }),
   bulkGet: (ids) => api.post('/instagram/bulk-get', { ids }),

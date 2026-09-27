@@ -18,6 +18,8 @@ const {
   saveFacebookCheckProxySettings,
   getFacebookRegPageWaitSettings,
   saveFacebookRegPageWaitSettings,
+  getInstagramFacebookRegSettings,
+  saveInstagramFacebookRegSettings,
   getFacebookNurtureSettings,
   saveFacebookNurtureSettings,
   getInstagramNurtureSettings,
@@ -320,6 +322,27 @@ const updateFacebookRegPageWait = async (req, res, next) => {
   }
 };
 
+const getInstagramFacebookReg = async (req, res, next) => {
+  try {
+    const settings = await getInstagramFacebookRegSettings(ownerFromAdmin(req));
+    return success(res, { settings }, 'Lay cau hinh Reg Instagram bang Facebook thanh cong');
+  } catch (err) { next(err); }
+};
+
+const updateInstagramFacebookReg = async (req, res, next) => {
+  try {
+    const reuse_hours = parseInt(req.body.reuse_hours, 10);
+    const max_instagram_per_facebook = parseInt(req.body.max_instagram_per_facebook, 10);
+    if (!Number.isInteger(reuse_hours) || reuse_hours < 0 || reuse_hours > 720) {
+      return error(res, 'So gio mo lai phai tu 0 den 720', 400);
+    }
+    if (!Number.isInteger(max_instagram_per_facebook) || max_instagram_per_facebook < 1 || max_instagram_per_facebook > 100) {
+      return error(res, 'Limit Instagram tren moi Facebook phai tu 1 den 100', 400);
+    }
+    const settings = await saveInstagramFacebookRegSettings(ownerFromAdmin(req), { reuse_hours, max_instagram_per_facebook });
+    return success(res, { settings }, 'Da luu cau hinh Reg Instagram bang Facebook');
+  } catch (err) { next(err); }
+};
 const getFacebookNurture = async (req, res, next) => {
   try {
     const settings = await getFacebookNurtureSettings(ownerFromAdmin(req));
@@ -355,4 +378,4 @@ const updateInstagramNurture = async (req, res, next) => {
     return success(res, { settings }, 'Da luu cau hinh nuoi Instagram');
   } catch (err) { next(err); }
 };
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture };
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture };
