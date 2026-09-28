@@ -159,7 +159,11 @@ const list = async (req, res, next) => {
       const facebookUids = [...new Set(linkRows.map((row) => row.facebook_uid))];
       const sourceCounts = facebookUids.length ? await FacebookInstagramLink.findAll({
         attributes: ['facebook_uid', [sequelize.fn('COUNT', sequelize.col('id')), 'instagram_count']],
-        where: { owner_username, facebook_uid: { [Op.in]: facebookUids } },
+        where: {
+          owner_username,
+          facebook_uid: { [Op.in]: facebookUids },
+          [Op.and]: [sequelize.literal("EXISTS (SELECT 1 FROM instagram_accounts AS active_instagram WHERE active_instagram.owner_username = FacebookInstagramLink.owner_username AND active_instagram.kind = 'job' AND active_instagram.uid = FacebookInstagramLink.instagram_uid AND active_instagram.trashed_at IS NULL)")],
+        },
         group: ['facebook_uid'],
         raw: true,
       }) : [];
@@ -446,7 +450,10 @@ const listFacebookInstagramSources = async (req, res, next) => {
     const allowedSorts = ['facebook_uid', 'instagram_count', 'report_count', 'last_reported_at', 'device_id'];
     const sortBy = allowedSorts.includes(req.query.sort_by) ? req.query.sort_by : 'last_reported_at';
     const direction = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
-    const where = { owner_username };
+    const where = {
+      owner_username,
+      [Op.and]: [sequelize.literal("EXISTS (SELECT 1 FROM instagram_accounts AS active_instagram WHERE active_instagram.owner_username = FacebookInstagramLink.owner_username AND active_instagram.kind = 'job' AND active_instagram.uid = FacebookInstagramLink.instagram_uid AND active_instagram.trashed_at IS NULL)")],
+    };
     const q = nullify(req.query.q);
     if (q) where[Op.or] = [
       { facebook_uid: { [Op.like]: `%${q}%` } },
@@ -488,14 +495,20 @@ const getFacebookInstagramAccounts = async (req, res, next) => {
     const usernames = links.map((row) => row.instagram_uid);
     const accounts = usernames.length ? await InstagramAccount.unscoped().findAll({
       attributes: ['id', 'uid', 'device_id', 'status', 'live_status', 'post_count', 'followers', 'following', 'login_at', 'updated_at', 'trashed_at'],
-      where: { owner_username, kind: 'job', uid: { [Op.in]: usernames } },
+      where: { owner_username, kind: 'job', uid: { [Op.in]: usernames }, trashed_at: null },
       raw: true,
     }) : [];
-    const accountMap = new Map(accounts.map((row) => [String(row.uid).toLowerCase(), row]));
+    const accountMap = new Map(accounts.map((row) => {
+      const normalized = { ...row, live_status: row.status === 'ACCOUNT_DIE' ? 'die' : (row.live_status || 'unknown') };
+      return [String(row.uid).toLowerCase(), normalized];
+    }));
+    const instagram_accounts = links.map((link) => ({
+      ...link.toJSON(), account: accountMap.get(String(link.instagram_uid).toLowerCase()) || null,
+    })).filter((item) => item.account);
     return success(res, {
       facebook_uid,
-      instagram_accounts: links.map((link) => ({ ...link.toJSON(), account: accountMap.get(String(link.instagram_uid).toLowerCase()) || null })),
-      total: links.length,
+      instagram_accounts,
+      total: instagram_accounts.length,
     }, 'Lay Instagram username cua Facebook UID thanh cong');
   } catch (err) { next(err); }
 };
@@ -550,11 +563,28 @@ const checkLive = async (req, res, next) => {
 const bulkGet=async(req,res,next)=>{try{const ids=idsFrom(req);if(!ids.length)return error(res,'Can truyen ids',400);const rows=await InstagramAccount.unscoped().findAll({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req)},order:[['id','ASC']]});return success(res,{text:rows.map(format).join('\n'),count:rows.length},'Lay account Instagram thanh cong');}catch(err){next(err);}};
 const bulkSync=async(req,res,next)=>{try{const ids=idsFrom(req);const rows=await InstagramAccount.findAll({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'reg'}});let created=0,updated=0;for(const row of rows){const result=await syncRegToJob(row);if(result.created)created++;else updated++;}return success(res,{created,updated,skipped:ids.length-rows.length},'Chuyen Instagram sang Job thanh cong');}catch(err){next(err);}};
 const bulkMove=async(req,res,next)=>{try{const ids=idsFrom(req);const kind=normalizeKind(req.body.kind);const group=await AccountGroup.findOne({where:{id:Number(req.body.group_id),owner_username:ownerFromAdmin(req),account_type:groupType(kind)}});if(!group)return error(res,'Nhom Instagram khong hop le',404);const [affected]=await InstagramAccount.update({group_id:group.id},{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req)}});return success(res,{affected,group},'Da chuyen nhom Instagram');}catch(err){next(err);}};
-const bulkAction=async(req,res,next)=>{try{const ids=idsFrom(req);const status=normalizeStatus(req.body.status||req.body.action,'');if(!ids.length||!status)return error(res,'Du lieu khong hop le',400);const update={status};if(['CHO_LOGIN','LOGIN_THANH_CONG'].includes(status)){update.locked_by=null;update.locked_at=null;update.login_get_count=0;update.completed_at=null;}if(status==='CHO_LOGIN')update.login_at=null;if(status==='LOGIN_THANH_CONG')update.login_at=new Date();if(FINAL_STATUSES.includes(status)){update.locked_by=null;update.locked_at=null;update.completed_at=new Date();}const [affected]=await InstagramAccount.update(update,{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),nurture_status:{[Op.ne]:'DANG_NUOI'}}});return success(res,{affected},'Da doi trang thai Instagram');}catch(err){next(err);}};
+const bulkAction=async(req,res,next)=>{try{const ids=idsFrom(req);const status=normalizeStatus(req.body.status||req.body.action,'');if(!ids.length||!status)return error(res,'Du lieu khong hop le',400);const update={status};if(['CHO_LOGIN','LOGIN_THANH_CONG'].includes(status)){update.locked_by=null;update.locked_at=null;update.login_get_count=0;update.completed_at=null;}if(status==='CHO_LOGIN')update.login_at=null;if(status==='LOGIN_THANH_CONG')update.login_at=new Date();if(FINAL_STATUSES.includes(status)){update.locked_by=null;update.locked_at=null;update.completed_at=new Date();}if(status==='ACCOUNT_DIE')update.live_status='die';const [affected]=await InstagramAccount.update(update,{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),nurture_status:{[Op.ne]:'DANG_NUOI'}}});return success(res,{affected},'Da doi trang thai Instagram');}catch(err){next(err);}};
 const bulkDelete=async(req,res,next)=>{try{const ids=idsFrom(req),owner_username=ownerFromAdmin(req);const rows=await InstagramAccount.findAll({where:{id:{[Op.in]:ids},owner_username}});const jobIds=rows.filter((r)=>r.kind==='job').map((r)=>r.id),regIds=rows.filter((r)=>r.kind==='reg').map((r)=>r.id);let trashed=0,deleted=0;if(jobIds.length)[trashed]=await InstagramAccount.update({trashed_at:new Date(),locked_by:null,locked_at:null},{where:{id:{[Op.in]:jobIds},owner_username}});if(regIds.length)deleted=await InstagramAccount.destroy({where:{id:{[Op.in]:regIds},owner_username}});return success(res,{trashed,deleted},'Da xoa Instagram');}catch(err){next(err);}};
 
 const listTrash=async(req,res,next)=>{try{const owner_username=ownerFromAdmin(req),page=Math.max(Number(req.query.page)||1,1),limit=Math.min(Math.max(Number(req.query.limit)||50,1),2000);const where={owner_username,kind:'job',trashed_at:{[Op.ne]:null}};const q=nullify(req.query.q);if(q)where[Op.or]=[{uid:{[Op.like]:'%'+q+'%'}},{device_id:{[Op.like]:'%'+q+'%'}}];const direction=String(req.query.sort_order).toLowerCase()==='asc'?'ASC':'DESC';let order=[['trashed_at','DESC'],['id','DESC']];if(req.query.sort_by==='device_id')order=[[sequelize.fn('CHAR_LENGTH',sequelize.col('device_id')),direction],['device_id',direction]];else if(req.query.sort_by==='trashed_at')order=[['trashed_at',direction]];const result=await InstagramAccount.unscoped().findAndCountAll({where,order,limit,offset:(page-1)*limit});return success(res,{accounts:result.rows.map(serialize),pagination:{page,limit,total:result.count,totalPages:Math.ceil(result.count/limit)||1}},'Lay thung rac Instagram');}catch(err){next(err);}};
 const restore=async(req,res,next)=>{try{const ids=idsFrom(req);const [restored]=await InstagramAccount.unscoped().update({trashed_at:null,status:'CHO_LOGIN',locked_by:null,locked_at:null,login_get_count:0},{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'job',trashed_at:{[Op.ne]:null}}});return success(res,{restored},'Khoi phuc Instagram thanh cong');}catch(err){next(err);}};
-const deleteTrash=async(req,res,next)=>{try{const ids=idsFrom(req);const deleted=await InstagramAccount.unscoped().destroy({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'job',trashed_at:{[Op.ne]:null}}});return success(res,{deleted},'Xoa vinh vien Instagram thanh cong');}catch(err){next(err);}};
+const deleteTrash=async(req,res,next)=>{
+  const transaction=await sequelize.transaction();
+  try{
+    const ids=idsFrom(req),owner_username=ownerFromAdmin(req);
+    const rows=await InstagramAccount.unscoped().findAll({
+      attributes:['id','uid'],
+      where:{id:{[Op.in]:ids},owner_username,kind:'job',trashed_at:{[Op.ne]:null}},
+      transaction,lock:transaction.LOCK.UPDATE,
+    });
+    const accountIds=rows.map((row)=>row.id),usernames=rows.map((row)=>row.uid);
+    const links_deleted=rows.length?await FacebookInstagramLink.destroy({
+      where:{owner_username,[Op.or]:[{instagram_account_id:{[Op.in]:accountIds}},{instagram_uid:{[Op.in]:usernames}}]},transaction,
+    }):0;
+    const deleted=accountIds.length?await InstagramAccount.unscoped().destroy({where:{id:{[Op.in]:accountIds},owner_username,kind:'job'},transaction}):0;
+    await transaction.commit();
+    return success(res,{deleted,links_deleted},'Xoa vinh vien Instagram va lien ket Facebook thanh cong');
+  }catch(err){if(!transaction.finished)await transaction.rollback();next(err);}
+};
 
 module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFacebookInstagramSources,getFacebookInstagramAccounts,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,checkLive,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};

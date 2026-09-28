@@ -6,6 +6,7 @@ const sequelize = require('../config/database');
 const FacebookAccount = require('../models/FacebookAccount');
 const FacebookPageJob = require('../models/FacebookPageJob');
 const FacebookRegPageReport = require('../models/FacebookRegPageReport');
+const FacebookRegPageSuccessEvent = require('../models/FacebookRegPageSuccessEvent');
 const FacebookNurtureAssignment = require('../models/FacebookNurtureAssignment');
 const FacebookNurtureLog = require('../models/FacebookNurtureLog');
 const AccountGroup = require('../models/AccountGroup');
@@ -1795,6 +1796,97 @@ const reportRegPage = async (req, res, next) => {
   }
 };
 
+const reportRegPageSuccess = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
+    const uid = nullify(req.body.uid || req.body.facebook_uid || req.body.username || req.query.uid || req.query.facebook_uid || req.query.username);
+    const page_id = nullify(req.body.page_id || req.body.page_uid || req.query.page_id || req.query.page_uid);
+    const page_name = nullify(req.body.page_name || req.body.name || req.query.page_name || req.query.name);
+    const report_id = nullify(req.body.report_id || req.body.request_id || req.body.idempotency_key || req.query.report_id || req.query.request_id || req.query.idempotency_key);
+    if (!device_id) { await transaction.rollback(); return error(res, 'Can truyen device_id', 400); }
+    if (!uid) { await transaction.rollback(); return error(res, 'Can truyen uid Facebook', 400); }
+
+    const account = await FacebookAccount.findOne({
+      where: { owner_username, kind: 'job', uid, device_id },
+      transaction, lock: transaction.LOCK.UPDATE,
+    });
+    if (!account) { await transaction.rollback(); return error(res, `Khong tim thay Facebook UID ${uid} trong may ${device_id}`, 404); }
+    if (account.reg_page_locked_by && String(account.reg_page_locked_by).toLowerCase() !== device_id.toLowerCase()) {
+      await transaction.rollback();
+      return error(res, `Facebook UID dang duoc lock boi may ${account.reg_page_locked_by}`, 409);
+    }
+
+    const stat_date = vietnamToday();
+    const report_key = page_id
+      ? `page:${page_id}`.slice(0, 255)
+      : report_id ? `report:${report_id}`.slice(0, 255) : `call:${randomUUID()}`;
+    const [event, created] = await FacebookRegPageSuccessEvent.findOrCreate({
+      where: { owner_username, report_key },
+      defaults: { owner_username, facebook_account_id: account.id, uid, device_id, page_id, page_name, report_key, stat_date },
+      transaction,
+    });
+
+    let report = null;
+    let previousPageCount = Number(account.page_count) || 0;
+    let currentPageCount = previousPageCount;
+    if (created) {
+      currentPageCount = previousPageCount + 1;
+      let storedPages = [];
+      try { storedPages = Array.isArray(account.pages) ? account.pages : JSON.parse(account.pages || '[]'); } catch (_) { storedPages = []; }
+      if (page_id && !storedPages.some((page) => String(page?.id || page?.page_id) === String(page_id))) {
+        storedPages.push({ id: page_id, name: page_name || null });
+      }
+      const now = new Date();
+      const accountUpdate = {
+        page_count: currentPageCount,
+        pages: JSON.stringify(storedPages),
+        last_reg_page_at: now,
+        reg_page_locked_by: null,
+        reg_page_locked_at: null,
+      };
+      await account.update(accountUpdate, { transaction });
+      await FacebookAccount.update(accountUpdate, { where: { owner_username, kind: 'reg', uid }, transaction });
+      if (page_id) {
+        const [pageJob, pageCreated] = await FacebookPageJob.findOrCreate({
+          where: { owner_username, page_id },
+          defaults: { owner_username, facebook_account_id: account.id, page_id, page_name, job_status: 'CHUA_LAM', is_active: true },
+          transaction,
+        });
+        if (!pageCreated) await pageJob.update({ facebook_account_id: account.id, page_name: page_name || pageJob.page_name, is_active: true }, { transaction });
+      }
+      report = await FacebookRegPageReport.create({
+        owner_username, facebook_account_id: account.id, uid, device_id, stat_date,
+        previous_page_count: previousPageCount, current_page_count: currentPageCount,
+        page_difference: 1, pages_added: 1,
+      }, { transaction });
+      await event.update({ facebook_reg_page_report_id: report.id }, { transaction });
+    } else if (event.uid !== uid || event.device_id !== device_id || (event.page_id && page_id && event.page_id !== page_id)) {
+      await transaction.rollback();
+      return error(res, 'report_id da duoc dung cho mot bao cao khac', 409);
+    }
+
+    const pagesRegistered = Number(await FacebookRegPageReport.sum('pages_added', {
+      where: { owner_username, device_id, stat_date }, transaction,
+    })) || 0;
+    await transaction.commit();
+    return success(res, {
+      uid, device_id, page_id, page_name, report_id: report_id || null,
+      report_key, duplicated: !created, added: created ? 1 : 0,
+      account_page_count: { before: previousPageCount, after: currentPageCount },
+      statistics: {
+        stat_date,
+        before: created ? Math.max(pagesRegistered - 1, 0) : pagesRegistered,
+        after: pagesRegistered,
+      },
+      report: report?.toJSON() || null,
+    }, created ? 'Da bao cao Reg Page thanh cong va cong 1 vao thong ke' : 'Bao cao da ton tai; khong cong trung thong ke');
+  } catch (err) {
+    if (!transaction.finished) await transaction.rollback();
+    next(err);
+  }
+};
 const getRegPageStats = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
@@ -2518,6 +2610,7 @@ module.exports = {
   reportPageJob,
   getRegPageAccount,
   reportRegPage,
+  reportRegPageSuccess,
   getNurtureAccount,
   reportNurtureAccount,
   listNurtureAccounts,

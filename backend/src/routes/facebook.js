@@ -15,6 +15,7 @@ router.post('/job/report', apiKeyAuth, controller.report);
 router.post('/job/page-report', apiKeyAuth, controller.reportPageJob);
 router.post('/job/add-job', apiKeyAuth, controller.addFacebookJobCount);
 router.post('/reg-page/get-account', apiKeyAuth, controller.getRegPageAccount);
+router.post('/reg-page/report-success', apiKeyAuth, controller.reportRegPageSuccess);
 router.post('/reg-page/report', apiKeyAuth, controller.reportRegPage);
 router.post('/nurture/get-account', apiKeyAuth, controller.getNurtureAccount);
 router.post('/nurture/report', apiKeyAuth, controller.reportNurtureAccount);
