@@ -14,6 +14,7 @@ export default function ProxySettings() {
   const init = loadCheckLiveSettings();
   const [proxies,     setProxies]     = useState(init.proxies);
   const [concurrency, setConcurrency] = useState(init.concurrency);
+  const [instagramCheckCookies, setInstagramCheckCookies] = useState('');
   const [delayMs,     setDelayMs]     = useState(init.delayMs);
   const [batchSize,   setBatchSize]   = useState(init.batchSize);
   const [minVideos,   setMinVideos]   = useState(20);
@@ -42,6 +43,7 @@ export default function ProxySettings() {
   const isAdminUser = authService.getRole() === 'admin';
 
   const proxyList = proxies.split('\n').map((l) => l.trim()).filter(Boolean);
+  const instagramCookieList = instagramCheckCookies.split('\n').map((line) => line.trim()).filter(Boolean);
 
   useEffect(() => {
     let mounted = true;
@@ -62,6 +64,12 @@ export default function ProxySettings() {
         if (settings.concurrency) setConcurrency(settings.concurrency);
       })
       .catch((err) => toast.error(err.message || 'Không tải được proxy check Facebook'));
+    settingsApi.getInstagramCheckCookies()
+      .then((res) => {
+        if (!mounted) return;
+        setInstagramCheckCookies((res.data?.settings?.cookies || []).join('\n'));
+      })
+      .catch((err) => toast.error(err.message || 'Không tải được cookie check Instagram'));
     settingsApi.getFacebookRegPageWait()
       .then((res) => {
         if (!mounted) return;
@@ -146,6 +154,7 @@ export default function ProxySettings() {
         return Promise.all([
           settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10)),
           settingsApi.updateFacebookCheckProxies(proxies, parseInt(concurrency, 10)),
+          settingsApi.updateInstagramCheckCookies(instagramCheckCookies),
           settingsApi.updateFacebookRegPageWait(parseInt(facebookRegPageWaitHours, 10)),
           settingsApi.updateInstagramFacebookReg(parseInt(instagramFacebookReuseHours, 10), parseInt(instagramPerFacebookLimit, 10)),
         ]);
@@ -158,6 +167,7 @@ export default function ProxySettings() {
   const handleReset = () => {
     setProxies('');
     setConcurrency(20);
+    setInstagramCheckCookies('');
     setDelayMs(200);
     setBatchSize(60);
     setMinVideos(20);
@@ -173,6 +183,7 @@ export default function ProxySettings() {
     Promise.all([
       settingsApi.updateEligibility(4, 20),
       settingsApi.updateFacebookCheckProxies('', 20),
+      settingsApi.updateInstagramCheckCookies(''),
       settingsApi.updateFacebookRegPageWait(8),
       settingsApi.updateInstagramFacebookReg(24, 1),
     ])
@@ -802,6 +813,31 @@ export default function ProxySettings() {
           />
           <div style={{ fontSize: '.72rem', color: '#475569', marginTop: '.35rem' }}>
             Mỗi proxy 1 dòng · Hỗ trợ: ip:port &nbsp;·&nbsp; ip:port:user:pass &nbsp;·&nbsp; user:pass@ip:port
+          </div>
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
+            🍪 Cookie dự phòng check Instagram
+            <span style={{ marginLeft: '.75rem', background: instagramCookieList.length > 0 ? '#831843' : '#1e293b', color: instagramCookieList.length > 0 ? '#fbcfe8' : '#94a3b8', borderRadius: 12, padding: '.15rem .6rem', fontSize: '.78rem', fontWeight: 700 }}>
+              {instagramCookieList.length} cookie
+            </span>
+          </h3>
+          <div style={{ color: '#94a3b8', fontSize: '.78rem', marginBottom: '.75rem', lineHeight: 1.55 }}>
+            Chỉ sử dụng khi lần check thông thường trả về <b style={{ color: '#fbcfe8' }}>unknown</b>. Mỗi cookie một dòng; hệ thống xoay vòng tối đa 3 cookie cho một account và không hiển thị cookie trong kết quả check.
+          </div>
+          <textarea
+            value={instagramCheckCookies}
+            onChange={(event) => setInstagramCheckCookies(event.target.value)}
+            placeholder={'sessionid=...; csrftoken=...; ds_user_id=...\nsessionid=...; csrftoken=...; ds_user_id=...'}
+            rows={8}
+            spellCheck={false}
+            style={{ width: '100%', boxSizing: 'border-box', background: '#1e293b', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 8, padding: '.7rem .85rem', fontFamily: 'monospace', fontSize: '.78rem', lineHeight: 1.55, resize: 'vertical', outline: 'none' }}
+            onFocus={(event) => (event.target.style.borderColor = '#ec4899')}
+            onBlur={(event) => (event.target.style.borderColor = '#334155')}
+          />
+          <div style={{ fontSize: '.72rem', color: '#64748b', marginTop: '.4rem' }}>
+            Tối đa 30 cookie. Cookie được lưu riêng theo tài khoản đăng nhập trên web.
           </div>
         </div>
 

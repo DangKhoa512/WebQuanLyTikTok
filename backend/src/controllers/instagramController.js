@@ -8,7 +8,7 @@ const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs } = require('../services/instagramJobStatService');
-const { getInstagramLoginLimitSettings, getFacebookCheckProxySettings, getInstagramNurtureSettings } = require('../services/settingsService');
+const { getInstagramLoginLimitSettings, getFacebookCheckProxySettings, getInstagramCheckCookieSettings, getInstagramNurtureSettings } = require('../services/settingsService');
 const { batchCheckInstagram } = require('../utils/instagramCheckLiveUtils');
 
 const STATUSES = ['CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE'];
@@ -389,14 +389,17 @@ const checkLive = async (req, res, next) => {
       limit: ids.length ? undefined : 500,
     });
 
-    const savedSettings = await getFacebookCheckProxySettings(owner_username);
+    const [savedSettings, cookieSettings] = await Promise.all([
+      getFacebookCheckProxySettings(owner_username),
+      getInstagramCheckCookieSettings(owner_username),
+    ]);
     const requestProxies = Array.isArray(req.body.proxies) ? req.body.proxies.map((item) => String(item || '').trim()).filter(Boolean) : [];
     const savedProxies = Array.isArray(savedSettings.proxies) ? savedSettings.proxies : [];
     const proxies = savedProxies.length ? savedProxies : requestProxies;
     const proxySource = savedProxies.length ? 'settings' : requestProxies.length ? 'request' : 'direct';
     const concurrency = Math.min(Math.max(parseInt(req.body.concurrency, 10) || savedSettings.concurrency || 20, 1), 40);
     const delayMs = Math.min(Math.max(parseInt(req.body.delay_ms, 10) || 0, 0), 10_000);
-    const checked = await batchCheckInstagram(accounts, proxies, concurrency, delayMs);
+    const checked = await batchCheckInstagram(accounts, proxies, concurrency, delayMs, cookieSettings.cookies);
     const live = checked.results.filter((row) => row.result === 'live').length;
     const die = checked.results.filter((row) => row.result === 'die').length;
     const unknown = checked.results.length - live - die;
@@ -410,6 +413,8 @@ const checkLive = async (req, res, next) => {
       invalid_proxy_count: checked.invalid_proxy_count,
       proxy_source: proxySource,
       proxy_used: checked.proxy_count > 0,
+      cookie_count: checked.cookie_count,
+      cookie_fallback_used: checked.results.some((row) => row.cookie_fallback_used),
       results: checked.results,
     }, 'Check live Instagram thanh cong');
   } catch (err) {

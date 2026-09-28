@@ -8,6 +8,7 @@ const INSTAGRAM_LOGIN_LIMIT_KEY = 'instagram_login_machine_limit';
 const JOB_ACCOUNT_DAILY_LIMIT_KEY = 'job_account_daily_limit';
 const MACHINE_API_KEYS_KEY = 'machine_api_keys';
 const FACEBOOK_CHECK_PROXIES_KEY = 'facebook_check_proxies';
+const INSTAGRAM_CHECK_COOKIES_KEY = 'instagram_check_cookies';
 const FACEBOOK_REG_PAGE_WAIT_KEY = 'facebook_reg_page_wait_hours';
 const FACEBOOK_NURTURE_KEY = 'facebook_nurture';
 const INSTAGRAM_NURTURE_KEY = 'instagram_nurture';
@@ -81,6 +82,22 @@ const normalizeFacebookCheckProxies = (data = {}) => {
     : DEFAULT_FACEBOOK_CHECK_CONCURRENCY;
   return { proxies, concurrency };
 };
+const normalizeInstagramCheckCookies = (data = {}) => {
+  const source = Array.isArray(data.cookies)
+    ? data.cookies
+    : String(data.cookies || '').split(/\r?\n/);
+  const cookies = [];
+  let totalLength = 0;
+  for (const value of source) {
+    const cookie = String(value || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 6000);
+    if (!cookie || cookies.includes(cookie)) continue;
+    if (cookies.length >= 30 || totalLength + cookie.length > 60000) break;
+    cookies.push(cookie);
+    totalLength += cookie.length;
+  }
+  return { cookies };
+};
+
 const normalizeFacebookRegPageWait = (data = {}) => {
   const parsedHours = parseInt(data.hours, 10);
   const hours = Number.isInteger(parsedHours)
@@ -300,6 +317,19 @@ const saveFacebookCheckProxySettings = async (owner_username = 'admin', data = {
   return normalized;
 };
 
+const getInstagramCheckCookieSettings = async (owner_username = 'admin') => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, INSTAGRAM_CHECK_COOKIES_KEY);
+  return normalizeInstagramCheckCookies(stored || { cookies: [] });
+};
+
+const saveInstagramCheckCookieSettings = async (owner_username = 'admin', data = {}) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const normalized = normalizeInstagramCheckCookies(data);
+  await saveSetting(owner, INSTAGRAM_CHECK_COOKIES_KEY, normalized);
+  return normalized;
+};
+
 const getFacebookRegPageWaitSettings = async (owner_username = 'admin') => {
   const owner = normalizeOwner(owner_username) || defaultOwner();
   const stored = await getSetting(owner, FACEBOOK_REG_PAGE_WAIT_KEY);
@@ -374,6 +404,8 @@ module.exports = {
   saveMachineApiKeys,
   getFacebookCheckProxySettings,
   saveFacebookCheckProxySettings,
+  getInstagramCheckCookieSettings,
+  saveInstagramCheckCookieSettings,
   getFacebookRegPageWaitSettings,
   saveFacebookRegPageWaitSettings,
   getInstagramFacebookRegSettings,

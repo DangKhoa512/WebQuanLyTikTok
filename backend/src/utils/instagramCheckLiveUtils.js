@@ -108,7 +108,7 @@ const parseProfileUser = (user) => {
   };
 };
 
-const isNotFoundMessage = (value) => /user\s*(?:not\s*found|doesn'?t\s*exist)|no users? found|unable to find (?:this )?user|invalid user|profile (?:was )?not found|requested (?:resource|user) (?:was )?not found|không tìm thấy người dùng/i.test(String(value || ''));
+const isNotFoundMessage = (value) => /user\s*(?:not\s*found|doesn'?t\s*exist)|no users? found|unable to find (?:this )?user|invalid user|profile (?:was )?not found|requested (?:resource|user) (?:was )?not found|khÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng/i.test(String(value || ''));
 const parseProfileJson = (input) => {
   let payload = input;
   if (typeof payload === 'string') {
@@ -158,12 +158,14 @@ const parseProfileHtml = (html) => {
       || visibleProfileText.includes("profile isn't available")
       || visibleProfileText.includes("this account isn't available")
       || visibleProfileText.includes('page may have been removed')
+      || visibleProfileText.includes('profile may have been removed')
+      || visibleProfileText.includes('link to this profile may be broken')
       || visibleProfileText.includes('account may have been removed')
       || visibleProfileText.includes('the link you followed may be broken')
       || visibleProfileText.includes("sorry, we couldn't find this page")
       || visibleProfileText.includes('page not found')
-      || visibleProfileText.includes('rất tiếc, trang này hiện không khả dụng')
-      || visibleProfileText.includes('liên kết bạn theo dõi có thể bị hỏng')) return dieResult('profile_page_not_found');
+      || visibleProfileText.includes('ráº¥t tiáº¿c, trang nÃ y hiá»‡n khÃ´ng kháº£ dá»¥ng')
+      || visibleProfileText.includes('liÃªn káº¿t báº¡n theo dÃµi cÃ³ thá»ƒ bá»‹ há»ng')) return dieResult('profile_page_not_found');
   if (/"(?:xdt_api__v1__users__web_profile_info|graphql|profile_page)"\s*:\s*\{[\s\S]{0,500}?"user"\s*:\s*null/i.test(normalized)
       || /"message"\s*:\s*"(?:user not found|no user found|unable to find (?:this )?user|profile not found)"/i.test(normalized)) {
     return dieResult('profile_user_null');
@@ -187,9 +189,9 @@ const parseProfileHtml = (html) => {
   for (const match of normalized.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:description|description)["'][^>]+content="([^"]*)"/gi)) metaValues.push(match[1]);
   for (const match of normalized.matchAll(/<meta[^>]+content="([^"]*)"[^>]+(?:property|name)=["'](?:og:description|description)["']/gi)) metaValues.push(match[1]);
   const visibleText = [normalized, ...metaValues].join(' ');
-  const metaFollowers = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Followers?|người theo dõi)/i);
-  const metaFollowing = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Following|đang theo dõi)/i);
-  const metaPosts = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Posts?|bài viết|publications?|publicaciones|publicações)/i);
+  const metaFollowers = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Followers?|ngÆ°á»i theo dÃµi)/i);
+  const metaFollowing = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Following|Ä‘ang theo dÃµi)/i);
+  const metaPosts = visibleText.match(/([\d.,]+\s*[KMB]?)\s+(?:Posts?|bÃ i viáº¿t|publications?|publicaciones|publicaÃ§Ãµes)/i);
   if (metaFollowers || metaFollowing || metaPosts) return { live: true, posts: humanNumberOrNull(metaPosts?.[1]), followers: humanNumberOrNull(metaFollowers?.[1]), following: humanNumberOrNull(metaFollowing?.[1]) };
   return null;
 
@@ -256,12 +258,22 @@ const fetchPublicPostStats = async (username, userId, proxyUrl, cookies = null) 
   }
   return null;
 };
+const hasAuthenticatedMissingProfile = (html, username) => {
+  let normalized = String(html || '');
+  for (let index = 0; index < 2; index += 1) normalized = normalized.replace(/\\"/g, '"');
+  const escapedUsername = String(username || '').replace(/[^a-z0-9._]/gi, '\\$&');
+  const hasExactUsername = new RegExp(`"username"\\s*:\\s*"${escapedUsername}"`, 'i').test(normalized);
+  const hasErrorRoot = /PolarisErrorRoot\.entrypoint|"pageID"\s*:\s*"httpErrorPage"/i.test(normalized);
+  return hasErrorRoot && !hasExactUsername;
+};
+
 const fetchProfileHtml = async (username, proxyUrl, cookies = null) => {
   const endpoints = [
     { url: `https://www.instagram.com/${encodeURIComponent(username)}/?hl=en`, source: 'profile_html', definitiveDie: true },
     { url: `https://www.instagram.com/${encodeURIComponent(username)}/embed/?hl=en`, source: 'profile_embed_html', definitiveDie: false },
   ];
   let partial = null;
+  let authenticatedMissingCount = 0;
   let last = unknownResult('profile_html_unavailable');
   for (const endpoint of endpoints) {
     try {
@@ -277,7 +289,19 @@ const fetchProfileHtml = async (username, proxyUrl, cookies = null) => {
         continue;
       }
       const parsed = parseProfileHtml(response.data);
-      if (parsed?.live === false && endpoint.definitiveDie) return { ...parsed, source: endpoint.source, http_status: response.status };
+      if (parsed?.live === false) {
+        if (endpoint.definitiveDie) return { ...parsed, source: endpoint.source, http_status: response.status };
+        if (cookies) {
+          authenticatedMissingCount += 1;
+          last = unknownResult('authenticated_embed_missing_candidate', { source: endpoint.source, http_status: response.status });
+          continue;
+        }
+      }
+      if (cookies && response.status === 200 && !parsed && hasAuthenticatedMissingProfile(response.data, username)) {
+        authenticatedMissingCount += 1;
+        last = unknownResult('authenticated_profile_missing_candidate', { source: endpoint.source, http_status: response.status });
+        continue;
+      }
       if (parsed?.live === true) {
         partial = { ...mergeLiveStats(partial, parsed), source: endpoint.source, http_status: response.status };
         if (partial.posts !== null) return partial;
@@ -285,6 +309,9 @@ const fetchProfileHtml = async (username, proxyUrl, cookies = null) => {
     } catch (err) {
       last = unknownResult(`${endpoint.source}_${err.code || 'request_failed'}`, { source: endpoint.source });
     }
+  }
+  if (!partial && authenticatedMissingCount >= 2) {
+    return { ...dieResult('authenticated_profile_missing_confirmed'), source: 'authenticated_profile_html', http_status: 200 };
   }
   return partial || last;
 };
@@ -333,7 +360,10 @@ const maskProxy = (proxyUrl) => proxyUrl
   ? proxyUrl.replace(/\/\/([^:@]+):([^@]+)@/, '//$1:***@')
   : 'direct';
 
-const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, delayMs = 0) => {
+const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, delayMs = 0, rawCookies = []) => {
+  const configuredCookies = [...new Set((Array.isArray(rawCookies) ? rawCookies : String(rawCookies || '').split(/\r?\n/))
+    .map((item) => String(item || '').replace(/[\r\n]+/g, ' ').trim())
+    .filter(Boolean))];
   const configuredProxies = Array.isArray(rawProxies) ? rawProxies.map((item) => String(item || '').trim()).filter(Boolean) : [];
   const proxyPool = configuredProxies.map(parseProxy).filter(Boolean);
   if (configuredProxies.length && !proxyPool.length) throw new Error('Cau hinh proxy Instagram khong hop le; da dung check de tranh su dung mang chinh');
@@ -342,6 +372,15 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
   const results = [];
   const proxyStates = proxyPool.map((proxy) => ({ proxy, cooldownUntil: 0 }));
   let proxyIndex = 0;
+  let cookieIndex = 0;
+  const nextFallbackCookie = (excluded = new Set()) => {
+    if (!configuredCookies.length) return null;
+    for (let offset = 0; offset < configuredCookies.length; offset += 1) {
+      const cookie = configuredCookies[cookieIndex++ % configuredCookies.length];
+      if (!excluded.has(cookie)) return cookie;
+    }
+    return null;
+  };
   const nextProxy = (excluded = null) => {
     if (!proxyStates.length) return null;
     const now = Date.now();
@@ -372,6 +411,7 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
       let stats = unknownResult('not_checked');
       let proxyUrl = nextProxy();
       let attempts = 0;
+      let cookieFallbackAttempts = 0;
       const maxAttempts = proxyPool.length ? Math.min(3, Math.max(2, proxyPool.length)) : 1;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         attempts += 1;
@@ -381,6 +421,23 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
         if (attempt + 1 < maxAttempts) {
           await sleep(randomDelay(350, 900));
           proxyUrl = nextProxy(proxyUrl);
+        }
+      }
+
+      if (stats.live !== true && stats.live !== false && configuredCookies.length) {
+        const triedCookies = new Set(account.cookies ? [String(account.cookies).trim()] : []);
+        const maxCookieAttempts = Math.min(3, configuredCookies.length);
+        for (let cookieAttempt = 0; cookieAttempt < maxCookieAttempts; cookieAttempt += 1) {
+          const fallbackCookie = nextFallbackCookie(triedCookies);
+          if (!fallbackCookie) break;
+          triedCookies.add(fallbackCookie);
+          cookieFallbackAttempts += 1;
+          attempts += 1;
+          if (proxyPool.length) proxyUrl = nextProxy(proxyUrl);
+          stats = await checkInstagramProfile(account.uid, proxyUrl, fallbackCookie);
+          markProxyResult(proxyUrl, stats);
+          if (stats.live === true || stats.live === false) break;
+          if (cookieAttempt + 1 < maxCookieAttempts) await sleep(randomDelay(350, 900));
         }
       }
 
@@ -406,6 +463,8 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
         proxy: maskProxy(proxyUrl),
         proxy_used: Boolean(proxyUrl),
         attempts,
+        cookie_fallback_used: cookieFallbackAttempts > 0,
+        cookie_attempts: cookieFallbackAttempts,
       };
     }));
     results.push(...rows);
@@ -417,6 +476,7 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
     proxy_count: proxyPool.length,
     proxy_configured_count: configuredProxies.length,
     invalid_proxy_count: Math.max(0, configuredProxies.length - proxyPool.length),
+    cookie_count: configuredCookies.length,
   };
 };
 

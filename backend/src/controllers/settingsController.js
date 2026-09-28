@@ -16,6 +16,8 @@ const {
   saveJobAccountDailyLimitSettings,
   getFacebookCheckProxySettings,
   saveFacebookCheckProxySettings,
+  getInstagramCheckCookieSettings,
+  saveInstagramCheckCookieSettings,
   getFacebookRegPageWaitSettings,
   saveFacebookRegPageWaitSettings,
   getInstagramFacebookRegSettings,
@@ -300,6 +302,20 @@ const updateFacebookCheckProxies = async (req, res, next) => {
   }
 };
 
+const getInstagramCheckCookies = async (req, res, next) => {
+  try {
+    const settings = await getInstagramCheckCookieSettings(ownerFromAdmin(req));
+    return success(res, { settings }, 'Lay cookie check Instagram thanh cong');
+  } catch (err) { next(err); }
+};
+
+const updateInstagramCheckCookies = async (req, res, next) => {
+  try {
+    const settings = await saveInstagramCheckCookieSettings(ownerFromAdmin(req), { cookies: req.body.cookies });
+    return success(res, { settings }, 'Da luu cookie check Instagram');
+  } catch (err) { next(err); }
+};
+
 const getFacebookRegPageWait = async (req, res, next) => {
   try {
     const settings = await getFacebookRegPageWaitSettings(ownerFromAdmin(req));
@@ -378,4 +394,4 @@ const updateInstagramNurture = async (req, res, next) => {
     return success(res, { settings }, 'Da luu cau hinh nuoi Instagram');
   } catch (err) { next(err); }
 };
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getFacebookRegPageWait, updateFacebookRegPageWait, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture };
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getInstagramCheckCookies, updateInstagramCheckCookies, getFacebookRegPageWait, updateFacebookRegPageWait, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture };
