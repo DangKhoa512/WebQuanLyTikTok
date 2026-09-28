@@ -534,18 +534,35 @@ const getFacebookJobStats = async (ownerFilter = null) => {
     { replacements, type: QueryTypes.SELECT }
   );
 
-  const [accounts = {}] = await sequelize.query(
-    `SELECT
-       COUNT(*) AS total,
-       SUM(status = 'LOGIN_THANH_CONG') AS ready,
-       SUM(status = 'DANG_LAM') AS working,
-       SUM(status = 'DA_CHAY_XONG') AS done,
-       SUM(status IN ('LOGIN_FAIL', 'ACCOUNT_DIE')) AS failed
-     FROM facebook_accounts
-     ${accountWhere}`,
-    { replacements, type: QueryTypes.SELECT }
-  );
-
+  const [[accounts = {}], [pages = {}]] = await Promise.all([
+    sequelize.query(
+      `SELECT
+         COUNT(*) AS total,
+         SUM(status = 'LOGIN_THANH_CONG') AS ready,
+         SUM(status = 'DANG_LAM') AS working,
+         SUM(status = 'DA_CHAY_XONG') AS done,
+         SUM(status IN ('LOGIN_FAIL', 'ACCOUNT_DIE')) AS failed
+       FROM facebook_accounts
+       ${accountWhere}`,
+      { replacements, type: QueryTypes.SELECT }
+    ),
+    sequelize.query(
+      `SELECT COUNT(*) AS ready
+       FROM facebook_page_jobs AS page_job
+       INNER JOIN facebook_accounts AS account
+         ON account.id = page_job.facebook_account_id
+        AND account.owner_username = page_job.owner_username
+        AND account.kind = 'job'
+        AND account.trashed_at IS NULL
+       WHERE page_job.is_active = 1
+         AND page_job.job_status = 'CHUA_LAM'
+         AND account.status IN ('LOGIN_THANH_CONG', 'DANG_LAM')
+         AND account.nurture_status <> 'DANG_NUOI'
+         AND account.reg_page_locked_by IS NULL
+         ${ownerFilter ? 'AND page_job.owner_username = :owner' : ''}`,
+      { replacements, type: QueryTypes.SELECT }
+    ),
+  ]);
   const web_summary = Object.fromEntries(['TTC', 'XSMM', 'NVC'].map((web) => [web, {
     today_jobs: 0,
     month_jobs: 0,
@@ -576,6 +593,9 @@ const getFacebookJobStats = async (ownerFilter = null) => {
       working: numeric(accounts, 'working'),
       done: numeric(accounts, 'done'),
       failed: numeric(accounts, 'failed'),
+    },
+    pages: {
+      ready: numeric(pages, 'ready'),
     },
     web_summary,
   };

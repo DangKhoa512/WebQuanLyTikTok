@@ -91,6 +91,10 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
     0
   ), [daily, metric, web]);
 
+  const pagesClaimed = useMemo(
+    () => devices.reduce((total, device) => total + Number(device.range_pages || 0), 0),
+    [devices]
+  );
   const chartData = useMemo(() => {
     return (daily?.daily_job || []).map((row) => ({
       label: new Date(row.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
@@ -206,8 +210,8 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
           <div className={'facebook-summary-wrap'}>
             <div className={'facebook-summary-grid'}>
               <StatCard title={`${web} ${metric === 'xu' ? 'xu' : 'job'} / ${selectedRange.label}`} value={summaryValue} color={selectedWeb.color} icon={metric === 'xu' ? '💎' : '📋'} />
-              <StatCard title={'Account Job'} value={stats?.accounts?.total} color={'#06b6d4'} icon={'👥'} />
-              <StatCard title={'Sẵn sàng'} value={stats?.accounts?.ready} color={'#10b981'} icon={'🚀'} />
+              <StatCard title={`Page đã lấy / ${selectedRange.label}`} value={pagesClaimed} color={'#06b6d4'} icon={'📄'} />
+              <StatCard title={'Page sẵn sàng'} value={stats?.pages?.ready} color={'#10b981'} icon={'🚀'} />
               <StatCard title={'Đang làm'} value={stats?.accounts?.working} color={'#8b5cf6'} icon={'⚡'} />
               <StatCard title={'Đã xong'} value={stats?.accounts?.done} color={'#2563eb'} icon={'✅'} />
               <StatCard title={'Fail / Die'} value={stats?.accounts?.failed} color={'#ef4444'} icon={'❌'} />
