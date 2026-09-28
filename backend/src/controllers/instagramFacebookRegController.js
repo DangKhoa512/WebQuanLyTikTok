@@ -227,7 +227,8 @@ const report = async (req, res, next) => {
     const requestedClaimId = parseInt(req.body?.claim_id || req.query?.claim_id, 10);
     const requestedFacebookUid = nullify(req.body?.facebook_uid || req.query?.facebook_uid);
     const hasClaimReference = Number.isInteger(requestedClaimId) || Boolean(requestedFacebookUid);
-    if (!hasClaimReference && reportStatus === 'REG_XONG' && payload.uid) {
+    const claim = await findClaim({ req, owner_username, device_id, transaction, lock: true });
+    if (!claim && !hasClaimReference && reportStatus === 'REG_XONG' && payload.uid) {
       const completedClaim = await InstagramFacebookRegClaim.findOne({
         where: { owner_username, device_id, instagram_uid: payload.uid, status: 'REG_XONG' },
         order: [['completed_at', 'DESC'], ['id', 'DESC']],
@@ -239,7 +240,6 @@ const report = async (req, res, next) => {
       }
     }
 
-    const claim = await findClaim({ req, owner_username, device_id, transaction, lock: true });
     if (!claim) {
       await transaction.rollback();
       return error(res, 'Khong tim thay luot Reg IG dang lock cua may nay', 404);
@@ -465,6 +465,68 @@ const resetEligibility = async (req, res, next) => {
     next(err);
   }
 };
+const listMachines = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const allowedSorts = ['device_id', 'total_claims', 'active_count', 'success_count', 'fail_count', 'cancelled_count', 'facebook_count', 'instagram_count', 'last_report_at', 'last_activity_at'];
+    const sort_by = allowedSorts.includes(req.query.sort_by) ? req.query.sort_by : 'last_activity_at';
+    const sort_order = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const escapedOwner = sequelize.escape(owner_username);
+    const latestIds = literal(`(SELECT MAX(latest_claim.id) FROM instagram_facebook_reg_claims AS latest_claim WHERE latest_claim.owner_username = ${escapedOwner} GROUP BY latest_claim.device_id, latest_claim.facebook_account_id)`);
+    const where = { owner_username, id: { [Op.in]: latestIds } };
+    const q = nullify(req.query.q);
+    if (q) where.device_id = { [Op.like]: `%${q}%` };
+
+    const [machines, total, countRows, reg_settings] = await Promise.all([
+      InstagramFacebookRegClaim.findAll({
+        attributes: [
+          'device_id',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'total_claims'],
+          [sequelize.fn('SUM', literal("CASE WHEN status = 'DANG_REG' THEN 1 ELSE 0 END")), 'active_count'],
+          [sequelize.fn('SUM', literal("CASE WHEN status = 'REG_XONG' THEN 1 ELSE 0 END")), 'success_count'],
+          [sequelize.fn('SUM', literal("CASE WHEN status = 'REG_FAIL' THEN 1 ELSE 0 END")), 'fail_count'],
+          [sequelize.fn('SUM', literal("CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END")), 'cancelled_count'],
+          [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('facebook_account_id'))), 'facebook_count'],
+          [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('instagram_uid'))), 'instagram_count'],
+          [sequelize.fn('MAX', literal("CASE WHEN status = 'REG_XONG' THEN completed_at ELSE NULL END")), 'last_report_at'],
+          [sequelize.fn('MAX', sequelize.col('updated_at')), 'last_activity_at'],
+        ],
+        where,
+        group: ['device_id'],
+        order: [[literal(sort_by), sort_order], ['device_id', 'ASC']],
+        limit,
+        offset: (page - 1) * limit,
+        raw: true,
+      }),
+      InstagramFacebookRegClaim.count({ where, distinct: true, col: 'device_id' }),
+      InstagramFacebookRegClaim.findAll({
+        attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+        where: { owner_username, id: { [Op.in]: latestIds } }, group: ['status'], raw: true,
+      }),
+      getInstagramFacebookRegSettings(owner_username),
+    ]);
+    const status_counts = Object.fromEntries(CLAIM_STATUSES.map((item) => [item, 0]));
+    countRows.forEach((row) => { status_counts[row.status] = Number(row.count) || 0; });
+    return success(res, {
+      machines: machines.map((row) => ({
+        ...row,
+        total_claims: Number(row.total_claims) || 0,
+        active_count: Number(row.active_count) || 0,
+        success_count: Number(row.success_count) || 0,
+        fail_count: Number(row.fail_count) || 0,
+        cancelled_count: Number(row.cancelled_count) || 0,
+        facebook_count: Number(row.facebook_count) || 0,
+        instagram_count: Number(row.instagram_count) || 0,
+      })),
+      status_counts,
+      device_count: Number(total) || 0,
+      reg_settings,
+      pagination: { page, limit, total: Number(total) || 0, totalPages: Math.ceil((Number(total) || 0) / limit) || 1 },
+    }, 'Lay tong hop Reg Instagram theo may thanh cong');
+  } catch (err) { next(err); }
+};
 const listClaims = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
@@ -473,7 +535,13 @@ const listClaims = async (req, res, next) => {
     const allowedSorts = ['created_at', 'device_id', 'facebook_uid', 'instagram_uid', 'status', 'get_count', 'locked_at', 'completed_at'];
     const sort_by = allowedSorts.includes(req.query.sort_by) ? req.query.sort_by : 'created_at';
     const sort_order = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
-    const where = { owner_username };
+    const baseWhere = { owner_username };
+    const device_id = nullify(req.query.device_id);
+    if (device_id) baseWhere.device_id = device_id;
+    const escapedOwner = sequelize.escape(owner_username);
+    const escapedDevice = device_id ? ` AND latest_claim.device_id = ${sequelize.escape(device_id)}` : '';
+    baseWhere.id = { [Op.in]: literal(`(SELECT MAX(latest_claim.id) FROM instagram_facebook_reg_claims AS latest_claim WHERE latest_claim.owner_username = ${escapedOwner}${escapedDevice} GROUP BY latest_claim.facebook_account_id)`) };
+    const where = { ...baseWhere };
     const status = String(req.query.status || '').trim().toUpperCase();
     if (CLAIM_STATUSES.includes(status)) where.status = status;
     const q = nullify(req.query.q);
@@ -493,7 +561,7 @@ const listClaims = async (req, res, next) => {
       }),
       InstagramFacebookRegClaim.findAll({
         attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-        where: { owner_username },
+        where: baseWhere,
         group: ['status'],
         raw: true,
       }),
@@ -511,4 +579,4 @@ const listClaims = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getAccount, report, release, deviceStatus, resetEligibility, listClaims };
+module.exports = { getAccount, report, release, deviceStatus, resetEligibility, listMachines, listClaims };

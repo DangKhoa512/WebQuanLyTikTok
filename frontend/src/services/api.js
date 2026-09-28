@@ -211,6 +211,7 @@ export const facebookApi = {
 
 export const instagramApi = {
   getAll: (params) => api.get('/instagram', { params }),
+  getFacebookRegMachines: (params) => api.get('/instagram/reg/facebook/machines', { params }),
   getFacebookRegClaims: (params) => api.get('/instagram/reg/facebook/claims', { params }),
   resetFacebookRegEligibility: (data) => api.post('/instagram/reg/facebook/reset', data),
   addJob: (device_id, web, jobs = 0, xu = 0) => api.post('/instagram/job/add-job', { device_id, web, jobs, xu }),

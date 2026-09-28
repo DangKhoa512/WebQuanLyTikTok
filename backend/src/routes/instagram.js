@@ -11,6 +11,7 @@ router.post('/reg/facebook/get-account', apiKeyAuth, facebookRegController.getAc
 router.post('/reg/facebook/report', apiKeyAuth, facebookRegController.report);
 router.post('/reg/facebook/release', apiKeyAuth, facebookRegController.release);
 router.all('/reg/facebook/device-status', apiKeyAuth, facebookRegController.deviceStatus);
+router.get('/reg/facebook/machines', jwtAuth, facebookRegController.listMachines);
 router.get('/reg/facebook/claims', jwtAuth, facebookRegController.listClaims);
 router.post('/reg/facebook/reset', jwtAuth, facebookRegController.resetEligibility);
 router.post('/job/get-account', apiKeyAuth, controller.getAccount);
