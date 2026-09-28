@@ -3,9 +3,11 @@ const sequelize = require('../config/database');
 const FacebookAccount = require('../models/FacebookAccount');
 const InstagramAccount = require('../models/InstagramAccount');
 const InstagramFacebookRegClaim = require('../models/InstagramFacebookRegClaim');
+const InstagramFacebookRegResult = require('../models/InstagramFacebookRegResult');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { getInstagramFacebookRegSettings } = require('../services/settingsService');
+const { reportFacebookInstagramLinks } = require('../services/instagramFacebookLinkService');
 
 const LOCK_TIMEOUT_MIN = Math.max(parseInt(process.env.INSTAGRAM_FACEBOOK_REG_LOCK_TIMEOUT_MIN, 10) || 30, 1);
 const MAX_GET_COUNT = Math.max(parseInt(process.env.INSTAGRAM_FACEBOOK_REG_MAX_GET_COUNT, 10) || 3, 1);
@@ -93,6 +95,44 @@ const expireStaleClaims = async (owner_username, transaction) => {
   });
 };
 
+const backfillLegacyResults = async (owner_username, transaction) => {
+  const escapedOwner = sequelize.escape(owner_username);
+  await sequelize.query(`
+    INSERT IGNORE INTO instagram_facebook_reg_results
+      (owner_username, claim_id, facebook_account_id, facebook_uid, instagram_account_id, instagram_uid, device_id, reported_at, created_at, updated_at)
+    SELECT claim.owner_username, claim.id, claim.facebook_account_id, claim.facebook_uid, instagram.id,
+      claim.instagram_uid, claim.device_id, COALESCE(claim.completed_at, claim.updated_at), NOW(), NOW()
+    FROM instagram_facebook_reg_claims AS claim
+    LEFT JOIN instagram_accounts AS instagram
+      ON instagram.owner_username = claim.owner_username AND instagram.kind = 'job' AND instagram.uid = claim.instagram_uid
+    WHERE claim.owner_username = ${escapedOwner}
+      AND claim.status = 'REG_XONG'
+      AND claim.instagram_uid IS NOT NULL AND claim.instagram_uid <> ''
+  `, { transaction });
+};
+
+const upsertInstagramResultAccounts = async ({ payload, owner_username, device_id, now, transaction }) => {
+  const accountDefaults = (kind) => ({
+    kind, raw_data: payload.raw_data, uid: payload.uid, password: payload.password,
+    two_fa: payload.two_fa, cookies: payload.cookies, owner_username, group_id: null,
+    device_id, status: 'LOGIN_THANH_CONG', live_status: 'unknown', locked_by: null,
+    locked_at: null, login_get_count: 0, login_at: now, completed_at: null,
+    fail_reason: null, trashed_at: null,
+  });
+  const upsert = async (kind) => {
+    const [account, created] = await InstagramAccount.unscoped().findOrCreate({
+      where: { owner_username, kind, uid: payload.uid }, defaults: accountDefaults(kind), transaction,
+    });
+    if (!created) await account.update({
+      raw_data: payload.raw_data, password: payload.password || account.password,
+      two_fa: payload.two_fa || account.two_fa, cookies: payload.cookies || account.cookies,
+      device_id, status: 'LOGIN_THANH_CONG', locked_by: null, locked_at: null,
+      login_get_count: 0, login_at: now, completed_at: null, fail_reason: null, trashed_at: null,
+    }, { transaction });
+    return { account, created };
+  };
+  return { reg: await upsert('reg'), job: await upsert('job') };
+};
 const getAccount = async (req, res, next) => {
   const transaction = await sequelize.transaction();
   try {
@@ -104,6 +144,7 @@ const getAccount = async (req, res, next) => {
     }
 
     const regSettings = await getInstagramFacebookRegSettings(owner_username);
+    await backfillLegacyResults(owner_username, transaction);
     await expireStaleClaims(owner_username, transaction);
     const now = new Date();
     const active = await InstagramFacebookRegClaim.findOne({
@@ -118,12 +159,15 @@ const getAccount = async (req, res, next) => {
       });
       const belongsToDevice = account && String(account.device_id || '').trim().toLowerCase() === device_id.toLowerCase();
       if (belongsToDevice) {
+        const registered_count = await InstagramFacebookRegResult.count({ where: { owner_username, claim_id: active.id }, transaction });
         await active.update({ get_count: Number(active.get_count) + 1, locked_at: now }, { transaction });
         await transaction.commit();
         return success(res, {
           claim_id: active.id,
           device_id,
           resumed: true,
+          registered_count,
+          remaining: Math.max(regSettings.max_instagram_per_facebook - registered_count, 0),
           get_count: active.get_count,
           max_get_count: MAX_GET_COUNT,
           lock_timeout_min: LOCK_TIMEOUT_MIN,
@@ -153,7 +197,7 @@ const getAccount = async (req, res, next) => {
         nurture_locked_by: null,
         [Op.and]: [
           literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS active_claim WHERE active_claim.owner_username = ${escapedOwner} AND active_claim.facebook_account_id = FacebookAccount.id AND active_claim.status = 'DANG_REG')`),
-          literal(`(SELECT COUNT(*) FROM instagram_facebook_reg_claims AS success_claim WHERE success_claim.owner_username = ${escapedOwner} AND success_claim.facebook_account_id = FacebookAccount.id AND success_claim.status = 'REG_XONG' AND success_claim.eligibility_reset_at IS NULL) < ${regSettings.max_instagram_per_facebook}`),
+          literal(`(SELECT COUNT(*) FROM instagram_facebook_reg_results AS reg_result INNER JOIN instagram_facebook_reg_claims AS success_claim ON success_claim.id = reg_result.claim_id WHERE success_claim.owner_username = ${escapedOwner} AND success_claim.facebook_account_id = FacebookAccount.id AND success_claim.status = 'REG_XONG' AND success_claim.eligibility_reset_at IS NULL) < ${regSettings.max_instagram_per_facebook}`),
           literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS cooldown_claim WHERE cooldown_claim.owner_username = ${escapedOwner} AND cooldown_claim.facebook_account_id = FacebookAccount.id AND cooldown_claim.status = 'REG_XONG' AND cooldown_claim.eligibility_reset_at IS NULL AND cooldown_claim.completed_at > ${sequelize.escape(new Date(now.getTime() - regSettings.reuse_hours * 60 * 60 * 1000))})`),
         ],
       },
@@ -164,7 +208,7 @@ const getAccount = async (req, res, next) => {
     });
     if (!account) {
       await transaction.commit();
-      return success(res, { claim_id: null, device_id, resumed: false, reg_settings: regSettings, account: null }, 'Khong con account Facebook du dieu kien trong may nay de reg Instagram');
+      return success(res, { claim_id: null, device_id, resumed: false, registered_count: 0, remaining: 0, reg_settings: regSettings, account: null }, 'Khong con account Facebook du dieu kien trong may nay de reg Instagram');
     }
 
     const claim = await InstagramFacebookRegClaim.create({
@@ -181,6 +225,8 @@ const getAccount = async (req, res, next) => {
       claim_id: claim.id,
       device_id,
       resumed: false,
+      registered_count: 0,
+      remaining: regSettings.max_instagram_per_facebook,
       get_count: 1,
       max_get_count: MAX_GET_COUNT,
       lock_timeout_min: LOCK_TIMEOUT_MIN,
@@ -208,6 +254,121 @@ const findClaim = async ({ req, owner_username, device_id, transaction, lock = f
   });
 };
 
+const reportInstagram = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = deviceFromRequest(req);
+    const payload = instagramPayload(req);
+    if (!device_id) { await transaction.rollback(); return error(res, 'Can truyen device_id', 400); }
+    if (!payload.uid) { await transaction.rollback(); return error(res, 'Can truyen instagram_account theo dinh dang tai_khoan|mat_khau|2fa|cookies', 400); }
+
+    const claim = await findClaim({ req, owner_username, device_id, transaction, lock: true });
+    if (!claim) { await transaction.rollback(); return error(res, 'Khong tim thay phien Reg IG dang lock cua may nay', 404); }
+    const existingResult = await InstagramFacebookRegResult.findOne({
+      where: { owner_username, claim_id: claim.id, instagram_uid: payload.uid }, transaction,
+    });
+    if (claim.status !== 'DANG_REG') {
+      await transaction.commit();
+      if (existingResult) return success(res, { claim: claim.toJSON(), result: existingResult.toJSON(), already_reported: true }, 'Instagram account da duoc bao cao trong phien nay');
+      return error(res, `Phien Reg IG da ket thuc voi trang thai ${claim.status}`, 409);
+    }
+
+    const regSettings = await getInstagramFacebookRegSettings(owner_username);
+    const registeredBefore = await InstagramFacebookRegResult.count({ where: { owner_username, claim_id: claim.id }, transaction });
+    if (!existingResult && registeredBefore >= regSettings.max_instagram_per_facebook) {
+      await transaction.rollback();
+      return error(res, `Facebook UID da dat gioi han ${regSettings.max_instagram_per_facebook} Instagram trong phien nay`, 409, {
+        claim_id: claim.id, facebook_uid: claim.facebook_uid, registered_count: registeredBefore,
+        max_instagram_per_facebook: regSettings.max_instagram_per_facebook,
+      });
+    }
+
+    const sourceAccount = await FacebookAccount.unscoped().findOne({
+      where: { id: claim.facebook_account_id, owner_username, kind: 'job', trashed_at: null },
+      transaction, lock: transaction.LOCK.UPDATE,
+    });
+    const belongsToDevice = sourceAccount && String(sourceAccount.device_id || '').trim().toLowerCase() === device_id.toLowerCase();
+    if (!belongsToDevice) {
+      const reason = sourceAccount ? `Account Facebook hien thuoc may ${sourceAccount.device_id || '-'}, khong phai ${device_id}` : 'Account Facebook nguon khong con ton tai';
+      await transaction.rollback();
+      return error(res, reason, 409);
+    }
+
+    const now = new Date();
+    const { reg, job } = await upsertInstagramResultAccounts({ payload, owner_username, device_id, now, transaction });
+    await reportFacebookInstagramLinks({
+      owner_username, facebookAccount: sourceAccount, facebook_uid: sourceAccount.uid,
+      device_id, instagramUsernames: [payload.uid], transaction,
+    });
+    const [result, created] = await InstagramFacebookRegResult.findOrCreate({
+      where: { owner_username, claim_id: claim.id, instagram_uid: payload.uid },
+      defaults: {
+        owner_username, claim_id: claim.id, facebook_account_id: sourceAccount.id,
+        facebook_uid: sourceAccount.uid, instagram_account_id: job.account.id,
+        instagram_uid: payload.uid, device_id, reported_at: now,
+      }, transaction,
+    });
+    if (!created) await result.update({ instagram_account_id: job.account.id, device_id, reported_at: now }, { transaction });
+    await claim.update({ instagram_uid: payload.uid, email_order_id: nullify(req.body?.email_order_id || req.body?.id_oder || req.body?.id_order) || claim.email_order_id, locked_at: now }, { transaction });
+    const registered_count = await InstagramFacebookRegResult.count({ where: { owner_username, claim_id: claim.id }, transaction });
+    await transaction.commit();
+    return success(res, {
+      claim_id: claim.id, facebook_uid: sourceAccount.uid, device_id,
+      session_status: 'DANG_REG', registered_count,
+      max_instagram_per_facebook: regSettings.max_instagram_per_facebook,
+      remaining: Math.max(regSettings.max_instagram_per_facebook - registered_count, 0),
+      already_reported: !created,
+      instagram_reg: serializeInstagram(reg.account), instagram_job: serializeInstagram(job.account),
+      reg_created: reg.created, job_created: job.created,
+    }, created ? 'Da ghi Instagram vao Facebook UID; phien Reg van dang mo' : 'Instagram account da duoc cap nhat; phien Reg van dang mo');
+  } catch (err) {
+    if (!transaction.finished) await transaction.rollback();
+    next(err);
+  }
+};
+
+const finish = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = deviceFromRequest(req);
+    if (!device_id) { await transaction.rollback(); return error(res, 'Can truyen device_id', 400); }
+    const finishStatus = normalizeReportStatus(req.body?.status || req.body?.result || 'REG_XONG', false);
+    if (!finishStatus) { await transaction.rollback(); return error(res, 'Trang thai ket thuc phai la REG_XONG hoac REG_FAIL', 400); }
+    const claim = await findClaim({ req, owner_username, device_id, transaction, lock: true });
+    if (!claim) { await transaction.rollback(); return error(res, 'Khong tim thay phien Reg IG cua may nay', 404); }
+    const results = await InstagramFacebookRegResult.findAll({
+      where: { owner_username, claim_id: claim.id }, order: [['reported_at', 'ASC'], ['id', 'ASC']], transaction,
+    });
+    if (claim.status !== 'DANG_REG') {
+      await transaction.commit();
+      if (claim.status === finishStatus) return success(res, { claim: claim.toJSON(), registered_count: results.length, instagram_usernames: results.map((row) => row.instagram_uid), already_finished: true }, 'Phien Reg IG da duoc ket thuc truoc do');
+      return error(res, `Phien Reg IG da ket thuc voi trang thai ${claim.status}`, 409);
+    }
+    if (finishStatus === 'REG_XONG' && !results.length) {
+      await transaction.rollback();
+      return error(res, 'Chua co Instagram account nao duoc bao cao trong phien nay', 400);
+    }
+    const now = new Date();
+    const lastResult = results[results.length - 1];
+    await claim.update({
+      status: finishStatus,
+      instagram_uid: lastResult?.instagram_uid || claim.instagram_uid,
+      fail_reason: finishStatus === 'REG_FAIL' ? (nullify(req.body?.reason || req.body?.message || req.body?.fail_reason) || 'Ket thuc Reg Instagram that bai') : null,
+      completed_at: now,
+      locked_at: null,
+    }, { transaction });
+    await transaction.commit();
+    return success(res, {
+      claim: claim.toJSON(), registered_count: results.length,
+      instagram_usernames: results.map((row) => row.instagram_uid), already_finished: false,
+    }, finishStatus === 'REG_XONG' ? 'Da ket thuc phien Reg Instagram thanh cong' : 'Da ket thuc phien Reg Instagram that bai');
+  } catch (err) {
+    if (!transaction.finished) await transaction.rollback();
+    next(err);
+  }
+};
 const report = async (req, res, next) => {
   const transaction = await sequelize.transaction();
   try {
@@ -332,6 +493,23 @@ const report = async (req, res, next) => {
 
     const reg = await upsertAccount('reg');
     const job = await upsertAccount('job');
+    await reportFacebookInstagramLinks({
+      owner_username,
+      facebookAccount: sourceAccount,
+      facebook_uid: sourceAccount.uid,
+      device_id,
+      instagramUsernames: [payload.uid],
+      transaction,
+    });
+    await InstagramFacebookRegResult.findOrCreate({
+      where: { owner_username, claim_id: claim.id, instagram_uid: payload.uid },
+      defaults: {
+        owner_username, claim_id: claim.id, facebook_account_id: sourceAccount.id,
+        facebook_uid: sourceAccount.uid, instagram_account_id: job.account.id,
+        instagram_uid: payload.uid, device_id, reported_at: now,
+      },
+      transaction,
+    });
     await claim.update({
       status: 'REG_XONG',
       instagram_uid: payload.uid,
@@ -579,4 +757,4 @@ const listClaims = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getAccount, report, release, deviceStatus, resetEligibility, listMachines, listClaims };
+module.exports = { getAccount, reportInstagram, finish, report, release, deviceStatus, resetEligibility, listMachines, listClaims };

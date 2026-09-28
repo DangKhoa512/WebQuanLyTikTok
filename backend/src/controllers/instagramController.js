@@ -2,6 +2,8 @@ const { Op } = require('sequelize');
 const { randomUUID } = require('crypto');
 const sequelize = require('../config/database');
 const InstagramAccount = require('../models/InstagramAccount');
+const FacebookAccount = require('../models/FacebookAccount');
+const FacebookInstagramLink = require('../models/FacebookInstagramLink');
 const InstagramNurtureAssignment = require('../models/InstagramNurtureAssignment');
 const InstagramNurtureLog = require('../models/InstagramNurtureLog');
 const AccountGroup = require('../models/AccountGroup');
@@ -10,6 +12,7 @@ const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs } = require('../services/instagramJobStatService');
 const { getInstagramLoginLimitSettings, getFacebookCheckProxySettings, getInstagramCheckCookieSettings, getInstagramNurtureSettings } = require('../services/settingsService');
 const { batchCheckInstagram } = require('../utils/instagramCheckLiveUtils');
+const { normalizeInstagramUsernames, reportFacebookInstagramLinks } = require('../services/instagramFacebookLinkService');
 
 const STATUSES = ['CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE'];
 const FINAL_STATUSES = ['LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE'];
@@ -144,7 +147,38 @@ const list = async (req, res, next) => {
       const machineRows = await InstagramAccount.findAll({ attributes: ['device_id',[sequelize.fn('COUNT',sequelize.col('id')),'total'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='CHO_LOGIN' THEN 1 ELSE 0 END")),'waiting_login'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='DANG_LOGIN' THEN 1 ELSE 0 END")),'logging_in'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='LOGIN_THANH_CONG' THEN 1 ELSE 0 END")),'login_success'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='DANG_LAM' THEN 1 ELSE 0 END")),'working'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='DA_CHAY_XONG' THEN 1 ELSE 0 END")),'done'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status IN ('LOGIN_FAIL','ACCOUNT_DIE') THEN 1 ELSE 0 END")),'failed'],[sequelize.fn('MAX',sequelize.col('updated_at')),'last_updated_at']], where: { owner_username, kind: 'job' }, group: ['device_id'], raw: true });
       machine_stats = machineRows.filter((row) => nullify(row.device_id)).map((row) => ({ ...row, total: Number(row.total)||0, waiting_login:Number(row.waiting_login)||0, logging_in:Number(row.logging_in)||0, login_success:Number(row.login_success)||0, working:Number(row.working)||0, done:Number(row.done)||0, failed:Number(row.failed)||0, pages:0 })).sort((a,b)=>String(a.device_id).localeCompare(String(b.device_id),'vi',{numeric:true}));
     }
-    return success(res, { accounts: rows.map(serialize), status_counts: Object.fromEntries(counts.map((row)=>[row.status,Number(row.count)||0])), machine_stats, trash_count, pagination:{page,limit,total:count,totalPages:Math.ceil(count/limit)||1} }, 'Lay danh sach Instagram thanh cong');
+    const accountRows = rows.map(serialize);
+    if (kind === 'job' && accountRows.length) {
+      const instagramUids = [...new Set(accountRows.map((row) => String(row.uid || '').toLowerCase()).filter(Boolean))];
+      const linkRows = await FacebookInstagramLink.findAll({
+        attributes: ['facebook_uid', 'instagram_uid', 'device_id', 'last_reported_at'],
+        where: { owner_username, instagram_uid: { [Op.in]: instagramUids } },
+        order: [['last_reported_at', 'DESC'], ['id', 'DESC']],
+        raw: true,
+      });
+      const facebookUids = [...new Set(linkRows.map((row) => row.facebook_uid))];
+      const sourceCounts = facebookUids.length ? await FacebookInstagramLink.findAll({
+        attributes: ['facebook_uid', [sequelize.fn('COUNT', sequelize.col('id')), 'instagram_count']],
+        where: { owner_username, facebook_uid: { [Op.in]: facebookUids } },
+        group: ['facebook_uid'],
+        raw: true,
+      }) : [];
+      const countMap = new Map(sourceCounts.map((row) => [String(row.facebook_uid), Number(row.instagram_count) || 0]));
+      const sourcesByInstagram = new Map();
+      for (const link of linkRows) {
+        const key = String(link.instagram_uid || '').toLowerCase();
+        const sources = sourcesByInstagram.get(key) || [];
+        if (!sources.some((source) => String(source.facebook_uid) === String(link.facebook_uid))) {
+          sources.push({ ...link, instagram_count: countMap.get(String(link.facebook_uid)) || 0 });
+          sourcesByInstagram.set(key, sources);
+        }
+      }
+      for (const row of accountRows) {
+        row.facebook_sources = sourcesByInstagram.get(String(row.uid || '').toLowerCase()) || [];
+        row.facebook_uid = row.facebook_sources[0]?.facebook_uid || null;
+      }
+    }
+    return success(res, { accounts: accountRows, status_counts: Object.fromEntries(counts.map((row)=>[row.status,Number(row.count)||0])), machine_stats, trash_count, pagination:{page,limit,total:count,totalPages:Math.ceil(count/limit)||1} }, 'Lay danh sach Instagram thanh cong');
   } catch (err) { next(err); }
 };
 
@@ -374,6 +408,98 @@ const listNurtureLogs = async(req,res,next) => {
 const resetNurtureAccounts = async(req,res,next) => {
   try{const owner_username=ownerFromAdmin(req);const ids=Array.isArray(req.body?.ids)?[...new Set(req.body.ids.map((id)=>parseInt(id,10)).filter((id)=>Number.isInteger(id)&&id>0))]:[];if(!ids.length)return error(res,'Can truyen danh sach account can reset',400);const [affected]=await InstagramAccount.update({nurture_status:'CHUA_NUOI',nurture_locked_by:null,nurture_locked_at:null,nurture_run_id:null,nurture_scenario_id:null},{where:{id:{[Op.in]:ids},owner_username,kind:'job',status:'LOGIN_THANH_CONG'}});return success(res,{affected},'Da reset trang thai nuoi cua '+affected+' account Instagram');}catch(err){next(err);}
 };
+const reportFacebookInstagramAccounts = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.may);
+    const facebook_uid = nullify(req.body.facebook_uid || req.body.facebook_id || req.body.uid_facebook || req.query.facebook_uid);
+    const input = req.body.instagram_accounts ?? req.body.usernames ?? req.body.instagram_usernames ?? req.body.instagram_uid ?? req.body.username ?? req.body.data ?? req.body.text;
+    const usernames = normalizeInstagramUsernames(input);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    if (!facebook_uid) return error(res, 'Can truyen facebook_uid', 400);
+    if (!usernames.length) return error(res, 'Can truyen danh sach Instagram username', 400);
+    const facebookAccount = await FacebookAccount.unscoped().findOne({
+      where: { owner_username, kind: 'job', uid: facebook_uid, trashed_at: null },
+    });
+    if (!facebookAccount) return error(res, 'Khong tim thay Facebook UID trong Facebook Job', 404);
+    if (facebookAccount.device_id && String(facebookAccount.device_id).toLowerCase() !== device_id.toLowerCase()) {
+      return error(res, `Facebook UID dang thuoc may ${facebookAccount.device_id}, khong phai ${device_id}`, 409);
+    }
+    const result = await sequelize.transaction((transaction) => reportFacebookInstagramLinks({
+      owner_username,
+      facebookAccount,
+      facebook_uid: facebookAccount.uid,
+      device_id,
+      instagramUsernames: usernames,
+      transaction,
+    }));
+    const total_instagram = await FacebookInstagramLink.count({ where: { owner_username, facebook_uid: facebookAccount.uid } });
+    return success(res, { device_id, facebook_uid: facebookAccount.uid, ...result, total_instagram }, 'Da bao cao danh sach Instagram cua Facebook UID');
+  } catch (err) { next(err); }
+};
+
+const listFacebookInstagramSources = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const allowedSorts = ['facebook_uid', 'instagram_count', 'report_count', 'last_reported_at', 'device_id'];
+    const sortBy = allowedSorts.includes(req.query.sort_by) ? req.query.sort_by : 'last_reported_at';
+    const direction = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const where = { owner_username };
+    const q = nullify(req.query.q);
+    if (q) where[Op.or] = [
+      { facebook_uid: { [Op.like]: `%${q}%` } },
+      { device_id: { [Op.like]: `%${q}%` } },
+    ];
+    const [rows, total] = await Promise.all([
+      FacebookInstagramLink.findAll({
+        attributes: [
+          'facebook_uid',
+          [sequelize.fn('MAX', sequelize.col('facebook_account_id')), 'facebook_account_id'],
+          [sequelize.fn('MAX', sequelize.col('device_id')), 'device_id'],
+          [sequelize.fn('COUNT', sequelize.col('id')), 'instagram_count'],
+          [sequelize.fn('SUM', sequelize.col('report_count')), 'report_count'],
+          [sequelize.fn('MIN', sequelize.col('first_reported_at')), 'first_reported_at'],
+          [sequelize.fn('MAX', sequelize.col('last_reported_at')), 'last_reported_at'],
+        ],
+        where,
+        group: ['facebook_uid'],
+        order: [[sequelize.literal(sortBy), direction], ['facebook_uid', 'ASC']],
+        limit,
+        offset: (page - 1) * limit,
+        raw: true,
+      }),
+      FacebookInstagramLink.count({ where, distinct: true, col: 'facebook_uid' }),
+    ]);
+    return success(res, {
+      sources: rows.map((row) => ({ ...row, instagram_count: Number(row.instagram_count) || 0, report_count: Number(row.report_count) || 0 })),
+      pagination: { page, limit, total: Number(total) || 0, totalPages: Math.ceil((Number(total) || 0) / limit) || 1 },
+    }, 'Lay danh sach Facebook UID va Instagram thanh cong');
+  } catch (err) { next(err); }
+};
+
+const getFacebookInstagramAccounts = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const facebook_uid = nullify(req.params.facebookUid);
+    if (!facebook_uid) return error(res, 'Facebook UID khong hop le', 400);
+    const links = await FacebookInstagramLink.findAll({ where: { owner_username, facebook_uid }, order: [['last_reported_at', 'DESC'], ['id', 'DESC']] });
+    const usernames = links.map((row) => row.instagram_uid);
+    const accounts = usernames.length ? await InstagramAccount.unscoped().findAll({
+      attributes: ['id', 'uid', 'device_id', 'status', 'live_status', 'post_count', 'followers', 'following', 'login_at', 'updated_at', 'trashed_at'],
+      where: { owner_username, kind: 'job', uid: { [Op.in]: usernames } },
+      raw: true,
+    }) : [];
+    const accountMap = new Map(accounts.map((row) => [String(row.uid).toLowerCase(), row]));
+    return success(res, {
+      facebook_uid,
+      instagram_accounts: links.map((link) => ({ ...link.toJSON(), account: accountMap.get(String(link.instagram_uid).toLowerCase()) || null })),
+      total: links.length,
+    }, 'Lay Instagram username cua Facebook UID thanh cong');
+  } catch (err) { next(err); }
+};
+
 const idsFrom = (req) => Array.isArray(req.body.ids)?[...new Set(req.body.ids.map(Number).filter((id)=>id>0))]:[];
 const checkLive = async (req, res, next) => {
   try {
@@ -431,4 +557,4 @@ const listTrash=async(req,res,next)=>{try{const owner_username=ownerFromAdmin(re
 const restore=async(req,res,next)=>{try{const ids=idsFrom(req);const [restored]=await InstagramAccount.unscoped().update({trashed_at:null,status:'CHO_LOGIN',locked_by:null,locked_at:null,login_get_count:0},{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'job',trashed_at:{[Op.ne]:null}}});return success(res,{restored},'Khoi phuc Instagram thanh cong');}catch(err){next(err);}};
 const deleteTrash=async(req,res,next)=>{try{const ids=idsFrom(req);const deleted=await InstagramAccount.unscoped().destroy({where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'job',trashed_at:{[Op.ne]:null}}});return success(res,{deleted},'Xoa vinh vien Instagram thanh cong');}catch(err){next(err);}};
 
-module.exports={list,importDashboard,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,checkLive,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};
+module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFacebookInstagramSources,getFacebookInstagramAccounts,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,checkLive,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};

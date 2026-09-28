@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { instagramApi, accountGroupApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import AccountGroupPicker from '../components/AccountGroupPicker';
 import InstagramFacebookRegClaims from '../components/InstagramFacebookRegClaims';
+import InstagramFacebookSources from '../components/InstagramFacebookSources';
 import { toast } from '../components/Toast';
 import { copyText } from '../services/clipboard';
 import { loadCheckLiveSettings } from '../services/checkLiveSettings';
@@ -66,6 +67,17 @@ function ImportInstagram({ kind, groups, onClose, onDone, onGroupsChanged }) {
   </div>;
 }
 
+function InstagramFacebookInlineDetails({ source, details, loading }) {
+  return <tr className="ig-facebook-detail-row"><td colSpan={18}>
+    <div style={{ background:'#f8fafc', border:'1px solid #dbeafe', borderRadius:10, padding:'.8rem 1rem' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'.75rem', flexWrap:'wrap', marginBottom:'.65rem' }}>
+        <strong style={{ color:'#1d4ed8' }}>Instagram của Facebook UID {source.facebook_uid}</strong>
+        <span style={{ color:'#64748b', fontSize:'.78rem' }}>Tổng: {details.length || source.instagram_count || 0} username IG</span>
+      </div>
+      {loading ? <div style={{ color:'#64748b' }}>Đang tải danh sách Instagram...</div> : !details.length ? <div style={{ color:'#64748b' }}>Facebook UID chưa có username Instagram.</div> : <div style={{ overflowX:'auto' }}><table className="data-table"><thead><tr><th>USERNAME IG</th><th>TRẠNG THÁI JOB</th><th>LIVE</th><th>POST</th><th>FOLLOWERS</th><th>FOLLOWING</th><th>MÁY IG</th><th>BÁO CÁO CUỐI</th></tr></thead><tbody>{details.map((link) => <tr key={link.id}><td><strong style={{ color:'#db2777' }}>@{link.instagram_uid}</strong></td><td>{link.account?.status || 'Chưa có trong Instagram Job'}</td><td style={{ color:link.account?.live_status === 'live' ? '#059669' : link.account?.live_status === 'die' ? '#dc2626' : '#94a3b8', fontWeight:800 }}>{link.account?.live_status || 'unknown'}</td><td>{fmtNumber(link.account?.post_count)}</td><td>{fmtNumber(link.account?.followers)}</td><td>{fmtNumber(link.account?.following)}</td><td>{link.account?.device_id || '-'}</td><td style={{ whiteSpace:'nowrap' }}>{fmt(link.last_reported_at)}</td></tr>)}</tbody></table></div>}
+    </div>
+  </td></tr>;
+}
 export default function InstagramAccounts({ kind = 'job', platformSwitch = null }) {
   const isReg = kind === 'reg';
   const tabs = isReg ? REG_TABS : TABS;
@@ -73,9 +85,10 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
   const [page,setPage]=useState(1),[limit,setLimit]=useState(50),[status,setStatus]=useState(''),[q,setQ]=useState(''),[groupId,setGroupId]=useState(''),[device,setDevice]=useState(''),[dateFrom,setDateFrom]=useState(''),[dateTo,setDateTo]=useState(''),[soakDays,setSoakDays]=useState(''),[liveStatus,setLiveStatus]=useState('');
   const [sort,setSort]=useState({field:'login_at',direction:'desc'}),[selected,setSelected]=useState(new Set()),[loading,setLoading]=useState(false),[importing,setImporting]=useState(false);
   const [checking,setChecking]=useState(false),[checkProgress,setCheckProgress]=useState(null);
-  const [trash,setTrash]=useState(false),[trashCount,setTrashCount]=useState(0),[machineView,setMachineView]=useState(false);
+  const [trash,setTrash]=useState(false),[trashCount,setTrashCount]=useState(0),[machineView,setMachineView]=useState(false),[facebookSourceView,setFacebookSourceView]=useState(false);
   const [bulkStatus,setBulkStatus]=useState(''),[bulkGroup,setBulkGroup]=useState('');
   const [regView,setRegView]=useState('accounts');
+  const [expandedFacebook,setExpandedFacebook]=useState(null),[facebookDetails,setFacebookDetails]=useState({}),[loadingFacebookUid,setLoadingFacebookUid]=useState(null);
   const params=useMemo(()=>({kind,page,limit,status,q,group_id:groupId,device_id:device||undefined,live_status:liveStatus||undefined,date_from:dateFrom||undefined,date_to:dateTo||undefined,soak_days:soakDays||undefined,sort_by:sort.field||undefined,sort_order:sort.direction}),[kind,page,limit,status,q,groupId,device,dateFrom,dateTo,soakDays,liveStatus,sort]);
   const loadGroups=useCallback(async()=>{try{const r=await accountGroupApi.getAll(groupType(kind));setGroups(r.data?.groups||[]);}catch(e){toast.error(e.message);}},[kind]);
   const load=useCallback(async()=>{setLoading(true);try{const r=trash?await instagramApi.getTrash(params):await instagramApi.getAll(params);setRows(r.data?.accounts||[]);setPagination(r.data?.pagination||null);if(!trash){setCounts(r.data?.status_counts||{});setMachines(r.data?.machine_stats||[]);setTrashCount(r.data?.trash_count||0);}else setTrashCount(r.data?.pagination?.total||0);}catch(e){toast.error(e.message);}finally{setLoading(false);}},[params,trash]);
@@ -96,8 +109,18 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
     }catch(e){toast.error(e.message||'Check live Instagram thất bại');}
     finally{setChecking(false);setCheckProgress(null);}
   };
-  const sortHeader=(field,label)=><th><button type="button" className={'ig-sort-th'+(sort.field===field?' active':'')} onClick={()=>setSort((current)=>({field,direction:current.field===field&&current.direction==='asc'?'desc':'asc'}))}><span>{label}</span><span>{sort.field===field?(sort.direction==='asc'?'▲':'▼'):'↕'}</span></button></th>;
-  const switchTrash=()=>{setTrash((v)=>!v);setPage(1);setMachineView(false);reset();};
+  const loadFacebookDetails=async(facebookUid)=>{
+    setLoadingFacebookUid(facebookUid);
+    try{const response=await instagramApi.getFacebookInstagramAccounts(facebookUid);setFacebookDetails((current)=>({...current,[facebookUid]:response.data?.instagram_accounts||[]}));}
+    catch(error){toast.error(error.message||'Không tải được danh sách Instagram của Facebook UID');}
+    finally{setLoadingFacebookUid(null);}
+  };
+  const toggleFacebookDetails=(rowId,source)=>{
+    if(expandedFacebook?.rowId===rowId&&expandedFacebook?.facebook_uid===source.facebook_uid){setExpandedFacebook(null);return;}
+    setExpandedFacebook({rowId,facebook_uid:source.facebook_uid,source});
+    if(!facebookDetails[source.facebook_uid])loadFacebookDetails(source.facebook_uid);
+  };  const sortHeader=(field,label)=><th><button type="button" className={'ig-sort-th'+(sort.field===field?' active':'')} onClick={()=>setSort((current)=>({field,direction:current.field===field&&current.direction==='asc'?'desc':'asc'}))}><span>{label}</span><span>{sort.field===field?(sort.direction==='asc'?'▲':'▼'):'↕'}</span></button></th>;
+  const switchTrash=()=>{setTrash((v)=>!v);setPage(1);setMachineView(false);setFacebookSourceView(false);reset();};
   const setFilter=(setter,value)=>{setter(value);setPage(1);reset();};
   const statusColor=(value)=>value==='LOGIN_THANH_CONG'||value==='DA_CHAY_XONG'?'#059669':value==='LOGIN_FAIL'||value==='ACCOUNT_DIE'?'#dc2626':'#7c3aed';
 
@@ -126,12 +149,13 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
             <button type="button" className={regView === 'facebook' ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>setRegView('facebook')}>Reg IG bằng Facebook</button>
           </>}
           {!isReg && !trash && <>
-            <button type="button" className={!machineView ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>setMachineView(false)}>Danh sách account</button>
-            <button type="button" className={machineView ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>setMachineView(true)}>Theo máy ({machines.length})</button>
+            <button type="button" className={!machineView && !facebookSourceView ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>{setMachineView(false);setFacebookSourceView(false);}}>Danh sách account</button>
+            <button type="button" className={machineView ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>{setMachineView(true);setFacebookSourceView(false);}}>Theo máy ({machines.length})</button>
+            <button type="button" className={facebookSourceView ? 'btn btn-success btn-sm' : 'btn btn-secondary btn-sm'} onClick={()=>{setFacebookSourceView(true);setMachineView(false);}}>Facebook chứa IG</button>
           </>}
           {!isReg && <button type="button" className="btn btn-secondary btn-sm" onClick={switchTrash}>{trash ? 'Quay lại Instagram Job' : 'Thùng rác (' + trashCount + ')'}</button>}
-          {!trash && (!isReg || regView === 'accounts') && <button type="button" className="btn btn-primary btn-sm" onClick={()=>setImporting(true)}>Import</button>}
-          {(!isReg || regView === 'accounts') && <button type="button" className="btn btn-secondary btn-sm" disabled={loading} onClick={load}>{loading ? 'Đang tải...' : 'Làm mới'}</button>}
+          {!trash && !facebookSourceView && (!isReg || regView === 'accounts') && <button type="button" className="btn btn-primary btn-sm" onClick={()=>setImporting(true)}>Import</button>}
+          {!facebookSourceView && (!isReg || regView === 'accounts') && <button type="button" className="btn btn-secondary btn-sm" disabled={loading} onClick={load}>{loading ? 'Đang tải...' : 'Làm mới'}</button>}
         </div>
       </div>
 
@@ -148,12 +172,12 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
         </div>
       </div>}
 
-      {!isReg && !trash && !machineView && device && <div style={{display:'flex',alignItems:'center',gap:'.5rem',marginBottom:'1rem'}}>
+      {!isReg && !trash && !machineView && !facebookSourceView && device && <div style={{display:'flex',alignItems:'center',gap:'.5rem',marginBottom:'1rem'}}>
         <span style={{background:'rgba(219,39,119,.10)',color:'#be185d',border:'1px solid rgba(219,39,119,.22)',borderRadius:20,padding:'.38rem .75rem',fontSize:'.8rem',fontWeight:750}}>Đang xem máy: {device}</span>
         <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setFilter(setDevice,'')}>Bỏ lọc máy</button>
       </div>}
 
-      {!trash && !machineView && (!isReg || regView === 'accounts') && <div className="ig-status-tabs">
+      {!trash && !machineView && !facebookSourceView && (!isReg || regView === 'accounts') && <div className="ig-status-tabs">
         {tabs.map((tab)=><button key={tab.value || 'all'} type="button" onClick={()=>setFilter(setStatus,tab.value)} style={{
           background:status===tab.value ? tab.color : 'rgba(255,255,255,.06)',
           color:status===tab.value ? '#fff' : '#64748b',
@@ -162,7 +186,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
         }}>{tab.icon} {tab.label} ({tab.value ? counts[tab.value] || 0 : total})</button>)}
       </div>}
 
-      {isReg && regView === 'facebook' ? <InstagramFacebookRegClaims /> : !trash && machineView ? <div className="card" style={{padding:0,overflow:'hidden',marginBottom:'1rem'}}>
+      {isReg && regView === 'facebook' ? <InstagramFacebookRegClaims /> : !isReg && !trash && facebookSourceView ? <InstagramFacebookSources /> : !trash && machineView ? <div className="card" style={{padding:0,overflow:'hidden',marginBottom:'1rem'}}>
         <div className="card-header" style={{gap:'.75rem',flexWrap:'wrap'}}>
           <div><h3>🖥️ Quản lý account theo máy</h3><div style={{color:'#64748b',fontSize:'.78rem',marginTop:'.2rem'}}>{machines.length} máy đã có account</div></div>
           <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Tìm tên máy..." style={{width:210,maxWidth:'100%',border:'1px solid #cbd5e1',borderRadius:8,padding:'.45rem .75rem'}} />
@@ -198,8 +222,8 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
 
         <div className="card" style={{padding:0,overflow:'hidden'}}>
           <div className="card-header"><h3>{trash ? 'Thùng rác Instagram Job' : 'Danh sách account'}</h3><span style={{color:'#64748b',fontSize:'.8rem'}}>{pagination?.total || 0} account {loading ? '- đang tải...' : ''}</span></div>
-          <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th style={{width:40}}><input type="checkbox" checked={all} onChange={toggleAll}/></th><th>STT</th><th>TÀI KHOẢN</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>NHÓM</th><th><button type="button" className={'ig-sort-th' + (sort.field==='device_id'?' active':'')} onClick={()=>setSort((s)=>({field:'device_id',direction:s.field==='device_id'&&s.direction==='asc'?'desc':'asc'}))}><span>MÁY</span><span>{sort.field==='device_id'?(sort.direction==='asc'?'▲':'▼'):'↕'}</span></button></th><th>TRẠNG THÁI</th><th>LIVE</th>{sortHeader('post_count','POST')}{sortHeader('followers','FOLLOWERS')}{sortHeader('following','FOLLOWING')}{sortHeader('last_live_check_at','CHECK CUỐI')}<th>LOCK</th>{sortHeader('login_at','LOGIN AT')}<th>{trash ? 'NGÀY XÓA' : 'NGÀY XONG'}</th></tr></thead><tbody>
-            {!rows.length ? <tr><td colSpan={17} style={{textAlign:'center',color:'#94a3b8',padding:36}}>{trash ? 'Thùng rác đang trống' : 'Chưa có account Instagram'}</td></tr> : rows.map((r,i)=>{const sc=STATUS_COLOR[r.status]||{bg:'rgba(100,116,139,.1)',color:'#64748b'};return <tr key={r.id} className={'ig-row' + (selected.has(r.id)?' row-selected':'')}><td><input type="checkbox" checked={selected.has(r.id)} onChange={()=>setSelected((s)=>{const n=new Set(s);n.has(r.id)?n.delete(r.id):n.add(r.id);return n;})}/></td><td style={{color:'#94a3b8'}}>{(page-1)*limit+i+1}</td><td><strong>{r.uid}</strong></td><td>{short(r.password,18)}</td><td>{short(r.two_fa,18)}</td><td title={r.cookies||''}>{short(r.cookies,26)}</td><td>{groups.find((g)=>String(g.id)===String(r.group_id))?.name||'-'}</td><td>{r.device_id||'-'}</td><td><span style={{background:sc.bg,color:sc.color,borderRadius:6,padding:'.2rem .5rem',fontSize:'.72rem',fontWeight:800,whiteSpace:'nowrap'}}>{STATUS_META[r.status]?.label||r.status||'-'}</span></td><td style={{color:LIVE_COLOR[r.live_status]||'#94a3b8',fontWeight:700}}>{r.live_status||'unknown'}</td><td style={{color:'#db2777',fontWeight:750}}>{fmtNumber(r.post_count)}</td><td style={{color:'#2563eb',fontWeight:750}}>{fmtNumber(r.followers)}</td><td style={{color:'#7c3aed',fontWeight:750}}>{fmtNumber(r.following)}</td><td style={{color:'#64748b',whiteSpace:'nowrap'}}>{fmt(r.last_live_check_at)}</td><td>{r.locked_by?r.locked_by+' - '+fmt(r.locked_at):'-'}</td><td>{fmt(r.login_at)}</td><td>{fmt(trash?r.trashed_at:r.completed_at)}</td></tr>;})}
+          <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th style={{width:40}}><input type="checkbox" checked={all} onChange={toggleAll}/></th><th>STT</th><th>TÀI KHOẢN</th><th>UID FACEBOOK</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>NHÓM</th><th><button type="button" className={'ig-sort-th' + (sort.field==='device_id'?' active':'')} onClick={()=>setSort((s)=>({field:'device_id',direction:s.field==='device_id'&&s.direction==='asc'?'desc':'asc'}))}><span>MÁY</span><span>{sort.field==='device_id'?(sort.direction==='asc'?'▲':'▼'):'↕'}</span></button></th><th>TRẠNG THÁI</th><th>LIVE</th>{sortHeader('post_count','POST')}{sortHeader('followers','FOLLOWERS')}{sortHeader('following','FOLLOWING')}{sortHeader('last_live_check_at','CHECK CUỐI')}<th>LOCK</th>{sortHeader('login_at','LOGIN AT')}<th>{trash ? 'NGÀY XÓA' : 'NGÀY XONG'}</th></tr></thead><tbody>
+            {!rows.length ? <tr><td colSpan={18} style={{textAlign:'center',color:'#94a3b8',padding:36}}>{trash ? 'Thùng rác đang trống' : 'Chưa có account Instagram'}</td></tr> : rows.map((r,i)=>{const sc=STATUS_COLOR[r.status]||{bg:'rgba(100,116,139,.1)',color:'#64748b'};const source=r.facebook_sources?.[0]||null;return <Fragment key={r.id}><tr className={'ig-row' + (selected.has(r.id)?' row-selected':'')}><td><input type="checkbox" checked={selected.has(r.id)} onChange={()=>setSelected((s)=>{const n=new Set(s);n.has(r.id)?n.delete(r.id):n.add(r.id);return n;})}/></td><td style={{color:'#94a3b8'}}>{(page-1)*limit+i+1}</td><td><strong>{r.uid}</strong></td><td>{!trash&&source?<button type="button" onClick={()=>toggleFacebookDetails(r.id,source)} aria-expanded={expandedFacebook?.rowId===r.id} title={'Xem các Instagram thuộc Facebook UID '+source.facebook_uid} style={{display:'inline-flex',alignItems:'center',gap:'.4rem',border:'1px solid #bfdbfe',background:expandedFacebook?.rowId===r.id?'#dbeafe':'#eff6ff',color:'#1d4ed8',borderRadius:7,padding:'.25rem .5rem',cursor:'pointer',fontWeight:800,whiteSpace:'nowrap'}}><span>{source.facebook_uid}</span><span style={{background:'#2563eb',color:'#fff',borderRadius:12,padding:'.08rem .38rem',fontSize:'.68rem'}}>{source.instagram_count||0} IG</span></button>:'-'}</td><td>{short(r.password,18)}</td><td>{short(r.two_fa,18)}</td><td title={r.cookies||''}>{short(r.cookies,26)}</td><td>{groups.find((g)=>String(g.id)===String(r.group_id))?.name||'-'}</td><td>{r.device_id||'-'}</td><td><span style={{background:sc.bg,color:sc.color,borderRadius:6,padding:'.2rem .5rem',fontSize:'.72rem',fontWeight:800,whiteSpace:'nowrap'}}>{STATUS_META[r.status]?.label||r.status||'-'}</span></td><td style={{color:LIVE_COLOR[r.live_status]||'#94a3b8',fontWeight:700}}>{r.live_status||'unknown'}</td><td style={{color:'#db2777',fontWeight:750}}>{fmtNumber(r.post_count)}</td><td style={{color:'#2563eb',fontWeight:750}}>{fmtNumber(r.followers)}</td><td style={{color:'#7c3aed',fontWeight:750}}>{fmtNumber(r.following)}</td><td style={{color:'#64748b',whiteSpace:'nowrap'}}>{fmt(r.last_live_check_at)}</td><td>{r.locked_by?r.locked_by+' - '+fmt(r.locked_at):'-'}</td><td>{fmt(r.login_at)}</td><td>{fmt(trash?r.trashed_at:r.completed_at)}</td></tr>{!trash&&expandedFacebook?.rowId===r.id&&source&&<InstagramFacebookInlineDetails source={source} details={facebookDetails[source.facebook_uid]||[]} loading={loadingFacebookUid===source.facebook_uid}/>}</Fragment>;})}
           </tbody></table></div>
         </div>
         <Pagination pagination={pagination} onPageChange={(p)=>{setPage(p);reset();}} />

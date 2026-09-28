@@ -217,6 +217,8 @@ export const instagramApi = {
   getFacebookRegClaims: (params) => api.get('/instagram/reg/facebook/claims', { params }),
   resetFacebookRegEligibility: (data) => api.post('/instagram/reg/facebook/reset', data),
   addJob: (device_id, web, jobs = 0, xu = 0) => api.post('/instagram/job/add-job', { device_id, web, jobs, xu }),
+  getFacebookInstagramSources: (params) => api.get('/instagram/job/facebook-sources', { params }),
+  getFacebookInstagramAccounts: (facebookUid) => api.get('/instagram/job/facebook-sources/' + encodeURIComponent(facebookUid) + '/accounts'),
   import: (text, kind = 'job', status = 'CHO_LOGIN', group_id = null) => api.post('/instagram/import', { text, kind, status, group_id }),
   bulkGet: (ids) => api.post('/instagram/bulk-get', { ids }),
   bulkSyncToJob: (ids) => api.post('/instagram/bulk-sync-to-job', { ids }),
