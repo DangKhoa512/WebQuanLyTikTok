@@ -230,11 +230,6 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
             </div>
           </div>
 
-          <div style={{ marginTop:'.8rem', background:'linear-gradient(135deg,#ecfdf5,#f0fdfa)', border:'1px solid #a7f3d0', borderRadius:10, padding:'.8rem 1rem', display:'flex', alignItems:'center', gap:'.8rem', flexWrap:'wrap' }}>
-            <div style={{ width:38, height:38, borderRadius:9, background:'#059669', color:'#fff', display:'grid', placeItems:'center', fontWeight:900 }}>%</div>
-            <div><div style={{ color:'#047857', fontSize:'.76rem', fontWeight:800, textTransform:'uppercase' }}>Tỷ lệ {web} / {selectedRange.label}</div><div style={{ color:'#0f172a', fontSize:'1.35rem', fontWeight:900 }}>{fmtNum(xuPerPage)} <span style={{ fontSize:'.82rem', color:'#64748b' }}>xu/Page</span></div></div>
-            <div style={{ marginLeft:'auto', color:'#64748b', fontSize:'.8rem' }}>{fmtNum(totalXu)} xu ÷ {fmtNum(pagesClaimed)} Page đã lấy</div>
-          </div>
           <div className={'card'} style={{ marginTop: '1.25rem', marginBottom: '1.25rem' }}>
             <div className={'card-header'}>
               <div>
@@ -277,6 +272,12 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
                 </BarChart>
               </ResponsiveContainer>
             ) : <div className={'empty-state'} style={{ padding: '2rem' }}><p>Chưa có dữ liệu nhãn Facebook</p></div>}
+          </div>
+
+          <div style={{ marginTop:'.8rem', background:'linear-gradient(135deg,#ecfdf5,#f0fdfa)', border:'1px solid #a7f3d0', borderRadius:10, padding:'.8rem 1rem', display:'flex', alignItems:'center', gap:'.8rem', flexWrap:'wrap' }}>
+            <div style={{ width:38, height:38, borderRadius:9, background:'#059669', color:'#fff', display:'grid', placeItems:'center', fontWeight:900 }}>%</div>
+            <div><div style={{ color:'#047857', fontSize:'.76rem', fontWeight:800, textTransform:'uppercase' }}>Tỷ lệ {web} / {selectedRange.label}</div><div style={{ color:'#0f172a', fontSize:'1.35rem', fontWeight:900 }}>{fmtNum(xuPerPage)} <span style={{ fontSize:'.82rem', color:'#64748b' }}>xu/Page</span></div></div>
+            <div style={{ marginLeft:'auto', color:'#64748b', fontSize:'.8rem' }}>{fmtNum(totalXu)} xu ÷ {fmtNum(pagesClaimed)} Page đã lấy</div>
           </div>
         </>
       )}
