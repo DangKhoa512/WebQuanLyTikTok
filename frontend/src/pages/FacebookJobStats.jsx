@@ -95,6 +95,16 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
     () => devices.reduce((total, device) => total + Number(device.range_pages || 0), 0),
     [devices]
   );
+  const totalXu = useMemo(
+    () => (daily?.daily_job || []).reduce((total, row) => total + Number(row[`${web}_xu`] || 0), 0),
+    [daily, web]
+  );
+  const xuPerPage = pagesClaimed > 0 ? totalXu / pagesClaimed : 0;
+  const deviceXuPerPage = (device) => {
+    const pages = Number(device?.range_pages || 0);
+    return pages > 0 ? Number(device?.[`range_${web}_xu`] || 0) / pages : 0;
+  };
+
   const chartData = useMemo(() => {
     return (daily?.daily_job || []).map((row) => ({
       label: new Date(row.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
@@ -114,6 +124,8 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
           result = Number(a[valueKey] || 0) - Number(b[valueKey] || 0);
         } else if (sort.field === 'pages') {
           result = Number(a.range_pages || 0) - Number(b.range_pages || 0);
+        } else if (sort.field === 'ratio') {
+          result = deviceXuPerPage(a) - deviceXuPerPage(b);
         } else if (sort.field === 'last_seen') {
           const aTime = a.last_seen ? new Date(a.last_seen).getTime() : null;
           const bTime = b.last_seen ? new Date(b.last_seen).getTime() : null;
@@ -218,6 +230,11 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
             </div>
           </div>
 
+          <div style={{ marginTop:'.8rem', background:'linear-gradient(135deg,#ecfdf5,#f0fdfa)', border:'1px solid #a7f3d0', borderRadius:10, padding:'.8rem 1rem', display:'flex', alignItems:'center', gap:'.8rem', flexWrap:'wrap' }}>
+            <div style={{ width:38, height:38, borderRadius:9, background:'#059669', color:'#fff', display:'grid', placeItems:'center', fontWeight:900 }}>%</div>
+            <div><div style={{ color:'#047857', fontSize:'.76rem', fontWeight:800, textTransform:'uppercase' }}>Tỷ lệ {web} / {selectedRange.label}</div><div style={{ color:'#0f172a', fontSize:'1.35rem', fontWeight:900 }}>{fmtNum(xuPerPage)} <span style={{ fontSize:'.82rem', color:'#64748b' }}>xu/Page</span></div></div>
+            <div style={{ marginLeft:'auto', color:'#64748b', fontSize:'.8rem' }}>{fmtNum(totalXu)} xu ÷ {fmtNum(pagesClaimed)} Page đã lấy</div>
+          </div>
           <div className={'card'} style={{ marginTop: '1.25rem', marginBottom: '1.25rem' }}>
             <div className={'card-header'}>
               <div>
@@ -228,15 +245,16 @@ export default function FacebookJobStats({ onSwitchPlatform }) {
             </div>
             <div className={'table-container'} style={{ maxHeight: 520, overflowY: 'auto' }}>
               <table>
-                <thead><tr><th>{sortLabel('device_id', 'Tên máy')}</th><th>{sortLabel('value', `${web} ${metric === 'xu' ? 'xu' : 'job'}`)}</th><th>{sortLabel('pages', 'Page đã lấy')}</th><th>{sortLabel('last_seen', 'Hoạt động cuối')}</th></tr></thead>
+                <thead><tr><th>{sortLabel('device_id', 'Tên máy')}</th><th>{sortLabel('value', `${web} ${metric === 'xu' ? 'xu' : 'job'}`)}</th><th>{sortLabel('pages', 'Page đã lấy')}</th><th>{sortLabel('ratio', 'Tỷ lệ Xu/Page')}</th><th>{sortLabel('last_seen', 'Hoạt động cuối')}</th></tr></thead>
                 <tbody>
                   {filteredDevices.length === 0 ? (
-                    <tr><td colSpan={4} className={'empty-cell'}>Chưa có dữ liệu Facebook JOB</td></tr>
+                    <tr><td colSpan={5} className={'empty-cell'}>Chưa có dữ liệu Facebook JOB</td></tr>
                   ) : filteredDevices.map((device) => (
                       <tr key={device.device_id}>
                         <td><strong>{device.device_id}</strong></td>
                         <td style={{ color: selectedWeb.color, fontWeight: 850 }}>{fmtNum(deviceValue(device))}</td>
                         <td style={{ color: '#8b5cf6', fontWeight: 850 }}>{fmtNum(device.range_pages)}</td>
+                        <td style={{ color: '#059669', fontWeight: 900 }}>{fmtNum(deviceXuPerPage(device))}</td>
                         <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDateTime(device.last_seen)}</td>
                       </tr>
                   ))}
