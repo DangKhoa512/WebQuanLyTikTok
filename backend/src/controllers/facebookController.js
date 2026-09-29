@@ -950,12 +950,51 @@ const getLoginSuccessJobForPhone = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
     const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
+    const requestedUid = nullify(req.body.uid || req.body.username || req.query.uid || req.query.username);
     if (!device_id) return error(res, 'Can truyen device_id', 400);
 
     const groupId = await resolveJobGroupIdForRequest(req, owner_username);
     if (groupId === false) return error(res, 'Nhom Facebook JOB khong hop le', 400);
 
     await releaseStaleFacebookLocks({ owner_username, groupId, status: 'DANG_LAM', releaseStatus: 'LOGIN_THANH_CONG' });
+    if (requestedUid) {
+      const claimResult = await sequelize.transaction(async (t) => {
+        const where = { owner_username, kind: 'job', uid: requestedUid };
+        if (groupId) where.group_id = groupId;
+        const account = await FacebookAccount.findOne({ where, transaction: t, lock: t.LOCK.UPDATE });
+        if (!account) return { reason: 'NOT_FOUND' };
+        if (account.device_id !== device_id && account.locked_by !== device_id) return { reason: 'WRONG_DEVICE', account };
+        if (!['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'].includes(account.status)) return { reason: 'INVALID_STATUS', account };
+        if (account.nurture_status === 'DANG_NUOI') return { reason: 'NURTURING', account };
+        if (account.reg_page_locked_by) return { reason: 'REG_PAGE_LOCKED', account };
+        if (account.locked_by && account.locked_by !== device_id) return { reason: 'LOCKED_BY_OTHER', account };
+        await account.update({ status: 'DANG_LAM', locked_by: device_id, locked_at: new Date(), device_id, completed_at: null }, { transaction: t });
+        return { account };
+      });
+
+      if (claimResult.reason === 'NOT_FOUND') return error(res, 'Khong tim thay UID Facebook JOB', 404);
+      if (claimResult.reason === 'WRONG_DEVICE') return error(res, 'UID ' + requestedUid + ' khong thuoc may ' + device_id, 409);
+      if (claimResult.reason === 'INVALID_STATUS') return error(res, 'UID ' + requestedUid + ' dang o trang thai ' + claimResult.account.status + ', khong the lay Page', 409);
+      if (claimResult.reason === 'NURTURING') return error(res, 'UID ' + requestedUid + ' van dang nuoi', 409);
+      if (claimResult.reason === 'REG_PAGE_LOCKED') return error(res, 'UID ' + requestedUid + ' dang duoc dung de reg Page', 409);
+      if (claimResult.reason === 'LOCKED_BY_OTHER') return error(res, 'UID ' + requestedUid + ' dang duoc khoa boi may ' + claimResult.account.locked_by, 409);
+
+      const account = claimResult.account;
+      const currentPage = await claimPageForPhone({ account, device_id });
+      if (currentPage) {
+        return success(res, { account: await serializeForPhone(account, currentPage), lock_timeout_min: LOCK_TIMEOUT_MIN }, 'Lay Page cua UID Facebook thanh cong');
+      }
+
+      const pageJobs = await getActivePageJobs(account);
+      const pageSummary = summarizePageJobs(pageJobs.map((row) => row.toJSON()));
+      if (pageSummary.total > 0 && pageSummary.completed === pageSummary.total) {
+        await account.update({ status: 'DA_CHAY_XONG', locked_by: null, locked_at: null, completed_at: new Date() });
+      }
+      return success(res, {
+        account: await serializeForPhone(account),
+        lock_timeout_min: LOCK_TIMEOUT_MIN,
+      }, 'UID Facebook khong con Page chua lam');
+    }
 
     // Bo qua account da hoan thanh tat ca Page va tra account ke tiep ngay trong cung request.
     // Gioi han de request khong chay qua lau neu du lieu cu co qua nhieu account da het Page.
