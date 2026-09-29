@@ -514,6 +514,20 @@ const getFacebookInstagramAccounts = async (req, res, next) => {
 };
 
 const idsFrom = (req) => Array.isArray(req.body.ids)?[...new Set(req.body.ids.map(Number).filter((id)=>id>0))]:[];
+const getCheckCookies = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const settings = await getInstagramCheckCookieSettings(owner_username);
+    const cookies = Array.isArray(settings?.cookies) ? settings.cookies : [];
+    return success(res, {
+      owner_username,
+      count: cookies.length,
+      cookies,
+    }, cookies.length ? 'Lay cookies check Instagram thanh cong' : 'Chua cau hinh cookies check Instagram');
+  } catch (err) {
+    next(err);
+  }
+};
 const checkLive = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
@@ -587,4 +601,4 @@ const deleteTrash=async(req,res,next)=>{
   }catch(err){if(!transaction.finished)await transaction.rollback();next(err);}
 };
 
-module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFacebookInstagramSources,getFacebookInstagramAccounts,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,checkLive,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};
+module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFacebookInstagramSources,getFacebookInstagramAccounts,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,getCheckCookies,checkLive,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};

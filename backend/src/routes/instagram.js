@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post('/import-api', apiKeyAuth, controller.importApi);
 router.post('/reg/report', apiKeyAuth, controller.reportRegOnly);
+router.all('/check-cookies', apiKeyAuth, controller.getCheckCookies);
 router.post('/reg/facebook/get-account', apiKeyAuth, facebookRegController.getAccount);
 router.post('/reg/facebook/report-instagram', apiKeyAuth, facebookRegController.reportInstagram);
 router.post('/reg/facebook/finish', apiKeyAuth, facebookRegController.finish);
