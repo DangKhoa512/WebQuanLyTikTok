@@ -12,6 +12,7 @@ const InstagramFacebookRegClaim = require('./InstagramFacebookRegClaim');
 const InstagramFacebookRegResult = require('./InstagramFacebookRegResult');
 const FacebookInstagramLink = require('./FacebookInstagramLink');
 const InstagramJobDailyStat = require('./InstagramJobDailyStat');
+const InstagramJobAccountDailyStat = require('./InstagramJobAccountDailyStat');
 const HotmailAccount = require('./HotmailAccount');
 const EmailOtpOrder = require('./EmailOtpOrder');
 const EmailOtpDeviceUse = require('./EmailOtpDeviceUse');
@@ -30,4 +31,4 @@ const InstagramNurtureAssignment = require('./InstagramNurtureAssignment');
 const InstagramNurtureLog = require('./InstagramNurtureLog');
 const PlatformMachineDailyStat = require('./PlatformMachineDailyStat');
 
-module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, InstagramAccount, InstagramFacebookRegClaim, InstagramFacebookRegResult, FacebookInstagramLink, InstagramJobDailyStat, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat, FacebookRegPageReport, FacebookRegPageSuccessEvent, FacebookNurtureAssignment, FacebookNurtureLog, InstagramNurtureAssignment, InstagramNurtureLog, PlatformMachineDailyStat, EmailOtpOrder, EmailOtpDeviceUse };
+module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, InstagramAccount, InstagramFacebookRegClaim, InstagramFacebookRegResult, FacebookInstagramLink, InstagramJobDailyStat, InstagramJobAccountDailyStat, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat, FacebookRegPageReport, FacebookRegPageSuccessEvent, FacebookNurtureAssignment, FacebookNurtureLog, InstagramNurtureAssignment, InstagramNurtureLog, PlatformMachineDailyStat, EmailOtpOrder, EmailOtpDeviceUse };

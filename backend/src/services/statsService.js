@@ -732,6 +732,12 @@ const getInstagramJobStats = async (ownerFilter = null) => {
      FROM instagram_accounts WHERE kind = 'job' AND trashed_at IS NULL ${ownerAnd}`,
     { replacements, type: QueryTypes.SELECT }
   );
+  const [claimRow = {}] = await sequelize.query(
+    'SELECT COALESCE(SUM(claimed_count), 0) AS claimed_today ' +
+    'FROM instagram_job_account_daily_stats ' +
+    'WHERE stat_date = CURDATE() ' + ownerAnd,
+    { replacements, type: QueryTypes.SELECT }
+  );
   const webRows = await sequelize.query(
     `SELECT web,
        COALESCE(SUM(CASE WHEN stat_date=CURDATE() THEN job_count ELSE 0 END),0) AS today_jobs,
@@ -747,7 +753,7 @@ const getInstagramJobStats = async (ownerFilter = null) => {
   );
   const web_summary=emptyInstagramWebSummary();
   for(const item of webRows) web_summary[item.web]={today_jobs:numeric(item,'today_jobs'),month_jobs:numeric(item,'month_jobs'),year_jobs:numeric(item,'year_jobs'),total_jobs:numeric(item,'total_jobs'),today_xu:numeric(item,'today_xu'),month_xu:numeric(item,'month_xu'),year_xu:numeric(item,'year_xu'),total_xu:numeric(item,'total_xu')};
-  return {accounts:{total:numeric(row,'total'),waiting_login:numeric(row,'waiting_login'),logging_in:numeric(row,'logging_in'),ready:numeric(row,'ready'),working:numeric(row,'working'),done:numeric(row,'done'),failed:numeric(row,'failed'),live:numeric(row,'live'),die:numeric(row,'die'),devices:numeric(row,'devices')},web_summary};
+  return {accounts:{total:numeric(row,'total'),claimed_today:numeric(claimRow,'claimed_today'),waiting_login:numeric(row,'waiting_login'),logging_in:numeric(row,'logging_in'),ready:numeric(row,'ready'),working:numeric(row,'working'),done:numeric(row,'done'),failed:numeric(row,'failed'),live:numeric(row,'live'),die:numeric(row,'die'),devices:numeric(row,'devices')},web_summary};
 };
 
 const getInstagramJobDailyStats = async (days = 30, ownerFilter = null) => {

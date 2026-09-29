@@ -18,4 +18,20 @@ const addInstagramDailyJobs = async ({ owner_username, device_id, stat_date, web
   );
   return true;
 };
-module.exports = { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs };
+const addInstagramAccountClaim = async ({ owner_username, device_id, stat_date, transaction = null }) => {
+  if (!owner_username || !device_id || !stat_date) return false;
+  await sequelize.query(
+    'INSERT INTO instagram_job_account_daily_stats ' +
+    '(owner_username, device_id, stat_date, claimed_count, created_at, updated_at) ' +
+    'VALUES (:owner, :device, :date, 1, NOW(), NOW()) ' +
+    'ON DUPLICATE KEY UPDATE claimed_count = claimed_count + 1, updated_at = NOW()',
+    {
+      replacements: { owner: owner_username, device: device_id, date: stat_date },
+      type: QueryTypes.INSERT,
+      transaction,
+    }
+  );
+  return true;
+};
+
+module.exports = { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs, addInstagramAccountClaim };

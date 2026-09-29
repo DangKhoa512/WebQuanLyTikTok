@@ -9,7 +9,7 @@ const InstagramNurtureLog = require('../models/InstagramNurtureLog');
 const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
-const { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs } = require('../services/instagramJobStatService');
+const { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs, addInstagramAccountClaim } = require('../services/instagramJobStatService');
 const { getInstagramLoginLimitSettings, getFacebookCheckProxySettings, getInstagramCheckCookieSettings, getInstagramNurtureSettings } = require('../services/settingsService');
 const { batchCheckInstagram } = require('../utils/instagramCheckLiveUtils');
 const { normalizeInstagramUsernames, reportFacebookInstagramLinks } = require('../services/instagramFacebookLinkService');
@@ -289,7 +289,47 @@ const checkDeviceAccountCount = async(req,res,next)=>{
     return success(res,summary,summary.full?'Full limit':'Available slots');
   }catch(err){next(err);}
 };
-const getLoginSuccess = async(req,res,next)=>{try{const owner_username=ownerFromRequest(req);const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may);if(!device_id)return error(res,'Can truyen device_id',400);await releaseStaleInstagramLocks({owner_username,status:'DANG_LAM',releaseStatus:'LOGIN_THANH_CONG'});const account=await sequelize.transaction(async(t)=>{let row=await InstagramAccount.findOne({where:{owner_username,kind:'job',status:'DANG_LAM',locked_by:device_id,nurture_status:{[Op.ne]:'DANG_NUOI'}},transaction:t,lock:t.LOCK.UPDATE});if(row)return row;row=await InstagramAccount.findOne({where:{owner_username,kind:'job',status:'LOGIN_THANH_CONG',device_id,nurture_status:{[Op.ne]:'DANG_NUOI'}},order:[['login_at','ASC'],['id','ASC']],transaction:t,lock:t.LOCK.UPDATE,skipLocked:true});if(row)await row.update({status:'DANG_LAM',locked_by:device_id,locked_at:new Date()},{transaction:t});return row;});return success(res,{account:account?serialize(account):null,lock_timeout_min:LOCK_TIMEOUT_MIN},account?'Lay Instagram Job thanh cong':'Het Instagram Job');}catch(err){next(err);}};
+const getLoginSuccess = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    await releaseStaleInstagramLocks({ owner_username, status: 'DANG_LAM', releaseStatus: 'LOGIN_THANH_CONG' });
+    const claimResult = await sequelize.transaction(async (transaction) => {
+      let account = await InstagramAccount.findOne({
+        where: { owner_username, kind: 'job', status: 'DANG_LAM', locked_by: device_id, nurture_status: { [Op.ne]: 'DANG_NUOI' } },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (account) return { account, resumed: true };
+
+      account = await InstagramAccount.findOne({
+        where: { owner_username, kind: 'job', status: 'LOGIN_THANH_CONG', device_id, nurture_status: { [Op.ne]: 'DANG_NUOI' } },
+        order: [['login_at', 'ASC'], ['id', 'ASC']],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+        skipLocked: true,
+      });
+      if (!account) return { account: null, resumed: false };
+
+      await account.update({ status: 'DANG_LAM', locked_by: device_id, locked_at: new Date() }, { transaction });
+      await addInstagramAccountClaim({
+        owner_username,
+        device_id,
+        stat_date: vietnamToday(),
+        transaction,
+      });
+      return { account, resumed: false };
+    });
+    return success(res, {
+      account: claimResult.account ? serialize(claimResult.account) : null,
+      resumed: claimResult.resumed,
+      lock_timeout_min: LOCK_TIMEOUT_MIN,
+    }, claimResult.account ? (claimResult.resumed ? 'Tiep tuc Instagram Job dang lam' : 'Lay Instagram Job thanh cong') : 'Het Instagram Job');
+  } catch (err) {
+    next(err);
+  }
+};
 const report = async(req,res,next)=>{try{const owner_username=ownerFromRequest(req);const uid=nullify(req.body.uid||req.query.uid||req.body.username);const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may);if(!uid)return error(res,'Can truyen tai khoan',400);if(!device_id)return error(res,'Can truyen device_id',400);const account=await InstagramAccount.findOne({where:{owner_username,kind:'job',uid,...(device_id?{[Op.or]:[{locked_by:device_id},{device_id}]}:{})},order:[['id','DESC']]});if(!account)return error(res,'Khong tim thay Instagram',404);const status=normalizeStatus(req.body.status||req.query.status,'LOGIN_THANH_CONG');if(account.locked_by&&device_id&&account.locked_by!==device_id)return error(res,'Account dang lock boi '+account.locked_by,409);const update={status};if(device_id)update.device_id=device_id;if(status==='LOGIN_THANH_CONG'){update.login_at=new Date();update.locked_by=null;update.locked_at=null;update.login_get_count=0;}else if(status==='DANG_LAM'){update.locked_by=device_id||account.device_id;update.locked_at=new Date();}else if(FINAL_STATUSES.includes(status)){update.locked_by=null;update.locked_at=null;update.completed_at=new Date();}if(status==='ACCOUNT_DIE')update.live_status='die';await account.update(update);return success(res,{account:serialize(account)},'Bao cao Instagram thanh cong');}catch(err){next(err);}};
 
 const vietnamToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
