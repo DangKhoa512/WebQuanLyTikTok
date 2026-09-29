@@ -815,10 +815,17 @@ const getInstagramJobDeviceStats = async (days = 1, ownerFilter = null) => {
      FROM instagram_job_daily_stats WHERE ${statWhere} ${ownerAnd} GROUP BY device_id`,
     {replacements,type:QueryTypes.SELECT}
   );
+  const claims=await sequelize.query(
+    `SELECT device_id, COALESCE(SUM(claimed_count),0) AS claimed_accounts,
+       MAX(updated_at) AS claim_last_seen
+     FROM instagram_job_account_daily_stats WHERE ${statWhere} ${ownerAnd} GROUP BY device_id`,
+    {replacements,type:QueryTypes.SELECT}
+  );
   const map=new Map();
-  const ensure=(device_id)=>{if(!map.has(device_id))map.set(device_id,{device_id,total_accounts:0,waiting_login:0,logging_in:0,ready_accounts:0,working_accounts:0,done_accounts:0,failed_accounts:0,range_TTC:0,range_XSMM:0,range_NVC:0,range_TTC_xu:0,range_XSMM_xu:0,range_NVC_xu:0,last_seen:null});return map.get(device_id);};
+  const ensure=(device_id)=>{if(!map.has(device_id))map.set(device_id,{device_id,total_accounts:0,claimed_accounts:0,waiting_login:0,logging_in:0,ready_accounts:0,working_accounts:0,done_accounts:0,failed_accounts:0,range_TTC:0,range_XSMM:0,range_NVC:0,range_TTC_xu:0,range_XSMM_xu:0,range_NVC_xu:0,last_seen:null});return map.get(device_id);};
   for(const item of accounts){const row=ensure(item.device_id);['total_accounts','waiting_login','logging_in','ready_accounts','working_accounts','done_accounts','failed_accounts'].forEach((key)=>{row[key]=numeric(item,key);});row.last_seen=item.account_last_seen||row.last_seen;}
   for(const item of jobs){const row=ensure(item.device_id);['range_TTC','range_XSMM','range_NVC','range_TTC_xu','range_XSMM_xu','range_NVC_xu'].forEach((key)=>{row[key]=numeric(item,key);});if(item.job_last_seen&&(!row.last_seen||new Date(item.job_last_seen)>new Date(row.last_seen)))row.last_seen=item.job_last_seen;}
+  for(const item of claims){const row=ensure(item.device_id);row.claimed_accounts=numeric(item,'claimed_accounts');if(item.claim_last_seen&&(!row.last_seen||new Date(item.claim_last_seen)>new Date(row.last_seen)))row.last_seen=item.claim_last_seen;}
   return [...map.values()].sort((a,b)=>String(a.device_id).localeCompare(String(b.device_id),'vi',{numeric:true}));
 };
 module.exports = {
