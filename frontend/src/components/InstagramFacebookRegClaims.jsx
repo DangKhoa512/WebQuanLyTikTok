@@ -4,6 +4,7 @@ import Pagination from './Pagination';
 import { toast } from './Toast';
 
 const CLAIM_STATUS = {
+  CHUA_REG: { label: 'Chưa reg', color: '#0284c7', bg: 'rgba(14,165,233,.11)' },
   DANG_REG: { label: 'Đang reg', color: '#7c3aed', bg: 'rgba(124,58,237,.12)' },
   REG_XONG: { label: 'Reg thành công', color: '#059669', bg: 'rgba(5,150,105,.12)' },
   REG_FAIL: { label: 'Reg thất bại', color: '#dc2626', bg: 'rgba(220,38,38,.10)' },
@@ -32,6 +33,8 @@ export default function InstagramFacebookRegClaims() {
   const [deviceCount, setDeviceCount] = useState(0);
   const [regSettings, setRegSettings] = useState({ reuse_hours:24, max_instagram_per_facebook:1 });
   const [resettingId, setResettingId] = useState(null);
+  const [resettingBulk, setResettingBulk] = useState(false);
+  const [selectedUids, setSelectedUids] = useState(() => new Set());
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [status, setStatus] = useState('');
@@ -53,7 +56,10 @@ export default function InstagramFacebookRegClaims() {
         ? await instagramApi.getFacebookRegMachines(params)
         : await instagramApi.getFacebookRegClaims(params);
       if (view === 'machines') setMachines(response.data?.machines || []);
-      else setRows(response.data?.claims || []);
+      else {
+        setRows(response.data?.claims || []);
+        setSelectedUids(new Set());
+      }
       setCounts(response.data?.status_counts || {});
       setDeviceCount(response.data?.device_count || 0);
       setRegSettings(response.data?.reg_settings || { reuse_hours:24, max_instagram_per_facebook:1 });
@@ -68,6 +74,8 @@ export default function InstagramFacebookRegClaims() {
   useEffect(() => { load(); }, [load]);
 
   const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+  const selectableRows = useMemo(() => rows.filter((row) => row.facebook_uid), [rows]);
+  const allRowsSelected = selectableRows.length > 0 && selectableRows.every((row) => selectedUids.has(row.facebook_uid));
   const openMachine = (deviceId) => {
     setSelectedDevice(deviceId);
     setView('claims');
@@ -75,7 +83,8 @@ export default function InstagramFacebookRegClaims() {
     setLimit(20);
     setQ('');
     setStatus('');
-    setSort({ field:'created_at', direction:'desc' });
+    setSort({ field:'login_at', direction:'desc' });
+    setSelectedUids(new Set());
   };
   const backToMachines = () => {
     setView('machines');
@@ -87,7 +96,7 @@ export default function InstagramFacebookRegClaims() {
   };
   const clearFilters = () => {
     setQ(''); setStatus(''); setPage(1); setLimit(20);
-    setSort(view === 'machines' ? { field:'last_activity_at', direction:'desc' } : { field:'created_at', direction:'desc' });
+    setSort(view === 'machines' ? { field:'last_activity_at', direction:'desc' } : { field:'login_at', direction:'desc' });
   };
   const setStatusFilter = (value) => { if (view === 'claims') { setStatus(value); setPage(1); } };
   const sortHeader = (field, label) => <th><button type="button" className={'ig-fb-claim-sort' + (sort.field === field ? ' active' : '')} onClick={() => {
@@ -95,16 +104,39 @@ export default function InstagramFacebookRegClaims() {
     setPage(1);
   }}><span>{label}</span><span>{sort.field === field ? (sort.direction === 'asc' ? '▲' : '▼') : '↕'}</span></button></th>;
   const resetEligibility = async (row) => {
-    if (!confirm(`Mở lại Facebook ${row.facebook_uid} để Reg Instagram từ đầu chu kỳ?`)) return;
+    if (!confirm('Mở lại Facebook ' + row.facebook_uid + ' để Reg Instagram từ đầu chu kỳ?')) return;
     setResettingId(row.id);
     try {
-      const response = await instagramApi.resetFacebookRegEligibility({ claim_id:row.id });
+      const response = await instagramApi.resetFacebookRegEligibility({ facebook_uid:row.facebook_uid });
       toast.success(response.message || 'Đã reset chu kỳ Reg IG');
       await load();
     } catch (err) {
       toast.error(err.message || 'Reset chu kỳ Reg IG thất bại');
     } finally {
       setResettingId(null);
+    }
+  };
+  const toggleSelected = (uid) => setSelectedUids((current) => {
+    const next = new Set(current);
+    if (next.has(uid)) next.delete(uid); else next.add(uid);
+    return next;
+  });
+  const toggleAllRows = () => setSelectedUids(() => (
+    allRowsSelected ? new Set() : new Set(selectableRows.map((row) => row.facebook_uid))
+  ));
+  const resetSelected = async () => {
+    const facebook_uids = [...selectedUids];
+    if (!facebook_uids.length || !confirm('Reset chu kỳ Reg IG cho ' + facebook_uids.length + ' account Facebook đã chọn?')) return;
+    setResettingBulk(true);
+    try {
+      const response = await instagramApi.resetFacebookRegEligibility({ facebook_uids });
+      toast.success(response.message || ('Đã reset ' + facebook_uids.length + ' account'));
+      setSelectedUids(new Set());
+      await load();
+    } catch (err) {
+      toast.error(err.message || 'Reset các account đã chọn thất bại');
+    } finally {
+      setResettingBulk(false);
     }
   };
 
@@ -128,7 +160,8 @@ export default function InstagramFacebookRegClaims() {
     `}</style>
 
     <div className="ig-fb-claim-summary-grid">
-      <SummaryCard label="Tổng lượt reg" value={total} icon="IG" color="#db2777" />
+      <SummaryCard label={view === 'claims' ? 'Tổng account' : 'Tổng lượt reg'} value={total} icon="IG" color="#db2777" />
+      {view === 'claims' && <SummaryCard label="Chưa reg" value={counts.CHUA_REG} icon="NEW" color="#0284c7" active={status === 'CHUA_REG'} onClick={() => setStatusFilter('CHUA_REG')} />}
       <SummaryCard label="Đang reg" value={counts.DANG_REG} icon="RUN" color="#7c3aed" active={status === 'DANG_REG'} onClick={view === 'claims' ? () => setStatusFilter('DANG_REG') : null} />
       <SummaryCard label="Reg thành công" value={counts.REG_XONG} icon="OK" color="#10b981" active={status === 'REG_XONG'} onClick={view === 'claims' ? () => setStatusFilter('REG_XONG') : null} />
       <SummaryCard label="Reg thất bại" value={counts.REG_FAIL} icon="FAIL" color="#ef4444" active={status === 'REG_FAIL'} onClick={view === 'claims' ? () => setStatusFilter('REG_FAIL') : null} />
@@ -177,13 +210,20 @@ export default function InstagramFacebookRegClaims() {
         </tr>)}
       </tbody></table></div>
     </div> : <div className="card" style={{ padding:0, overflow:'hidden' }}>
-      <div className="card-header"><div><h3>🔗 Account và trạng thái Reg của {selectedDevice}</h3><div style={{ color:'#64748b', fontSize:'.76rem', marginTop:'.2rem' }}>Lịch sử account Facebook nguồn và Instagram đã tạo trên máy</div></div><span style={{ color:'#64748b', fontSize:'.8rem' }}>{number(pagination?.total)} lượt {loading ? '- đang tải...' : ''}</span></div>
+      <div className="card-header"><div><h3>🔗 Account và trạng thái Reg của {selectedDevice}</h3><div style={{ color:'#64748b', fontSize:'.76rem', marginTop:'.2rem' }}>Toàn bộ account Facebook hợp lệ của máy và trạng thái Reg gần nhất</div></div><span style={{ color:'#64748b', fontSize:'.8rem' }}>{number(pagination?.total)} account {loading ? '- đang tải...' : ''}</span></div>
+      <div style={{ display:'flex', alignItems:'center', gap:'.55rem', flexWrap:'wrap', padding:'.65rem 1rem', background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
+        <strong style={{ color:'#334155', fontSize:'.8rem' }}>{selectedUids.size} account đã chọn</strong>
+        <button type="button" className="btn btn-primary btn-sm" disabled={!selectedUids.size || resettingBulk} onClick={resetSelected}>{resettingBulk ? 'Đang reset...' : 'Reset account đã chọn'}</button>
+        <button type="button" className="btn btn-secondary btn-sm" disabled={!selectedUids.size || resettingBulk} onClick={() => setSelectedUids(new Set())}>Bỏ chọn</button>
+        <span style={{ color:'#64748b', fontSize:'.74rem' }}>Có thể chọn mọi account; hệ thống sẽ mở lại chu kỳ và giải phóng phiên đang Reg.</span>
+      </div>
       <div style={{ overflowX:'auto' }}><table className="data-table ig-fb-claim-table"><thead><tr>
-        <th>STT</th>{sortHeader('facebook_uid','UID FACEBOOK')}{sortHeader('instagram_uid','ACCOUNT IG')}{sortHeader('status','TRẠNG THÁI')}{sortHeader('get_count','LẦN GET')}<th>EMAIL ORDER</th>{sortHeader('locked_at','LOCK LÚC')}{sortHeader('created_at','BẮT ĐẦU')}{sortHeader('completed_at','HOÀN TẤT')}<th>CHU KỲ</th><th>GHI CHÚ / LỖI</th><th>THAO TÁC</th>
+        <th><input type="checkbox" aria-label="Chọn tất cả account có thể reset" checked={allRowsSelected} onChange={toggleAllRows} disabled={!selectableRows.length || resettingBulk} /></th><th>STT</th>{sortHeader('facebook_uid','UID FACEBOOK')}{sortHeader('instagram_uid','ACCOUNT IG')}{sortHeader('status','TRẠNG THÁI')}{sortHeader('get_count','LẦN GET')}<th>EMAIL ORDER</th>{sortHeader('locked_at','LOCK LÚC')}{sortHeader('created_at','BẮT ĐẦU')}{sortHeader('completed_at','HOÀN TẤT')}<th>CHU KỲ</th><th>GHI CHÚ / LỖI</th><th>THAO TÁC</th>
       </tr></thead><tbody>
-        {!rows.length ? <tr><td colSpan={12} style={{ textAlign:'center', color:'#94a3b8', padding:38 }}>{loading ? 'Đang tải dữ liệu...' : `Máy ${selectedDevice} chưa có lượt Reg`}</td></tr> : rows.map((row, index) => {
+        {!rows.length ? <tr><td colSpan={13} style={{ textAlign:'center', color:'#94a3b8', padding:38 }}>{loading ? 'Đang tải dữ liệu...' : `Máy ${selectedDevice} chưa có lượt Reg`}</td></tr> : rows.map((row, index) => {
           const meta = CLAIM_STATUS[row.status] || { label:row.status || '-', color:'#64748b', bg:'rgba(100,116,139,.12)' };
-          return <tr key={row.id}>
+          return <tr key={row.id || ('fb-' + row.facebook_account_id)} style={selectedUids.has(row.facebook_uid) ? { background:'rgba(14,165,233,.06)' } : undefined}>
+            <td><input type="checkbox" aria-label={'Chọn ' + row.facebook_uid} checked={selectedUids.has(row.facebook_uid)} disabled={resettingBulk} onChange={() => toggleSelected(row.facebook_uid)} /></td>
             <td style={{ color:'#94a3b8' }}>{(page - 1) * limit + index + 1}</td>
             <td><strong style={{ color:'#2563eb' }}>{row.facebook_uid || '-'}</strong></td>
             <td><strong style={{ color:row.instagram_uid ? '#db2777' : '#94a3b8' }}>{row.instagram_uid || 'Chưa báo cáo'}</strong></td>
@@ -193,13 +233,13 @@ export default function InstagramFacebookRegClaims() {
             <td style={{ whiteSpace:'nowrap', color:'#64748b' }}>{fmt(row.locked_at)}</td>
             <td style={{ whiteSpace:'nowrap', color:'#64748b' }}>{fmt(row.created_at)}</td>
             <td style={{ whiteSpace:'nowrap', color:row.completed_at ? '#059669' : '#94a3b8' }}>{fmt(row.completed_at)}</td>
-            <td style={{ whiteSpace:'nowrap' }}>{row.eligibility_reset_at ? <span className="ig-fb-claim-status" style={{ color:'#0284c7', background:'rgba(14,165,233,.11)' }}>Đã reset {fmt(row.eligibility_reset_at)}</span> : row.status === 'REG_XONG' ? <span style={{ color:'#7c3aed', fontWeight:750 }}>Đang tính limit</span> : '-'}</td>
+            <td style={{ whiteSpace:'nowrap' }}>{row.eligibility_reset_at ? <span className="ig-fb-claim-status" style={{ color:'#0284c7', background:'rgba(14,165,233,.11)' }}>Đã reset {fmt(row.eligibility_reset_at)}</span> : row.can_reset ? <span style={{ color:'#7c3aed', fontWeight:750 }}>Đang tính limit</span> : '-'}</td>
             <td title={row.fail_reason || ''} style={{ color:row.fail_reason ? '#dc2626' : '#94a3b8', maxWidth:260 }}>{short(row.fail_reason, 44)}</td>
-            <td>{row.status === 'REG_XONG' && !row.eligibility_reset_at ? <button type="button" className="btn btn-secondary btn-sm" disabled={resettingId === row.id} onClick={() => resetEligibility(row)}>{resettingId === row.id ? 'Đang reset...' : 'Reset mở lại'}</button> : '-'}</td>
+            <td>{row.can_reset ? <button type="button" className="btn btn-secondary btn-sm" disabled={resettingId === row.id} onClick={() => resetEligibility(row)}>{resettingId === row.id ? 'Đang reset...' : 'Reset mở lại'}</button> : '-'}</td>
           </tr>;
         })}
       </tbody></table></div>
     </div>}
-    <Pagination pagination={pagination} onPageChange={setPage} itemLabel={view === 'machines' ? 'máy' : 'lượt reg'} />
+    <Pagination pagination={pagination} onPageChange={setPage} itemLabel={view === 'machines' ? 'máy' : 'account'} />
   </section>;
 }

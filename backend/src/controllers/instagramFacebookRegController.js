@@ -12,6 +12,7 @@ const { reportFacebookInstagramLinks } = require('../services/instagramFacebookL
 const LOCK_TIMEOUT_MIN = Math.max(parseInt(process.env.INSTAGRAM_FACEBOOK_REG_LOCK_TIMEOUT_MIN, 10) || 30, 1);
 const MAX_GET_COUNT = Math.max(parseInt(process.env.INSTAGRAM_FACEBOOK_REG_MAX_GET_COUNT, 10) || 3, 1);
 const CLAIM_STATUSES = ['DANG_REG', 'REG_XONG', 'REG_FAIL', 'CANCELLED'];
+const ELIGIBLE_FACEBOOK_STATUSES = ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'];
 
 const nullify = (value) => {
   const text = String(value ?? '').trim();
@@ -158,7 +159,11 @@ const getAccount = async (req, res, next) => {
         where: { id: active.facebook_account_id, owner_username, kind: 'job', trashed_at: null }, transaction,
       });
       const belongsToDevice = account && String(account.device_id || '').trim().toLowerCase() === device_id.toLowerCase();
-      if (belongsToDevice) {
+      const remainsEligible = belongsToDevice
+        && ELIGIBLE_FACEBOOK_STATUSES.includes(account.status)
+        && account.live_status !== 'die'
+        && Boolean(String(account.cookies || '').trim());
+      if (remainsEligible) {
         const registered_count = await InstagramFacebookRegResult.count({ where: { owner_username, claim_id: active.id }, transaction });
         await active.update({ get_count: Number(active.get_count) + 1, locked_at: now }, { transaction });
         await transaction.commit();
@@ -189,15 +194,13 @@ const getAccount = async (req, res, next) => {
         owner_username,
         kind: 'job',
         device_id,
-        status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
+        status: { [Op.in]: ELIGIBLE_FACEBOOK_STATUSES },
         live_status: { [Op.ne]: 'die' },
         cookies: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] },
-        locked_by: null,
-        reg_page_locked_by: null,
-        nurture_locked_by: null,
+
         [Op.and]: [
           literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS active_claim WHERE active_claim.owner_username = ${escapedOwner} AND active_claim.facebook_account_id = FacebookAccount.id AND active_claim.status = 'DANG_REG')`),
-          literal(`(SELECT COUNT(*) FROM instagram_facebook_reg_results AS reg_result INNER JOIN instagram_facebook_reg_claims AS success_claim ON success_claim.id = reg_result.claim_id WHERE success_claim.owner_username = ${escapedOwner} AND success_claim.facebook_account_id = FacebookAccount.id AND success_claim.status = 'REG_XONG' AND success_claim.eligibility_reset_at IS NULL) < ${regSettings.max_instagram_per_facebook}`),
+          literal(`(SELECT COUNT(*) FROM instagram_facebook_reg_results AS reg_result INNER JOIN instagram_facebook_reg_claims AS success_claim ON success_claim.id = reg_result.claim_id WHERE success_claim.owner_username = ${escapedOwner} AND success_claim.facebook_account_id = FacebookAccount.id AND success_claim.status = 'REG_XONG' AND success_claim.eligibility_reset_at IS NULL AND success_claim.completed_at > ${sequelize.escape(new Date(now.getTime() - regSettings.reuse_hours * 60 * 60 * 1000))}) < ${regSettings.max_instagram_per_facebook}`),
           literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS cooldown_claim WHERE cooldown_claim.owner_username = ${escapedOwner} AND cooldown_claim.facebook_account_id = FacebookAccount.id AND cooldown_claim.status = 'REG_XONG' AND cooldown_claim.eligibility_reset_at IS NULL AND cooldown_claim.completed_at > ${sequelize.escape(new Date(now.getTime() - regSettings.reuse_hours * 60 * 60 * 1000))})`),
         ],
       },
@@ -604,13 +607,13 @@ const resetEligibility = async (req, res, next) => {
       return error(res, 'Can truyen claim_id hoac facebook_uid can reset', 400);
     }
 
-    const selectedWhere = { owner_username, status: 'REG_XONG' };
+    const selectedWhere = { owner_username };
     const selectors = [];
     if (claimIds.length) selectors.push({ id: { [Op.in]: claimIds } });
     if (facebookUids.length) selectors.push({ facebook_uid: { [Op.in]: facebookUids } });
     selectedWhere[Op.or] = selectors;
     const selectedClaims = await InstagramFacebookRegClaim.findAll({
-      attributes: ['facebook_account_id', 'facebook_uid'],
+      attributes: ['facebook_account_id', 'facebook_uid', 'status'],
       where: selectedWhere,
       transaction,
       lock: transaction.LOCK.UPDATE,
@@ -618,11 +621,11 @@ const resetEligibility = async (req, res, next) => {
     const accountIds = [...new Set(selectedClaims.map((row) => row.facebook_account_id).filter(Boolean))];
     if (!accountIds.length) {
       await transaction.rollback();
-      return error(res, 'Khong tim thay luot Reg thanh cong de reset', 404);
+      return error(res, 'Khong tim thay account Facebook can reset', 404);
     }
 
     const resetAt = new Date();
-    const [affected] = await InstagramFacebookRegClaim.update({ eligibility_reset_at: resetAt }, {
+    const [eligibility_affected] = await InstagramFacebookRegClaim.update({ eligibility_reset_at: resetAt }, {
       where: {
         owner_username,
         facebook_account_id: { [Op.in]: accountIds },
@@ -631,13 +634,28 @@ const resetEligibility = async (req, res, next) => {
       },
       transaction,
     });
+    const [active_released] = await InstagramFacebookRegClaim.update({
+      status: 'CANCELLED',
+      fail_reason: 'Admin reset thu cong',
+      completed_at: resetAt,
+      locked_at: null,
+    }, {
+      where: {
+        owner_username,
+        facebook_account_id: { [Op.in]: accountIds },
+        status: 'DANG_REG',
+      },
+      transaction,
+    });
     await transaction.commit();
     return success(res, {
-      affected,
+      affected: eligibility_affected + active_released,
+      eligibility_affected,
+      active_released,
       account_count: accountIds.length,
       facebook_uids: [...new Set(selectedClaims.map((row) => row.facebook_uid))],
       reset_at: resetAt,
-    }, 'Da reset chu ky Reg Instagram cua Facebook account');
+    }, 'Da reset account de Reg Instagram lai');
   } catch (err) {
     if (!transaction.finished) await transaction.rollback();
     next(err);
@@ -650,14 +668,33 @@ const listMachines = async (req, res, next) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
     const allowedSorts = ['device_id', 'total_claims', 'active_count', 'success_count', 'fail_count', 'cancelled_count', 'facebook_count', 'instagram_count', 'last_report_at', 'last_activity_at'];
     const sort_by = allowedSorts.includes(req.query.sort_by) ? req.query.sort_by : 'last_activity_at';
-    const sort_order = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const sort_order = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const q = nullify(req.query.q);
+    const accountWhere = {
+      owner_username,
+      kind: 'job',
+      device_id: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] },
+      status: { [Op.in]: ELIGIBLE_FACEBOOK_STATUSES },
+      live_status: { [Op.ne]: 'die' },
+    };
+    if (q) accountWhere.device_id = { [Op.like]: `%${q}%` };
+
     const escapedOwner = sequelize.escape(owner_username);
     const latestIds = literal(`(SELECT MAX(latest_claim.id) FROM instagram_facebook_reg_claims AS latest_claim WHERE latest_claim.owner_username = ${escapedOwner} GROUP BY latest_claim.device_id, latest_claim.facebook_account_id)`);
-    const where = { owner_username, id: { [Op.in]: latestIds } };
-    const q = nullify(req.query.q);
-    if (q) where.device_id = { [Op.like]: `%${q}%` };
+    const claimWhere = { owner_username, id: { [Op.in]: latestIds } };
+    if (q) claimWhere.device_id = { [Op.like]: `%${q}%` };
 
-    const [machines, total, countRows, reg_settings] = await Promise.all([
+    const [accountRows, claimRows, instagramRows, countRows, reg_settings] = await Promise.all([
+      FacebookAccount.findAll({
+        attributes: [
+          'device_id',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'facebook_count'],
+          [sequelize.fn('MAX', sequelize.col('updated_at')), 'last_account_at'],
+        ],
+        where: accountWhere,
+        group: ['device_id'],
+        raw: true,
+      }),
       InstagramFacebookRegClaim.findAll({
         attributes: [
           'device_id',
@@ -666,95 +703,163 @@ const listMachines = async (req, res, next) => {
           [sequelize.fn('SUM', literal("CASE WHEN status = 'REG_XONG' THEN 1 ELSE 0 END")), 'success_count'],
           [sequelize.fn('SUM', literal("CASE WHEN status = 'REG_FAIL' THEN 1 ELSE 0 END")), 'fail_count'],
           [sequelize.fn('SUM', literal("CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END")), 'cancelled_count'],
-          [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('facebook_account_id'))), 'facebook_count'],
-          [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('instagram_uid'))), 'instagram_count'],
           [sequelize.fn('MAX', literal("CASE WHEN status = 'REG_XONG' THEN completed_at ELSE NULL END")), 'last_report_at'],
-          [sequelize.fn('MAX', sequelize.col('updated_at')), 'last_activity_at'],
+          [sequelize.fn('MAX', sequelize.col('updated_at')), 'last_claim_at'],
         ],
-        where,
+        where: claimWhere,
         group: ['device_id'],
-        order: [[literal(sort_by), sort_order], ['device_id', 'ASC']],
-        limit,
-        offset: (page - 1) * limit,
         raw: true,
       }),
-      InstagramFacebookRegClaim.count({ where, distinct: true, col: 'device_id' }),
+      InstagramFacebookRegResult.findAll({
+        attributes: ['device_id', [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('instagram_uid'))), 'instagram_count']],
+        where: { owner_username, ...(q ? { device_id: { [Op.like]: `%${q}%` } } : {}) },
+        group: ['device_id'],
+        raw: true,
+      }),
       InstagramFacebookRegClaim.findAll({
         attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-        where: { owner_username, id: { [Op.in]: latestIds } }, group: ['status'], raw: true,
+        where: { owner_username, id: { [Op.in]: latestIds } },
+        group: ['status'],
+        raw: true,
       }),
       getInstagramFacebookRegSettings(owner_username),
     ]);
+
+    const claimByDevice = new Map(claimRows.map((row) => [String(row.device_id), row]));
+    const instagramByDevice = new Map(instagramRows.map((row) => [String(row.device_id), Number(row.instagram_count) || 0]));
+    const machines = accountRows.map((accountRow) => {
+      const deviceId = String(accountRow.device_id);
+      const claim = claimByDevice.get(deviceId) || {};
+      const lastAccountAt = accountRow.last_account_at || null;
+      const lastClaimAt = claim.last_claim_at || null;
+      const lastActivityAt = !lastAccountAt ? lastClaimAt : !lastClaimAt ? lastAccountAt
+        : new Date(lastAccountAt) > new Date(lastClaimAt) ? lastAccountAt : lastClaimAt;
+      return {
+        device_id: deviceId,
+        facebook_count: Number(accountRow.facebook_count) || 0,
+        instagram_count: instagramByDevice.get(deviceId) || 0,
+        total_claims: Number(claim.total_claims) || 0,
+        active_count: Number(claim.active_count) || 0,
+        success_count: Number(claim.success_count) || 0,
+        fail_count: Number(claim.fail_count) || 0,
+        cancelled_count: Number(claim.cancelled_count) || 0,
+        last_report_at: claim.last_report_at || null,
+        last_activity_at: lastActivityAt,
+      };
+    });
+    const valueForSort = (row) => row[sort_by];
+    machines.sort((a, b) => {
+      const av = valueForSort(a);
+      const bv = valueForSort(b);
+      let compared;
+      if (sort_by === 'device_id') compared = String(av || '').localeCompare(String(bv || ''), undefined, { numeric: true, sensitivity: 'base' });
+      else if (sort_by.includes('_at')) compared = (av ? new Date(av).getTime() : 0) - (bv ? new Date(bv).getTime() : 0);
+      else compared = Number(av || 0) - Number(bv || 0);
+      return (sort_order === 'asc' ? compared : -compared)
+        || String(a.device_id).localeCompare(String(b.device_id), undefined, { numeric: true, sensitivity: 'base' });
+    });
+    const total = machines.length;
+    const pagedMachines = machines.slice((page - 1) * limit, page * limit);
     const status_counts = Object.fromEntries(CLAIM_STATUSES.map((item) => [item, 0]));
     countRows.forEach((row) => { status_counts[row.status] = Number(row.count) || 0; });
     return success(res, {
-      machines: machines.map((row) => ({
-        ...row,
-        total_claims: Number(row.total_claims) || 0,
-        active_count: Number(row.active_count) || 0,
-        success_count: Number(row.success_count) || 0,
-        fail_count: Number(row.fail_count) || 0,
-        cancelled_count: Number(row.cancelled_count) || 0,
-        facebook_count: Number(row.facebook_count) || 0,
-        instagram_count: Number(row.instagram_count) || 0,
-      })),
+      machines: pagedMachines,
       status_counts,
-      device_count: Number(total) || 0,
+      device_count: total,
       reg_settings,
-      pagination: { page, limit, total: Number(total) || 0, totalPages: Math.ceil((Number(total) || 0) / limit) || 1 },
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
     }, 'Lay tong hop Reg Instagram theo may thanh cong');
   } catch (err) { next(err); }
 };
+
 const listClaims = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
-    const allowedSorts = ['created_at', 'device_id', 'facebook_uid', 'instagram_uid', 'status', 'get_count', 'locked_at', 'completed_at'];
-    const sort_by = allowedSorts.includes(req.query.sort_by) ? req.query.sort_by : 'created_at';
-    const sort_order = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
-    const baseWhere = { owner_username };
+    const allowedSorts = ['created_at', 'device_id', 'facebook_uid', 'instagram_uid', 'status', 'get_count', 'locked_at', 'completed_at', 'login_at'];
+    const sort_by = allowedSorts.includes(req.query.sort_by) ? req.query.sort_by : 'login_at';
+    const sort_order = String(req.query.sort_order || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
     const device_id = nullify(req.query.device_id);
-    if (device_id) baseWhere.device_id = device_id;
-    const escapedOwner = sequelize.escape(owner_username);
-    const escapedDevice = device_id ? ` AND latest_claim.device_id = ${sequelize.escape(device_id)}` : '';
-    baseWhere.id = { [Op.in]: literal(`(SELECT MAX(latest_claim.id) FROM instagram_facebook_reg_claims AS latest_claim WHERE latest_claim.owner_username = ${escapedOwner}${escapedDevice} GROUP BY latest_claim.facebook_account_id)`) };
-    const where = { ...baseWhere };
     const status = String(req.query.status || '').trim().toUpperCase();
-    if (CLAIM_STATUSES.includes(status)) where.status = status;
-    const q = nullify(req.query.q);
-    if (q) where[Op.or] = [
-      { device_id: { [Op.like]: `%${q}%` } },
-      { facebook_uid: { [Op.like]: `%${q}%` } },
-      { instagram_uid: { [Op.like]: `%${q}%` } },
-      { email_order_id: { [Op.like]: `%${q}%` } },
-    ];
+    const q = nullify(req.query.q)?.toLowerCase();
     const reg_settings = await getInstagramFacebookRegSettings(owner_username);
-    const [result, countRows, deviceCount] = await Promise.all([
-      InstagramFacebookRegClaim.findAndCountAll({
-        where,
-        order: [[sort_by, sort_order], ['id', 'DESC']],
-        limit,
-        offset: (page - 1) * limit,
-      }),
-      InstagramFacebookRegClaim.findAll({
-        attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-        where: baseWhere,
-        group: ['status'],
-        raw: true,
-      }),
-      InstagramFacebookRegClaim.count({ where: { owner_username }, distinct: true, col: 'device_id' }),
-    ]);
-    const status_counts = Object.fromEntries(CLAIM_STATUSES.map((item) => [item, 0]));
-    countRows.forEach((row) => { status_counts[row.status] = Number(row.count) || 0; });
+    const accountWhere = {
+      owner_username,
+      kind: 'job',
+      status: { [Op.in]: ELIGIBLE_FACEBOOK_STATUSES },
+      live_status: { [Op.ne]: 'die' },
+      ...(device_id ? { device_id } : {}),
+    };
+    const accounts = await FacebookAccount.findAll({ where: accountWhere, order: [['login_at', 'DESC'], ['id', 'DESC']], raw: true });
+    const accountIds = accounts.map((row) => row.id);
+    const escapedOwner = sequelize.escape(owner_username);
+    const claims = accountIds.length ? await InstagramFacebookRegClaim.findAll({
+      where: {
+        owner_username,
+        facebook_account_id: { [Op.in]: accountIds },
+        id: { [Op.in]: literal(`(SELECT MAX(latest_claim.id) FROM instagram_facebook_reg_claims AS latest_claim WHERE latest_claim.owner_username = ${escapedOwner} GROUP BY latest_claim.facebook_account_id)`) },
+      },
+      raw: true,
+    }) : [];
+    const resettableClaims = accountIds.length ? await InstagramFacebookRegClaim.findAll({
+      attributes: ['facebook_account_id'],
+      where: {
+        owner_username,
+        facebook_account_id: { [Op.in]: accountIds },
+        status: 'REG_XONG',
+        eligibility_reset_at: null,
+        completed_at: { [Op.gt]: new Date(Date.now() - reg_settings.reuse_hours * 60 * 60 * 1000) },
+      },
+      raw: true,
+    }) : [];
+    const resettableAccountIds = new Set(resettableClaims.map((row) => Number(row.facebook_account_id)));
+    const claimByAccount = new Map(claims.map((row) => [Number(row.facebook_account_id), row]));
+    let rows = accounts.map((account) => {
+      const claim = claimByAccount.get(Number(account.id));
+      return {
+        ...(claim || {}),
+        id: claim?.id || null,
+        facebook_account_id: account.id,
+        facebook_uid: account.uid,
+        device_id: account.device_id,
+        facebook_status: account.status,
+        login_at: account.login_at,
+        status: claim?.status || 'CHUA_REG',
+        can_reset: resettableAccountIds.has(Number(account.id)),
+      };
+    });
+    if (status && [...CLAIM_STATUSES, 'CHUA_REG'].includes(status)) rows = rows.filter((row) => row.status === status);
+    if (q) rows = rows.filter((row) => [row.device_id, row.facebook_uid, row.instagram_uid, row.email_order_id]
+      .some((value) => String(value || '').toLowerCase().includes(q)));
+    rows.sort((a, b) => {
+      const av = a[sort_by];
+      const bv = b[sort_by];
+      let compared;
+      if (['get_count'].includes(sort_by)) compared = Number(av || 0) - Number(bv || 0);
+      else if (['created_at', 'locked_at', 'completed_at', 'login_at'].includes(sort_by)) compared = (av ? new Date(av).getTime() : 0) - (bv ? new Date(bv).getTime() : 0);
+      else compared = String(av || '').localeCompare(String(bv || ''), undefined, { numeric: true, sensitivity: 'base' });
+      return (sort_order === 'asc' ? compared : -compared)
+        || Number(b.facebook_account_id || 0) - Number(a.facebook_account_id || 0);
+    });
+    const status_counts = Object.fromEntries([...CLAIM_STATUSES, 'CHUA_REG'].map((item) => [item, 0]));
+    accounts.forEach((account) => {
+      const claimStatus = claimByAccount.get(Number(account.id))?.status || 'CHUA_REG';
+      status_counts[claimStatus] = Number(status_counts[claimStatus] || 0) + 1;
+    });
+    const total = rows.length;
+    const deviceCount = await FacebookAccount.count({
+      where: { owner_username, kind: 'job', status: { [Op.in]: ELIGIBLE_FACEBOOK_STATUSES }, live_status: { [Op.ne]: 'die' } },
+      distinct: true,
+      col: 'device_id',
+    });
     return success(res, {
-      claims: result.rows.map((row) => row.toJSON()),
+      claims: rows.slice((page - 1) * limit, page * limit),
       status_counts,
       device_count: Number(deviceCount) || 0,
       reg_settings,
-      pagination: { page, limit, total: result.count, totalPages: Math.ceil(result.count / limit) || 1 },
-    }, 'Lay danh sach luot Reg Instagram bang Facebook thanh cong');
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
+    }, 'Lay danh sach account va trang thai Reg Instagram bang Facebook thanh cong');
   } catch (err) { next(err); }
 };
-
 module.exports = { getAccount, reportInstagram, finish, report, release, deviceStatus, resetEligibility, listMachines, listClaims };
