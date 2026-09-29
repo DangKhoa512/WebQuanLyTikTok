@@ -201,7 +201,7 @@ const getAccount = async (req, res, next) => {
         [Op.and]: [
           literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS active_claim WHERE active_claim.owner_username = ${escapedOwner} AND active_claim.facebook_account_id = FacebookAccount.id AND active_claim.status = 'DANG_REG')`),
           literal(`(SELECT COUNT(*) FROM instagram_facebook_reg_results AS reg_result INNER JOIN instagram_facebook_reg_claims AS success_claim ON success_claim.id = reg_result.claim_id WHERE success_claim.owner_username = ${escapedOwner} AND success_claim.facebook_account_id = FacebookAccount.id AND success_claim.status = 'REG_XONG' AND success_claim.eligibility_reset_at IS NULL AND success_claim.completed_at > ${sequelize.escape(new Date(now.getTime() - regSettings.reuse_hours * 60 * 60 * 1000))}) < ${regSettings.max_instagram_per_facebook}`),
-          literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS cooldown_claim WHERE cooldown_claim.owner_username = ${escapedOwner} AND cooldown_claim.facebook_account_id = FacebookAccount.id AND cooldown_claim.status = 'REG_XONG' AND cooldown_claim.eligibility_reset_at IS NULL AND cooldown_claim.completed_at > ${sequelize.escape(new Date(now.getTime() - regSettings.reuse_hours * 60 * 60 * 1000))})`),
+          literal(`NOT EXISTS (SELECT 1 FROM instagram_facebook_reg_claims AS cooldown_claim WHERE cooldown_claim.owner_username = ${escapedOwner} AND cooldown_claim.facebook_account_id = FacebookAccount.id AND cooldown_claim.status IN ('REG_XONG','REG_FAIL') AND cooldown_claim.eligibility_reset_at IS NULL AND cooldown_claim.completed_at > ${sequelize.escape(new Date(now.getTime() - regSettings.reuse_hours * 60 * 60 * 1000))})`),
         ],
       },
       order: [['login_at', 'DESC'], ['id', 'DESC']],
@@ -629,7 +629,7 @@ const resetEligibility = async (req, res, next) => {
       where: {
         owner_username,
         facebook_account_id: { [Op.in]: accountIds },
-        status: 'REG_XONG',
+        status: { [Op.in]: ['REG_XONG', 'REG_FAIL'] },
         eligibility_reset_at: null,
       },
       transaction,
@@ -807,7 +807,7 @@ const listClaims = async (req, res, next) => {
       where: {
         owner_username,
         facebook_account_id: { [Op.in]: accountIds },
-        status: 'REG_XONG',
+        status: { [Op.in]: ['REG_XONG', 'REG_FAIL'] },
         eligibility_reset_at: null,
         completed_at: { [Op.gt]: new Date(Date.now() - reg_settings.reuse_hours * 60 * 60 * 1000) },
       },

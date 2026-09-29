@@ -233,7 +233,7 @@ export default function InstagramFacebookRegClaims() {
             <td style={{ whiteSpace:'nowrap', color:'#64748b' }}>{fmt(row.locked_at)}</td>
             <td style={{ whiteSpace:'nowrap', color:'#64748b' }}>{fmt(row.created_at)}</td>
             <td style={{ whiteSpace:'nowrap', color:row.completed_at ? '#059669' : '#94a3b8' }}>{fmt(row.completed_at)}</td>
-            <td style={{ whiteSpace:'nowrap' }}>{row.eligibility_reset_at ? <span className="ig-fb-claim-status" style={{ color:'#0284c7', background:'rgba(14,165,233,.11)' }}>Đã reset {fmt(row.eligibility_reset_at)}</span> : row.can_reset ? <span style={{ color:'#7c3aed', fontWeight:750 }}>Đang tính limit</span> : '-'}</td>
+            <td style={{ whiteSpace:'nowrap' }}>{row.eligibility_reset_at ? <span className="ig-fb-claim-status" style={{ color:'#0284c7', background:'rgba(14,165,233,.11)' }}>Đã reset {fmt(row.eligibility_reset_at)}</span> : row.can_reset ? <span style={{ color:'#7c3aed', fontWeight:750 }}>Đang chờ mở lại</span> : '-'}</td>
             <td title={row.fail_reason || ''} style={{ color:row.fail_reason ? '#dc2626' : '#94a3b8', maxWidth:260 }}>{short(row.fail_reason, 44)}</td>
             <td>{row.can_reset ? <button type="button" className="btn btn-secondary btn-sm" disabled={resettingId === row.id} onClick={() => resetEligibility(row)}>{resettingId === row.id ? 'Đang reset...' : 'Reset mở lại'}</button> : '-'}</td>
           </tr>;
