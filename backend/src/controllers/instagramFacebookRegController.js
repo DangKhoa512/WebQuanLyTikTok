@@ -278,15 +278,6 @@ const reportInstagram = async (req, res, next) => {
     }
 
     const regSettings = await getInstagramFacebookRegSettings(owner_username);
-    const registeredBefore = await InstagramFacebookRegResult.count({ where: { owner_username, claim_id: claim.id }, transaction });
-    if (!existingResult && registeredBefore >= regSettings.max_instagram_per_facebook) {
-      await transaction.rollback();
-      return error(res, `Facebook UID da dat gioi han ${regSettings.max_instagram_per_facebook} Instagram trong phien nay`, 409, {
-        claim_id: claim.id, facebook_uid: claim.facebook_uid, registered_count: registeredBefore,
-        max_instagram_per_facebook: regSettings.max_instagram_per_facebook,
-      });
-    }
-
     const sourceAccount = await FacebookAccount.unscoped().findOne({
       where: { id: claim.facebook_account_id, owner_username, kind: 'job', trashed_at: null },
       transaction, lock: transaction.LOCK.UPDATE,
@@ -321,6 +312,8 @@ const reportInstagram = async (req, res, next) => {
       session_status: 'DANG_REG', registered_count,
       max_instagram_per_facebook: regSettings.max_instagram_per_facebook,
       remaining: Math.max(regSettings.max_instagram_per_facebook - registered_count, 0),
+      can_report_more_in_session: true,
+      limit_applies_after_finish: true,
       already_reported: !created,
       instagram_reg: serializeInstagram(reg.account), instagram_job: serializeInstagram(job.account),
       reg_created: reg.created, job_created: job.created,
