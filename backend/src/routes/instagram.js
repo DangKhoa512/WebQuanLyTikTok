@@ -26,6 +26,7 @@ router.all('/job/check-limit', apiKeyAuth, controller.checkDeviceAccountCount);
 router.post('/job/get-login-success-account', apiKeyAuth, controller.getLoginSuccess);
 router.post('/job/report', apiKeyAuth, controller.report);
 router.post('/job/add-job', apiKeyAuth, controller.addInstagramJobCount);
+router.post('/job/login-cookies', jwtAuth, controller.loginCookies);
 router.post('/nurture/get-account', apiKeyAuth, controller.getNurtureAccount);
 router.post('/nurture/report', apiKeyAuth, controller.reportNurtureAccount);
 router.get('/nurture/accounts', jwtAuth, controller.listNurtureAccounts);

@@ -27,6 +27,7 @@ const {
   getInstagramNurtureSettings,
   saveInstagramNurtureSettings,
 } = require('../services/settingsService');
+const { checkInstagramCookies } = require('../utils/instagramCookieCheckUtils');
 
 const getEligibility = async (req, res, next) => {
   try {
@@ -316,6 +317,34 @@ const updateInstagramCheckCookies = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const checkInstagramCheckCookies = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromAdmin(req);
+    const [cookieSettings, proxySettings] = await Promise.all([
+      getInstagramCheckCookieSettings(owner_username),
+      getFacebookCheckProxySettings(owner_username),
+    ]);
+    const requestedCookies = req.body.cookies === undefined
+      ? cookieSettings.cookies
+      : Array.isArray(req.body.cookies) ? req.body.cookies : String(req.body.cookies || '').split(String.fromCharCode(10));
+    const cookies = [...new Set(requestedCookies.map((item) => String(item || '').split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(13)).join(' ').trim()).filter(Boolean))].slice(0, 30);
+    if (!cookies.length) return error(res, 'Chua co cookie Instagram de kiem tra', 400);
+    const checked = await checkInstagramCookies(cookies, proxySettings.proxies || [], Math.min(proxySettings.concurrency || 5, 10));
+    const live = checked.results.filter((item) => item.status === 'live').length;
+    const die = checked.results.filter((item) => item.status === 'die').length;
+    const unknown = checked.results.length - live - die;
+    return success(res, {
+      live,
+      die,
+      unknown,
+      checked_at: new Date().toISOString(),
+      engine: checked.engine,
+      proxy_count: checked.proxy_count,
+      invalid_proxy_count: checked.invalid_proxy_count,
+      results: checked.results,
+    }, 'Da kiem tra cookie Instagram');
+  } catch (err) { next(err); }
+};
 const getFacebookRegPageWait = async (req, res, next) => {
   try {
     const settings = await getFacebookRegPageWaitSettings(ownerFromAdmin(req));
@@ -394,4 +423,4 @@ const updateInstagramNurture = async (req, res, next) => {
     return success(res, { settings }, 'Da luu cau hinh nuoi Instagram');
   } catch (err) { next(err); }
 };
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getInstagramCheckCookies, updateInstagramCheckCookies, getFacebookRegPageWait, updateFacebookRegPageWait, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture };
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getInstagramCheckCookies, updateInstagramCheckCookies, checkInstagramCheckCookies, getFacebookRegPageWait, updateFacebookRegPageWait, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture };

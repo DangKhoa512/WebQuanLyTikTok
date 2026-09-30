@@ -12,6 +12,7 @@ const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs, addInstagramAccountClaim } = require('../services/instagramJobStatService');
 const { getInstagramLoginLimitSettings, getFacebookCheckProxySettings, getInstagramCheckCookieSettings, getInstagramNurtureSettings } = require('../services/settingsService');
 const { batchCheckInstagram } = require('../utils/instagramCheckLiveUtils');
+const { loginInstagramAccounts } = require('../utils/instagramLoginUtils');
 const { normalizeInstagramUsernames, reportFacebookInstagramLinks } = require('../services/instagramFacebookLinkService');
 
 const STATUSES = ['CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE'];
@@ -554,6 +555,60 @@ const getFacebookInstagramAccounts = async (req, res, next) => {
 };
 
 const idsFrom = (req) => Array.isArray(req.body.ids)?[...new Set(req.body.ids.map(Number).filter((id)=>id>0))]:[];
+const loginCookies = async (req, res, next) => {
+  try {
+    const ids = idsFrom(req);
+    if (!ids.length) return error(res, 'Can chon account Instagram can login lay cookie', 400);
+    if (ids.length > 10) return error(res, 'Moi lan chi login toi da 10 account de bao ve VPS va han che checkpoint', 400);
+    const owner_username = ownerFromAdmin(req);
+    const accounts = await InstagramAccount.findAll({
+      where: { id: { [Op.in]: ids }, owner_username, kind: 'job' },
+      order: [['id', 'ASC']],
+    });
+    if (!accounts.length) return error(res, 'Khong tim thay account Instagram Job hop le', 404);
+    const proxySettings = await getFacebookCheckProxySettings(owner_username);
+    const proxies = Array.isArray(proxySettings?.proxies) ? proxySettings.proxies : [];
+    if (!proxies.length) return error(res, 'Chua cau hinh proxy. Hay them proxy trong Cai dat truoc khi login Instagram', 400);
+
+    const checked = await loginInstagramAccounts(accounts, proxies);
+    const accountMap = new Map(accounts.map((account) => [Number(account.id), account]));
+    const safeResults = [];
+    for (const result of checked.results) {
+      const account = accountMap.get(Number(result.id));
+      if (!account) continue;
+      if (result.status === 'success' && result.cookies) {
+        const nextData = { ...serialize(account), cookies: result.cookies };
+        await account.update({
+          cookies: result.cookies,
+          raw_data: format(nextData),
+          fail_reason: null,
+        });
+      } else {
+        await account.update({ fail_reason: 'Selenium login: ' + String(result.reason || 'unknown').slice(0, 450) });
+      }
+      safeResults.push({
+        id: result.id,
+        uid: result.uid,
+        status: result.status,
+        reason: result.reason,
+        cookie_saved: result.status === 'success',
+        proxy_index: result.proxy_index,
+      });
+    }
+    const successCount = safeResults.filter((item) => item.status === 'success').length;
+    return success(res, {
+      engine: checked.engine,
+      total: safeResults.length,
+      success: successCount,
+      failed: safeResults.length - successCount,
+      proxy_count: checked.proxy_count,
+      results: safeResults,
+    }, 'Da login Instagram bang Selenium: ' + successCount + '/' + safeResults.length + ' thanh cong');
+  } catch (err) {
+    if (err?.message === 'instagram_login_proxy_required') return error(res, 'Proxy Instagram khong hop le', 400);
+    next(err);
+  }
+};
 const getCheckCookies = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
@@ -641,4 +696,4 @@ const deleteTrash=async(req,res,next)=>{
   }catch(err){if(!transaction.finished)await transaction.rollback();next(err);}
 };
 
-module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFacebookInstagramSources,getFacebookInstagramAccounts,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,getCheckCookies,checkLive,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};
+module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFacebookInstagramSources,getFacebookInstagramAccounts,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,getCheckCookies,checkLive,loginCookies,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};

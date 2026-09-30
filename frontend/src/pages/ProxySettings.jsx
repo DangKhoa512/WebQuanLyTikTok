@@ -15,6 +15,8 @@ export default function ProxySettings() {
   const [proxies,     setProxies]     = useState(init.proxies);
   const [concurrency, setConcurrency] = useState(init.concurrency);
   const [instagramCheckCookies, setInstagramCheckCookies] = useState('');
+  const [instagramCookieCheckResults, setInstagramCookieCheckResults] = useState([]);
+  const [checkingInstagramCookies, setCheckingInstagramCookies] = useState(false);
   const [delayMs,     setDelayMs]     = useState(init.delayMs);
   const [batchSize,   setBatchSize]   = useState(init.batchSize);
   const [minVideos,   setMinVideos]   = useState(20);
@@ -164,6 +166,38 @@ export default function ProxySettings() {
       .finally(() => setSaving(false));
   };
 
+  const handleCheckInstagramCookies = async () => {
+    const cookies = [...new Set(instagramCookieList)];
+    if (!cookies.length) {
+      toast.error('Chua co cookie Instagram de kiem tra');
+      return;
+    }
+    setCheckingInstagramCookies(true);
+    setInstagramCheckCookies(cookies.join(String.fromCharCode(10)));
+    try {
+      const res = await settingsApi.checkInstagramCheckCookies(cookies);
+      const data = res.data || {};
+      setInstagramCookieCheckResults(data.results || []);
+      toast.success('Cookie IG: ' + (data.live || 0) + ' live - ' + (data.die || 0) + ' die - ' + (data.unknown || 0) + ' unknown');
+    } catch (err) {
+      toast.error(err.message || 'Khong kiem tra duoc cookie Instagram');
+    } finally {
+      setCheckingInstagramCookies(false);
+    }
+  };
+
+  const removeInstagramCookie = (index) => {
+    setInstagramCheckCookies(instagramCookieList.filter((_, cookieIndex) => cookieIndex !== index).join(String.fromCharCode(10)));
+    setInstagramCookieCheckResults([]);
+  };
+
+  const removeDeadInstagramCookies = () => {
+    const deadIndexes = new Set(instagramCookieCheckResults.filter((item) => item.status === 'die').map((item) => item.index));
+    if (!deadIndexes.size) return;
+    setInstagramCheckCookies(instagramCookieList.filter((_, index) => !deadIndexes.has(index)).join(String.fromCharCode(10)));
+    setInstagramCookieCheckResults([]);
+    toast.success('Da loai ' + deadIndexes.size + ' cookie die; hay them cookie moi va bam Luu cai dat');
+  };
   const handleReset = () => {
     setProxies('');
     setConcurrency(20);
@@ -828,7 +862,7 @@ export default function ProxySettings() {
           </div>
           <textarea
             value={instagramCheckCookies}
-            onChange={(event) => setInstagramCheckCookies(event.target.value)}
+            onChange={(event) => { setInstagramCheckCookies(event.target.value); setInstagramCookieCheckResults([]); }}
             placeholder={'sessionid=...; csrftoken=...; ds_user_id=...\nsessionid=...; csrftoken=...; ds_user_id=...'}
             rows={8}
             spellCheck={false}
@@ -836,6 +870,29 @@ export default function ProxySettings() {
             onFocus={(event) => (event.target.style.borderColor = '#ec4899')}
             onBlur={(event) => (event.target.style.borderColor = '#334155')}
           />
+          <div style={{ display: 'flex', gap: '.55rem', flexWrap: 'wrap', marginTop: '.7rem' }}>
+            <button type="button" onClick={handleCheckInstagramCookies} disabled={checkingInstagramCookies || !instagramCookieList.length} style={{ background: checkingInstagramCookies ? '#475569' : '#ec4899', border: 0, color: '#fff', borderRadius: 7, padding: '.48rem .8rem', cursor: checkingInstagramCookies ? 'not-allowed' : 'pointer', fontWeight: 800 }}>
+              {checkingInstagramCookies ? 'Dang check...' : 'Check cookie'}
+            </button>
+            <button type="button" onClick={removeDeadInstagramCookies} disabled={!instagramCookieCheckResults.some((item) => item.status === 'die')} style={{ background: '#7f1d1d', border: 0, color: '#fecaca', borderRadius: 7, padding: '.48rem .8rem', cursor: 'pointer', fontWeight: 800, opacity: instagramCookieCheckResults.some((item) => item.status === 'die') ? 1 : .45 }}>
+              Xoa cookie die
+            </button>
+          </div>
+          {instagramCookieCheckResults.length > 0 && <div style={{ marginTop: '.75rem', border: '1px solid #334155', borderRadius: 8, overflow: 'hidden' }}>
+            {instagramCookieCheckResults.map((result) => {
+              const cookie = instagramCookieList[result.index] || '';
+              const cookieParts = Object.fromEntries(cookie.split(';').map((part) => { const [name, ...values] = part.trim().split('='); return [String(name || '').toLowerCase(), values.join('=')]; }));
+              const dsUserId = cookieParts.ds_user_id || result.ds_user_id || '-';
+              const sessionId = cookieParts.sessionid || '';
+              const preview = '#' + (result.index + 1) + ' - UID ' + dsUserId + (sessionId ? ' - sessionid=***' + sessionId.slice(-6) : '');
+              const color = result.status === 'live' ? '#34d399' : result.status === 'die' ? '#f87171' : '#fbbf24';
+              return <div key={result.index} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', alignItems: 'center', gap: '.65rem', padding: '.55rem .7rem', borderBottom: result.index + 1 < instagramCookieCheckResults.length ? '1px solid #334155' : 0, background: '#0f172a' }}>
+                <div style={{ minWidth: 0 }}><div style={{ color: '#cbd5e1', fontFamily: 'monospace', fontSize: '.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{preview}</div><div style={{ color: '#64748b', fontSize: '.68rem', marginTop: '.15rem' }}>{result.username ? '@' + result.username + ' - ' : ''}{result.reason || '-'}</div></div>
+                <span style={{ color, border: '1px solid ' + color, borderRadius: 12, padding: '.12rem .48rem', fontSize: '.7rem', fontWeight: 850, textTransform: 'uppercase' }}>{result.status}</span>
+                <button type="button" onClick={() => removeInstagramCookie(result.index)} style={{ background: 'transparent', color: '#fca5a5', border: '1px solid #7f1d1d', borderRadius: 6, padding: '.25rem .48rem', cursor: 'pointer', fontSize: '.7rem' }}>Xoa</button>
+              </div>;
+            })}
+          </div>}
           <div style={{ fontSize: '.72rem', color: '#64748b', marginTop: '.4rem' }}>
             Tối đa 30 cookie. Cookie được lưu riêng theo tài khoản đăng nhập trên web.
           </div>

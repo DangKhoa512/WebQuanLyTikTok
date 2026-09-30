@@ -85,6 +85,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
   const [page,setPage]=useState(1),[limit,setLimit]=useState(50),[status,setStatus]=useState(''),[q,setQ]=useState(''),[groupId,setGroupId]=useState(''),[device,setDevice]=useState(''),[dateFrom,setDateFrom]=useState(''),[dateTo,setDateTo]=useState(''),[soakDays,setSoakDays]=useState(''),[liveStatus,setLiveStatus]=useState('');
   const [sort,setSort]=useState({field:'login_at',direction:'desc'}),[selected,setSelected]=useState(new Set()),[loading,setLoading]=useState(false),[importing,setImporting]=useState(false);
   const [checking,setChecking]=useState(false),[checkProgress,setCheckProgress]=useState(null);
+  const [loggingCookies,setLoggingCookies]=useState(false),[loginCookieResults,setLoginCookieResults]=useState([]);
   const [trash,setTrash]=useState(false),[trashCount,setTrashCount]=useState(0),[machineView,setMachineView]=useState(false),[facebookSourceView,setFacebookSourceView]=useState(false);
   const [bulkStatus,setBulkStatus]=useState(''),[bulkGroup,setBulkGroup]=useState('');
   const [regView,setRegView]=useState('accounts');
@@ -108,6 +109,21 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
       reset();await load();
     }catch(e){toast.error(e.message||'Check live Instagram thất bại');}
     finally{setChecking(false);setCheckProgress(null);}
+  };
+  const handleLoginCookies=async()=>{
+    if(!ids.length)return toast.warn('Chọn account Instagram trước');
+    if(ids.length>10)return toast.warn('Mỗi lần chỉ login tối đa 10 account');
+    if(!confirm('Selenium sẽ login '+ids.length+' account qua proxy và lưu cookie mới. Tiếp tục?'))return;
+    setLoggingCookies(true);setLoginCookieResults([]);
+    try{
+      const response=await instagramApi.loginCookies(ids);
+      const data=response.data||{};
+      setLoginCookieResults(data.results||[]);
+      if((data.failed||0)>0)toast.warn('Login cookie: '+(data.success||0)+' thành công, '+data.failed+' thất bại');
+      else toast.success(response.message||'Đã login và lưu cookie Instagram');
+      reset();await load();
+    }catch(error){toast.error(error.message||'Login lấy cookie Instagram thất bại');}
+    finally{setLoggingCookies(false);}
   };
   const loadFacebookDetails=async(facebookUid)=>{
     setLoadingFacebookUid(facebookUid);
@@ -210,7 +226,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
           {!trash && <button className="btn btn-sm" style={{background:'#0ea5e9',color:'#fff'}} disabled={checking||loading||!rows.length} onClick={handleCheckLive}>{checking?`Đang check ${checkProgress?.done||0}/${checkProgress?.total||0}`:(ids.length?'Check live đã chọn':'Check live trang này')}</button>}
           {ids.length>0 && <span style={{background:'#ec4899',borderRadius:20,color:'#fff',padding:'.25rem .75rem',fontWeight:800,fontSize:'.82rem'}}>{ids.length} đã chọn</span>}
           {!trash && ids.length>0 && <>
-            {isReg && <button className="btn btn-sm" style={{background:'#8b5cf6',color:'#fff'}} onClick={()=>action(()=>instagramApi.bulkSyncToJob(ids),'Chuyển sang Instagram Job?')}>Chuyển sang Instagram Job</button>}
+            {!isReg && <button className="btn btn-sm" style={{background:'#ec4899',color:'#fff'}} disabled={loggingCookies} onClick={handleLoginCookies}>{loggingCookies?'Đang login...':'Login lấy cookie'}</button>}            {isReg && <button className="btn btn-sm" style={{background:'#8b5cf6',color:'#fff'}} onClick={()=>action(()=>instagramApi.bulkSyncToJob(ids),'Chuyển sang Instagram Job?')}>Chuyển sang Instagram Job</button>}
             <select className="ig-toolbar-select" value={bulkGroup} onChange={(e)=>{const value=e.target.value;setBulkGroup(value);if(value)action(()=>instagramApi.bulkMoveGroup(ids,value,kind)).finally(()=>setBulkGroup(''));}}><option value="">Chuyển nhóm...</option>{groups.map((g)=><option key={g.id} value={g.id}>{g.name}</option>)}</select>
             <select className="ig-toolbar-select" value={bulkStatus} onChange={(e)=>{const value=e.target.value;setBulkStatus(value);if(value)action(()=>instagramApi.bulkAction(ids,'set_status',{status:value})).finally(()=>setBulkStatus(''));}}><option value="">Đổi trạng thái...</option>{tabs.filter((t)=>t.value).map((t)=><option key={t.value} value={t.value}>{t.label}</option>)}</select>
             <button className="btn btn-primary btn-sm" onClick={()=>action(async()=>{const r=await instagramApi.bulkGet(ids);await copyText(r.data?.text||'');return r;})}>Copy</button>
@@ -220,6 +236,10 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
           {ids.length>0 && <button className="btn btn-secondary btn-sm" onClick={reset}>✕ Bỏ chọn</button>}
         </div>
 
+        {loginCookieResults.length>0 && <div className="card" style={{marginBottom:'1rem',padding:0,overflow:'hidden'}}>
+          <div className="card-header"><h3>Kết quả login cookie</h3><button type="button" className="btn btn-secondary btn-sm" onClick={()=>setLoginCookieResults([])}>Đóng</button></div>
+          <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th>ACCOUNT</th><th>KẾT QUẢ</th><th>LÝ DO</th><th>PROXY</th><th>COOKIE</th></tr></thead><tbody>{loginCookieResults.map((result)=><tr key={result.id}><td><strong>{result.uid}</strong></td><td style={{color:result.status==='success'?'#059669':'#dc2626',fontWeight:800}}>{result.status==='success'?'Thành công':'Thất bại'}</td><td>{result.reason||'-'}</td><td>Proxy #{result.proxy_index||'-'}</td><td style={{color:result.cookie_saved?'#059669':'#94a3b8',fontWeight:750}}>{result.cookie_saved?'Đã lưu':'Chưa lưu'}</td></tr>)}</tbody></table></div>
+        </div>}
         <div className="card" style={{padding:0,overflow:'hidden'}}>
           <div className="card-header"><h3>{trash ? 'Thùng rác Instagram Job' : 'Danh sách account'}</h3><span style={{color:'#64748b',fontSize:'.8rem'}}>{pagination?.total || 0} account {loading ? '- đang tải...' : ''}</span></div>
           <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th style={{width:40}}><input type="checkbox" checked={all} onChange={toggleAll}/></th><th>STT</th><th>TÀI KHOẢN</th><th>UID FACEBOOK</th><th>PASS</th><th>2FA</th><th>COOKIES</th><th>NHÓM</th><th><button type="button" className={'ig-sort-th' + (sort.field==='device_id'?' active':'')} onClick={()=>setSort((s)=>({field:'device_id',direction:s.field==='device_id'&&s.direction==='asc'?'desc':'asc'}))}><span>MÁY</span><span>{sort.field==='device_id'?(sort.direction==='asc'?'▲':'▼'):'↕'}</span></button></th><th>TRẠNG THÁI</th><th>LIVE</th>{sortHeader('post_count','POST')}{sortHeader('followers','FOLLOWERS')}{sortHeader('following','FOLLOWING')}{sortHeader('last_live_check_at','CHECK CUỐI')}<th>LOCK</th>{sortHeader('login_at','LOGIN AT')}<th>{trash ? 'NGÀY XÓA' : 'NGÀY XONG'}</th></tr></thead><tbody>
