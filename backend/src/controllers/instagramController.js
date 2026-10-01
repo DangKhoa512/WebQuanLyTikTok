@@ -290,6 +290,27 @@ const checkDeviceAccountCount = async(req,res,next)=>{
     return success(res,summary,summary.full?'Full limit':'Available slots');
   }catch(err){next(err);}
 };
+const listDeviceAccounts = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    const accounts = await InstagramAccount.findAll({
+      attributes: ['uid'],
+      where: {
+        owner_username,
+        kind: 'job',
+        status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
+        [Op.or]: [{ device_id }, { locked_by: device_id }],
+      },
+      order: [['uid', 'ASC']],
+      raw: true,
+    });
+    return success(res, accounts.map((account) => ({ uid: String(account.uid) })), 'Lay ' + accounts.length + ' account cua may ' + device_id);
+  } catch (err) {
+    next(err);
+  }
+};
 const getLoginSuccess = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
@@ -696,4 +717,4 @@ const deleteTrash=async(req,res,next)=>{
   }catch(err){if(!transaction.finished)await transaction.rollback();next(err);}
 };
 
-module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFacebookInstagramSources,getFacebookInstagramAccounts,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,getCheckCookies,checkLive,loginCookies,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};
+module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFacebookInstagramSources,getFacebookInstagramAccounts,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,listDeviceAccounts,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,getCheckCookies,checkLive,loginCookies,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};

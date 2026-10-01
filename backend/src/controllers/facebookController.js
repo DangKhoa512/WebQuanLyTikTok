@@ -946,6 +946,27 @@ const checkDeviceAccountCount = async (req, res, next) => {
     next(err);
   }
 };
+const listDeviceAccounts = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    const accounts = await FacebookAccount.findAll({
+      attributes: ['uid'],
+      where: {
+        owner_username,
+        kind: 'job',
+        status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
+        [Op.or]: [{ device_id }, { locked_by: device_id }],
+      },
+      order: [['uid', 'ASC']],
+      raw: true,
+    });
+    return success(res, accounts.map((account) => ({ uid: String(account.uid) })), 'Lay ' + accounts.length + ' account Facebook cua may ' + device_id);
+  } catch (err) {
+    next(err);
+  }
+};
 const getLoginSuccessJobForPhone = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
@@ -2640,6 +2661,7 @@ module.exports = {
   reportRegOnly,
   getJobForPhone,
   checkDeviceAccountCount,
+  listDeviceAccounts,
   getLoginSuccessJobForPhone,
   report,
   checkLive,

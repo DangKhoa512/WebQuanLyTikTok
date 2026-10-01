@@ -42,6 +42,7 @@ const chromeDriver = () => findExecutable(process.env.CHROMEDRIVER_PATH, [
 
 const createDriver = async (proxyUrl = null) => {
   const options = new chrome.Options();
+  options.setPageLoadStrategy('eager');
   options.addArguments(
     '--headless=new',
     '--disable-blink-features=AutomationControlled',

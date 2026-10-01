@@ -69,17 +69,19 @@ const dismissCookieDialog = async (driver) => {
       const buttons = await driver.findElements(By.xpath(selector));
       if (buttons.length && await buttons[0].isDisplayed()) {
         await buttons[0].click();
-        await sleep(300);
+        await sleep(150);
         return;
       }
     } catch (_) {}
   }
 };
-const readPageState = async (driver) => {
+const readPageState = async (driver, includeText = true) => {
   let url = '';
   let text = '';
   try { url = await driver.getCurrentUrl(); } catch (_) {}
-  try { text = String(await driver.findElement(By.css('body')).getText()).toLowerCase().slice(0, 4000); } catch (_) {}
+  if (includeText) {
+    try { text = String(await driver.findElement(By.css('body')).getText()).toLowerCase().slice(0, 4000); } catch (_) {}
+  }
   let cookies = [];
   try { cookies = await driver.manage().getCookies(); } catch (_) {}
   return { url: String(url).toLowerCase(), text, cookies };
@@ -137,7 +139,7 @@ const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
     driver = await createInstagramDriver(browserProxy);
 
     await driver.get('https://www.instagram.com/accounts/login/');
-    await sleep(700);
+    await sleep(200);
     await dismissCookieDialog(driver);
 
     let usernameInput = null;
@@ -148,7 +150,7 @@ const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
         'input[autocomplete="username"]',
         'input[autocomplete*="username"]',
       ]);
-      if (!usernameInput) await sleep(500);
+      if (!usernameInput) await sleep(250);
     }
     if (!usernameInput) return { status: 'failed', reason: 'login_form_not_found' };
     const passwordInput = await findFirst(driver, ['input[name="password"]', 'input[name="pass"]', 'input[type="password"]']);
@@ -158,15 +160,15 @@ const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
     await usernameInput.sendKeys(safeUsername);
     await passwordInput.clear();
     await passwordInput.sendKeys(String(password));
-    await sleep(300);
+    await sleep(150);
     const submit = await findSubmitControl(driver);
     if (!submit) return { status: 'failed', reason: 'login_button_not_found' };
     await submit.click();
 
     let twoFaSubmitted = false;
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-      await sleep(750);
-      const state = await readPageState(driver);
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      await sleep(250);
+      const state = await readPageState(driver, attempt % 4 === 0);
       const sessionCookie = state.cookies.find((item) => item.name === 'sessionid' && item.value);
       if (sessionCookie) {
         const cookieText = serializeCookies(state.cookies);
@@ -192,7 +194,7 @@ const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
           try { code = createTotp(two_fa); } catch (_) { return { status: 'failed', reason: 'invalid_two_fa_secret' }; }
           await twoFaInput.clear();
           await twoFaInput.sendKeys(code);
-          await sleep(300);
+          await sleep(150);
           const verifyButton = await findSubmitControl(driver);
           if (verifyButton) await verifyButton.click();
           twoFaSubmitted = true;
@@ -217,17 +219,24 @@ const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
 const loginInstagramAccounts = async (accounts, rawProxies) => {
   const proxies = rawProxies.map((item) => clean(item)).filter((item) => parseProxy(item));
   if (!proxies.length) throw new Error('instagram_login_proxy_required');
-  const results = [];
-  for (let index = 0; index < accounts.length; index += 1) {
-    const account = accounts[index];
-    const result = await loginInstagramAccount({
-      username: account.uid,
-      password: account.password,
-      two_fa: account.two_fa,
-      proxy: proxies[index % proxies.length],
-    });
-    results.push({ id: account.id, uid: account.uid, ...result, proxy_index: (index % proxies.length) + 1 });
-  }
+  const results = new Array(accounts.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (true) {
+      const index = cursor++;
+      if (index >= accounts.length) return;
+      const account = accounts[index];
+      const result = await loginInstagramAccount({
+        username: account.uid,
+        password: account.password,
+        two_fa: account.two_fa,
+        proxy: proxies[index % proxies.length],
+      });
+      results[index] = { id: account.id, uid: account.uid, ...result, proxy_index: (index % proxies.length) + 1 };
+    }
+  };
+  const workerCount = Math.min(accounts.length, proxies.length, 2);
+  await Promise.all(Array.from({ length: workerCount }, worker));
   return { results, proxy_count: proxies.length, engine: 'selenium' };
 };
 
