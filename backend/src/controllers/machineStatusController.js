@@ -1,5 +1,7 @@
-const { QueryTypes } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const FacebookAccount = require('../models/FacebookAccount');
+const InstagramAccount = require('../models/InstagramAccount');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 
@@ -115,4 +117,32 @@ const stats = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { report, stats };
+const deviceAccounts = async (req, res, next) => {
+  try {
+    const owner_username = ownerFromRequest(req);
+    const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
+    if (!device_id) return error(res, 'Can truyen device_id', 400);
+    const activeStatuses = ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'];
+    const where = {
+      owner_username,
+      kind: 'job',
+      status: { [Op.in]: activeStatuses },
+      [Op.or]: [{ device_id }, { locked_by: device_id }],
+    };
+    const [facebookRows, instagramRows] = await Promise.all([
+      FacebookAccount.findAll({ attributes: ['uid'], where, order: [['uid', 'ASC']], raw: true }),
+      InstagramAccount.findAll({ attributes: ['uid'], where, order: [['uid', 'ASC']], raw: true }),
+    ]);
+    const facebook = facebookRows.map((account) => ({ uid: String(account.uid) }));
+    const instagram = instagramRows.map((account) => ({ uid: String(account.uid) }));
+    const all = [...facebook, ...instagram];
+    return success(res, {
+      device_id,
+      facebook,
+      instagram,
+      all,
+      totals: { facebook: facebook.length, instagram: instagram.length, all: all.length },
+    }, 'Lay account Facebook va Instagram cua may ' + device_id);
+  } catch (err) { next(err); }
+};
+module.exports = { report, stats, deviceAccounts };
