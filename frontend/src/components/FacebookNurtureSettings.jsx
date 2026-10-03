@@ -6,12 +6,23 @@ const emptyActions = () => ({
   newfeed: { enabled: false, min: 30, max: 60 },
   reels: { enabled: false, min: 20, max: 40 },
   like_newfeed: { enabled: false, min: 1, max: 3 },
+  friend_request: { enabled: false, min: 1, max: 3 },
+  accept_friend: { enabled: false, min: 1, max: 3 },
+  join_groups: { enabled: false, min: 1, max: 1, links: [] },
+  like_pages: { enabled: false, min: 1, max: 1, page_uids: [] },
 });
 
 const actionRows = [
   { key: 'newfeed', label: 'Lướt bảng tin', unit: 'giây' },
   { key: 'reels', label: 'Xem Reels', unit: 'giây' },
   { key: 'like_newfeed', label: 'Thích bài viết', unit: 'lượt' },
+  { key: 'friend_request', label: 'Kết bạn ngẫu nhiên', unit: 'người' },
+  { key: 'accept_friend', label: 'Đồng ý kết bạn', unit: 'người' },
+];
+
+const targetActionRows = [
+  { key: 'join_groups', label: 'Tham gia nhóm', field: 'links', itemLabel: 'link nhóm', placeholder: 'https://www.facebook.com/groups/...\nhttps://www.facebook.com/groups/...' },
+  { key: 'like_pages', label: 'Like Page', field: 'page_uids', itemLabel: 'UID Page', placeholder: '1000123456789\n1000987654321' },
 ];
 
 const inputStyle = {
@@ -127,6 +138,7 @@ export default function FacebookNurtureSettings() {
 
       const likeMin = randomInt(1, 3);
       const actions = {
+        ...emptyActions(),
         newfeed: { enabled: newfeedEnabled, min: newfeedMin, max: newfeedMax },
         reels: { enabled: reelsEnabled, min: reelsMin, max: reelsMax },
         like_newfeed: { enabled: Math.random() < .35, min: likeMin, max: likeMin + randomInt(0, 3) },
@@ -211,6 +223,18 @@ export default function FacebookNurtureSettings() {
         const max = parseInt(action.max, 10);
         if (!Number.isInteger(min) || !Number.isInteger(max) || min < 0 || max < min) {
           toast.error('Giá trị min/max không hợp lệ');
+          return;
+        }
+      }
+      for (const row of targetActionRows) {
+        const action = scenario.actions[row.key];
+        const targets = Array.isArray(action?.[row.field]) ? action[row.field] : [];
+        if (action?.enabled && targets.length === 0) {
+          toast.error(`${row.label} cần ít nhất một ${row.itemLabel}`);
+          return;
+        }
+        if (action?.enabled && parseInt(action.max, 10) > targets.length) {
+          toast.error(`Max của ${row.label} không được lớn hơn ${targets.length} ${row.itemLabel}`);
           return;
         }
       }
@@ -346,7 +370,7 @@ export default function FacebookNurtureSettings() {
 
           <div style={{ border: '1px solid #cbd5e1', borderRadius: 8, overflow: 'hidden' }}>
             {actionRows.map((row, index) => {
-              const action = selected.actions[row.key];
+              const action = selected.actions[row.key] || emptyActions()[row.key];
               return (
                 <div key={row.key} style={{ padding: '.9rem', borderTop: index ? '1px solid #e2e8f0' : 'none', background: index % 2 ? '#f8fafc' : '#fff' }}>
                   <label style={{ display: 'flex', gap: '.55rem', alignItems: 'center', color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>
@@ -366,6 +390,42 @@ export default function FacebookNurtureSettings() {
                       Max ({row.unit})
                       <input type={'number'} min={0} disabled={!action.enabled} value={action.max} onChange={(event) => updateAction(row.key, 'max', event.target.value)} style={{ ...inputStyle, marginTop: '.3rem' }} />
                     </label>
+                  </div>
+                </div>
+              );
+            })}
+            {targetActionRows.map((row, rowIndex) => {
+              const action = selected.actions[row.key] || emptyActions()[row.key];
+              const targets = Array.isArray(action[row.field]) ? action[row.field] : [];
+              const index = actionRows.length + rowIndex;
+              return (
+                <div key={row.key} style={{ padding: '.9rem', borderTop: '1px solid #e2e8f0', background: index % 2 ? '#f8fafc' : '#fff' }}>
+                  <label style={{ display: 'flex', gap: '.55rem', alignItems: 'center', color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>
+                    <input type={'checkbox'} checked={action.enabled} onChange={(event) => updateAction(row.key, 'enabled', event.target.checked)} />
+                    {row.label}
+                  </label>
+                  <div style={{ marginTop: '.7rem', opacity: action.enabled ? 1 : .5 }}>
+                    <label style={{ color: '#475569', fontSize: '.76rem', fontWeight: 600 }}>
+                      Danh sách {row.itemLabel} ({targets.length})
+                      <textarea
+                        disabled={!action.enabled}
+                        value={targets.join('\n')}
+                        onChange={(event) => updateAction(row.key, row.field, event.target.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))}
+                        placeholder={row.placeholder}
+                        rows={4}
+                        style={{ ...inputStyle, marginTop: '.3rem', resize: 'vertical', fontFamily: 'monospace', fontWeight: 600 }}
+                      />
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.7rem', marginTop: '.7rem' }}>
+                      <label style={{ color: '#475569', fontSize: '.76rem', fontWeight: 600 }}>
+                        Min (số lượng)
+                        <input type={'number'} min={0} max={targets.length || 0} disabled={!action.enabled} value={action.min} onChange={(event) => updateAction(row.key, 'min', event.target.value)} style={{ ...inputStyle, marginTop: '.3rem' }} />
+                      </label>
+                      <label style={{ color: '#475569', fontSize: '.76rem', fontWeight: 600 }}>
+                        Max (số lượng)
+                        <input type={'number'} min={0} max={targets.length || 0} disabled={!action.enabled} value={action.max} onChange={(event) => updateAction(row.key, 'max', event.target.value)} style={{ ...inputStyle, marginTop: '.3rem' }} />
+                      </label>
+                    </div>
                   </div>
                 </div>
               );

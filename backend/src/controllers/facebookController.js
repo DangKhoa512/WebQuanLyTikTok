@@ -1239,10 +1239,33 @@ const getNurtureAccount = async (req, res, next) => {
         cooldown_hours: settings.cooldown_hours,
       });
     }
+    let friend_candidates = [];
+    if (claimed.scenario?.actions?.friend_request?.enabled) {
+      const candidates = await FacebookAccount.findAll({
+        attributes: ['uid'],
+        where: {
+          owner_username,
+          kind: 'job',
+          uid: { [Op.ne]: claimed.account.uid },
+          status: { [Op.in]: NURTURE_ELIGIBLE_ACCOUNT_STATUSES },
+          [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }],
+        },
+        order: [['login_at', 'DESC'], ['id', 'DESC']],
+        limit: 1000,
+        raw: true,
+      });
+      friend_candidates = candidates.map((item) => item.uid).filter(Boolean);
+      for (let index = friend_candidates.length - 1; index > 0; index -= 1) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [friend_candidates[index], friend_candidates[randomIndex]] = [friend_candidates[randomIndex], friend_candidates[index]];
+      }
+    }
     return success(res, {
       run_id: claimed.account.nurture_run_id,
       account: serialize(claimed.account),
       scenario: claimed.scenario,
+      friend_candidates,
+      friend_candidate_count: friend_candidates.length,
       resumed: claimed.resumed,
       cooldown_hours: settings.cooldown_hours,
     }, claimed.resumed ? 'Tiep tuc account Facebook dang nuoi' : 'Lay account Facebook nuoi thanh cong');

@@ -126,6 +126,23 @@ const normalizeNurtureRange = (data = {}) => {
   };
 };
 
+const normalizeNurtureCount = (data = {}, maxLimit = 100) => {
+  const parsedMin = parseInt(data.min, 10);
+  const parsedMax = parseInt(data.max, 10);
+  const min = Number.isInteger(parsedMin) ? Math.min(Math.max(parsedMin, 0), maxLimit) : 0;
+  const maxValue = Number.isInteger(parsedMax) ? Math.min(Math.max(parsedMax, 0), maxLimit) : min;
+  return { enabled: data.enabled === true, min, max: Math.max(min, maxValue) };
+};
+
+const normalizeNurtureTargets = (data = {}, field) => {
+  const raw = Array.isArray(data[field]) ? data[field] : String(data[field] || '').split(/\r?\n|,/);
+  const targets = [...new Set(raw.map((value) => String(value || '').trim()).filter(Boolean))]
+    .slice(0, 200)
+    .map((value) => value.slice(0, 500));
+  const count = normalizeNurtureCount(data, targets.length || 200);
+  return { ...count, enabled: count.enabled && targets.length > 0, [field]: targets };
+};
+
 const normalizeFacebookNurture = (data = {}) => {
   const parsedCooldownHours = parseInt(data.cooldown_hours, 10);
   const cooldown_hours = Number.isInteger(parsedCooldownHours)
@@ -146,6 +163,10 @@ const normalizeFacebookNurture = (data = {}) => {
       newfeed: normalizeNurtureRange(scenario?.actions?.newfeed),
       reels: normalizeNurtureRange(scenario?.actions?.reels),
       like_newfeed: normalizeNurtureRange(scenario?.actions?.like_newfeed),
+      friend_request: normalizeNurtureCount(scenario?.actions?.friend_request),
+      accept_friend: normalizeNurtureCount(scenario?.actions?.accept_friend),
+      join_groups: normalizeNurtureTargets(scenario?.actions?.join_groups, 'links'),
+      like_pages: normalizeNurtureTargets(scenario?.actions?.like_pages, 'page_uids'),
     };
     return {
       id,

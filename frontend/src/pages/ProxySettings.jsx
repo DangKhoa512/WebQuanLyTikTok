@@ -5,6 +5,13 @@ import { toast } from '../components/Toast';
 import { authService } from '../services/authService';
 import FacebookNurtureSettings from '../components/FacebookNurtureSettings';
 import InstagramNurtureSettings from '../components/InstagramNurtureSettings';
+
+const SETTINGS_TABS = [
+  { key: 'tiktok', label: 'TikTok', color: '#111827' },
+  { key: 'facebook', label: 'Facebook', color: '#1877f2' },
+  { key: 'instagram', label: 'Instagram', color: '#ec4899' },
+  { key: 'common', label: 'Cài đặt chung', color: '#10b981' },
+];
 function MachineLoginLimitCard({ isAdmin, title, description, currentLimit, users, setUsers, savingUser, onSaveUser }) {
   if (!isAdmin) return <div className="card"><h3 style={{marginTop:0,marginBottom:'.75rem',fontSize:'1rem',color:'#e2e8f0'}}>{title}</h3><div style={{color:'#94a3b8',fontSize:'.85rem'}}>Limit hiện tại: <b style={{color:'#e2e8f0'}}>{currentLimit}</b> account/máy</div></div>;
   return <div className="card"><h3 style={{marginTop:0,marginBottom:'.75rem',fontSize:'1rem',color:'#e2e8f0'}}>{title} theo user</h3><div style={{color:'#64748b',fontSize:'.78rem',marginBottom:'.85rem'}}>{description}</div><div style={{overflowX:'auto'}}><table className="table" style={{margin:0}}><thead><tr><th>User</th><th>Role</th><th>Trạng thái</th><th>Limit account/máy</th><th></th></tr></thead><tbody>{users.length===0?<tr><td colSpan={5} style={{textAlign:'center',color:'#94a3b8',padding:'1rem'}}>Chưa tải được danh sách user</td></tr>:users.map((user)=><tr key={user.username}><td style={{fontWeight:700}}>{user.username}</td><td>{user.role}</td><td style={{color:user.is_active?'#10b981':'#ef4444',fontWeight:700}}>{user.is_active?'Đang bật':'Đã tắt'}</td><td><input type="number" min={1} value={user.limit} onChange={(e)=>setUsers((prev)=>prev.map((item)=>item.username===user.username?{...item,limit:e.target.value}:item))} style={{width:120,boxSizing:'border-box',background:'#1e293b',color:'#e2e8f0',border:'1px solid #334155',borderRadius:8,padding:'.45rem .6rem',fontWeight:700}}/></td><td><button onClick={()=>onSaveUser(user.username)} disabled={savingUser===user.username} style={{background:savingUser===user.username?'#334155':'#ec4899',border:'none',color:'#fff',borderRadius:7,padding:'.45rem .85rem',cursor:savingUser===user.username?'not-allowed':'pointer',fontWeight:700,whiteSpace:'nowrap'}}>{savingUser===user.username?'Đang lưu...':'Lưu'}</button></td></tr>)}</tbody></table></div></div>;
@@ -41,7 +48,7 @@ export default function ProxySettings() {
   const [newMachineApiKey, setNewMachineApiKey] = useState('');
   const [savingMachineApiKeys, setSavingMachineApiKeys] = useState(false);
   const [saving,      setSaving]      = useState(false);
-  const [nurturePlatform, setNurturePlatform] = useState('facebook');
+  const [settingsTab, setSettingsTab] = useState('tiktok');
   const isAdminUser = authService.getRole() === 'admin';
 
   const proxyList = proxies.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -381,15 +388,30 @@ export default function ProxySettings() {
         <div>
           <h1>⚙️ Cài đặt</h1>
           <p style={{ color: '#94a3b8', fontSize: '.9rem', margin: '.25rem 0 0' }}>
-            Cấu hình proxy check live và điều kiện chuyển account đủ điều kiện.
+            Cấu hình được chia theo từng nền tảng để dễ theo dõi và chỉnh sửa.
           </p>
         </div>
       </div>
 
-      <div className={'settings-columns'}>
-        <div className={'settings-left-column'} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', minWidth: 0 }}>
+      <div className={'settings-platform-tabs'} role={'tablist'} aria-label={'Nhóm cài đặt'}>
+        {SETTINGS_TABS.map((tab) => {
+          const active = settingsTab === tab.key;
+          return <button
+            key={tab.key}
+            type={'button'}
+            role={'tab'}
+            aria-selected={active}
+            className={'settings-platform-tab' + (active ? ' active' : '')}
+            onClick={() => setSettingsTab(tab.key)}
+            style={active ? { background: tab.color, borderColor: tab.color, color: '#fff' } : undefined}
+          >{tab.label}</button>;
+        })}
+      </div>
 
-        <div className="card">
+      <div className={'settings-columns' + (['facebook', 'instagram'].includes(settingsTab) ? ' settings-columns-with-aside' : '')}>
+        <div className={'settings-left-column settings-tabbed-content'} data-settings-tab={settingsTab} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', minWidth: 0 }}>
+
+        <div className="card settings-section settings-section-tiktok">
           <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
             🎯 Setup đủ điều kiện
           </h3>
@@ -436,7 +458,7 @@ export default function ProxySettings() {
 
 
         {isAdminUser && (
-          <div className="card">
+          <div className="card settings-section settings-section-tiktok">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               {'\uD83D\uDD0C Key cau hinh API may'}
             </h3>
@@ -490,7 +512,7 @@ export default function ProxySettings() {
         )}
 
         {isAdminUser ? (
-          <div className="card">
+          <div className="card settings-section settings-section-tiktok">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               ⚡ Limit Chrome kháng theo user
             </h3>
@@ -560,7 +582,7 @@ export default function ProxySettings() {
             </div>
           </div>
         ) : (
-          <div className="card">
+          <div className="card settings-section settings-section-tiktok">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               ⚡ Limit Chrome kháng
             </h3>
@@ -571,7 +593,7 @@ export default function ProxySettings() {
         )}
 
         {isAdminUser ? (
-          <div className="card">
+          <div className="card settings-section settings-section-facebook">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               📘 Limit Facebook login theo user
             </h3>
@@ -641,7 +663,7 @@ export default function ProxySettings() {
             </div>
           </div>
         ) : (
-          <div className="card">
+          <div className="card settings-section settings-section-facebook">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               📘 Limit Facebook login
             </h3>
@@ -651,7 +673,7 @@ export default function ProxySettings() {
           </div>
         )}
 
-        <MachineLoginLimitCard
+        <div className={'settings-section settings-section-instagram'}><MachineLoginLimitCard
           isAdmin={isAdminUser}
           title="📸 Limit Instagram login"
           description="Khi máy đang giữ đủ account Instagram, API lấy account mới sẽ trả Full limit. Account die hoặc chuyển khỏi máy sẽ mở slot."
@@ -660,10 +682,10 @@ export default function ProxySettings() {
           setUsers={setUserInstagramLoginLimits}
           savingUser={savingInstagramLimitUser}
           onSaveUser={handleSaveInstagramUserLimit}
-        />
+        /></div>
 
         {isAdminUser ? (
-          <div className="card">
+          <div className="card settings-section settings-section-tiktok">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               JOB limit account/ngay theo user
             </h3>
@@ -733,7 +755,7 @@ export default function ProxySettings() {
             </div>
           </div>
         ) : (
-          <div className="card">
+          <div className="card settings-section settings-section-tiktok">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               JOB limit account/ngay
             </h3>
@@ -769,7 +791,7 @@ export default function ProxySettings() {
           </div>
         )}
 
-        <div className="card">
+        <div className="card settings-section settings-section-facebook">
           <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
             Facebook Reg Page - thời gian chờ sau login
           </h3>
@@ -794,7 +816,7 @@ export default function ProxySettings() {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card settings-section settings-section-instagram">
           <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
             Instagram Reg bằng Facebook
           </h3>
@@ -819,7 +841,7 @@ export default function ProxySettings() {
           </div>
         </div>
         {/* Proxy pool */}
-        <div className="card">
+        <div className="card settings-section settings-section-common">
           <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
             🌐 Danh sách Proxy
             <span style={{
@@ -850,7 +872,7 @@ export default function ProxySettings() {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card settings-section settings-section-instagram">
           <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
             🍪 Cookie dự phòng check Instagram
             <span style={{ marginLeft: '.75rem', background: instagramCookieList.length > 0 ? '#831843' : '#1e293b', color: instagramCookieList.length > 0 ? '#fbcfe8' : '#94a3b8', borderRadius: 12, padding: '.15rem .6rem', fontSize: '.78rem', fontWeight: 700 }}>
@@ -899,7 +921,7 @@ export default function ProxySettings() {
         </div>
 
         {/* Sliders */}
-        <div className="card">
+        <div className="card settings-section settings-section-common">
           <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1rem', color: '#e2e8f0' }}>
             ⚡ Tham số check
           </h3>
@@ -969,13 +991,8 @@ export default function ProxySettings() {
           </button>
         </div>
         </div>
-        <aside className="settings-right-column">
-          <div style={{ display: 'flex', gap: '.55rem', marginBottom: '.85rem', flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-sm" onClick={() => setNurturePlatform('facebook')} style={{ background: nurturePlatform === 'facebook' ? '#10b981' : '#fff', color: nurturePlatform === 'facebook' ? '#fff' : '#334155', border: '1px solid #cbd5e1', fontWeight: 800 }}>Facebook</button>
-            <button type="button" className="btn btn-sm" onClick={() => setNurturePlatform('instagram')} style={{ background: nurturePlatform === 'instagram' ? '#ec4899' : '#fff', color: nurturePlatform === 'instagram' ? '#fff' : '#334155', border: '1px solid #cbd5e1', fontWeight: 800 }}>Instagram</button>
-          </div>
-          {nurturePlatform === 'instagram' ? <InstagramNurtureSettings /> : <FacebookNurtureSettings />}
-        </aside>
+        {settingsTab === 'facebook' && <aside className="settings-right-column"><FacebookNurtureSettings /></aside>}
+        {settingsTab === 'instagram' && <aside className="settings-right-column"><InstagramNurtureSettings /></aside>}
       </div>
     </div>
   );

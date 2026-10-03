@@ -947,9 +947,59 @@ select.form-control { cursor: pointer; }
 
 .settings-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 680px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
+}
+
+.settings-columns.settings-columns-with-aside {
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 680px);
+}
+
+.settings-platform-tabs {
+  display: flex;
+  gap: .6rem;
+  flex-wrap: wrap;
+  margin: 0 0 1rem;
+  padding: .35rem;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid #dbe3ee;
+  border-radius: 12px;
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 4px 14px rgba(15,23,42,.05);
+}
+
+.settings-platform-tab {
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #fff;
+  color: #334155;
+  padding: .58rem 1.1rem;
+  font-size: .86rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.settings-platform-tab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(15,23,42,.09);
+}
+
+.settings-platform-tab.active {
+  box-shadow: 0 7px 15px rgba(15,23,42,.16);
+}
+
+.settings-tabbed-content .settings-section {
+  display: none;
+}
+
+.settings-tabbed-content[data-settings-tab='tiktok'] .settings-section-tiktok,
+.settings-tabbed-content[data-settings-tab='facebook'] .settings-section-facebook,
+.settings-tabbed-content[data-settings-tab='instagram'] .settings-section-instagram,
+.settings-tabbed-content[data-settings-tab='common'] .settings-section-common {
+  display: block;
 }
 
 .settings-left-column {
@@ -1073,7 +1123,8 @@ select.form-control { cursor: pointer; }
 }
 
 @media (max-width: 1180px) {
-  .settings-columns {
+  .settings-columns,
+  .settings-columns.settings-columns-with-aside {
     grid-template-columns: minmax(0, 1fr);
   }
 
