@@ -254,6 +254,7 @@ const startServer = async () => {
       ['ALTER TABLE facebook_accounts ADD COLUMN nurture_scenario_id VARCHAR(100) NULL', 'facebook_accounts nurture_scenario_id column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN last_nurture_at DATETIME NULL', 'facebook_accounts last_nurture_at column added'],
       ['ALTER TABLE facebook_accounts ADD COLUMN nurture_count INT UNSIGNED NOT NULL DEFAULT 0', 'facebook_accounts nurture_count column added'],
+      ['ALTER TABLE facebook_accounts ADD COLUMN status_before_die VARCHAR(32) NULL AFTER status', 'facebook_accounts status_before_die column added'],
     ]) {
       try {
         await sequelize.query(sql);

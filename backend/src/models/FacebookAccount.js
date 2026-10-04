@@ -94,6 +94,10 @@ const FacebookAccount = sequelize.define(
       allowNull: false,
       defaultValue: 'CHO_LOGIN',
     },
+    status_before_die: {
+      type: DataTypes.STRING(32),
+      allowNull: true,
+    },
     live_status: {
       type: DataTypes.ENUM('unknown', 'live', 'die'),
       allowNull: false,

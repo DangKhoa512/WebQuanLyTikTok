@@ -245,27 +245,18 @@ const syncFacebookPageJobs = async (account, pages, transaction = null) => {
   if (pageIds.length) inactiveWhere.page_id = { [Op.notIn]: pageIds };
   await FacebookPageJob.update({ is_active: false }, { where: inactiveWhere, transaction });
 
-  for (const page of normalizedPages) {
-    const [pageJob, created] = await FacebookPageJob.findOrCreate({
-      where: { owner_username: account.owner_username, page_id: page.page_id },
-      defaults: {
-        owner_username: account.owner_username,
-        facebook_account_id: account.id,
-        page_id: page.page_id,
-        page_name: page.page_name,
-        job_status: 'CHUA_LAM',
-        is_active: true,
-      },
-      transaction,
-    });
-    if (!created) {
-      await pageJob.update({
-        facebook_account_id: account.id,
-        page_name: page.page_name || pageJob.page_name,
-        is_active: true,
-      }, { transaction });
-    }
-  }
+  if (!normalizedPages.length) return;
+  await FacebookPageJob.bulkCreate(normalizedPages.map((page) => ({
+    owner_username: account.owner_username,
+    facebook_account_id: account.id,
+    page_id: page.page_id,
+    page_name: page.page_name,
+    job_status: 'CHUA_LAM',
+    is_active: true,
+  })), {
+    transaction,
+    updateOnDuplicate: ['facebook_account_id', 'page_name', 'is_active', 'updated_at'],
+  });
 };
 
 const getActivePageJobs = async (account) => {
@@ -1547,33 +1538,88 @@ const mapWithConcurrency = async (items, concurrency, mapper) => {
   return results;
 };
 
-const pickFacebookProxy = (proxyPool, stableKey) => {
-  if (!proxyPool.length) return null;
-  const hash = String(stableKey || '').split('').reduce((value, char) => ((value * 31) + char.charCodeAt(0)) >>> 0, 0);
-  return proxyPool[hash % proxyPool.length];
+const facebookStableHash = (stableKey) => String(stableKey || '').split('')
+  .reduce((value, char) => ((value * 31) + char.charCodeAt(0)) >>> 0, 0);
+
+const facebookProxyAttempts = (proxyPool, stableKey, maxAttempts = 2) => {
+  if (!proxyPool.length) return [null];
+  const start = facebookStableHash(stableKey) % proxyPool.length;
+  const count = Math.min(Math.max(maxAttempts, 1), proxyPool.length);
+  return Array.from({ length: count }, (_, offset) => proxyPool[(start + offset) % proxyPool.length]);
+};
+
+const effectiveFacebookConcurrency = (requested, proxyPool, itemCount) => {
+  const proxyCapacity = proxyPool.length ? proxyPool.length * 2 : 4;
+  return Math.max(1, Math.min(requested, proxyCapacity, Math.max(itemCount, 1)));
 };
 
 const maskProxy = (proxyUrl) => proxyUrl
   ? proxyUrl.replace(/\/\/([^:@]+):([^@]+)@/, '//$1:***@')
   : 'direct';
 
+const facebookProxyAgents = new Map();
 const facebookGet = async (url, proxyUrl, timeout) => {
-  const config = { timeout, validateStatus: () => true };
+  const config = {
+    timeout,
+    validateStatus: () => true,
+    headers: {
+      Accept: 'application/json,text/plain,*/*',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36',
+    },
+  };
   if (proxyUrl) {
-    config.httpsAgent = new HttpsProxyAgent(proxyUrl);
+    if (!facebookProxyAgents.has(proxyUrl)) {
+      facebookProxyAgents.set(proxyUrl, new HttpsProxyAgent(proxyUrl, { keepAlive: true }));
+    }
+    config.httpsAgent = facebookProxyAgents.get(proxyUrl);
     config.proxy = false;
   }
   return axios.get(url, config);
 };
 
-const checkFacebookUidLive = async (uid, proxyUrl = null) => {
-  try {
-    const response = await facebookGet(`https://graph.facebook.com/${encodeURIComponent(uid)}/picture?redirect=false`, proxyUrl, 10000);
-    const json = response.data;
-    return json?.data?.height != null;
-  } catch (_) {
-    return null;
+const checkFacebookUidLive = async (uid, proxyPool = []) => {
+  const attempts = facebookProxyAttempts(proxyPool, uid, 2);
+  let lastResult = { status: 'unknown', reason: 'REQUEST_FAILED', http_status: null, error_code: null, proxy: null };
+  for (const proxyUrl of attempts) {
+    try {
+      const response = await facebookGet(`https://graph.facebook.com/${encodeURIComponent(uid)}/picture?redirect=false`, proxyUrl, 10000);
+      const json = response.data;
+      const graphError = json?.error;
+      const hasPicture = response.status >= 200 && response.status < 300
+        && json?.data && typeof json.data === 'object'
+        && (json.data.url || json.data.height != null || json.data.width != null || json.data.is_silhouette != null);
+      if (hasPicture) {
+        return { status: 'live', reason: 'PICTURE_FOUND', http_status: response.status, error_code: null, proxy: proxyUrl };
+      }
+      const errorCode = Number(graphError?.code) || null;
+      const errorSubcode = Number(graphError?.error_subcode) || null;
+      const explicitDie = response.status === 404 || (errorCode === 100 && errorSubcode === 33);
+      lastResult = {
+        status: explicitDie ? 'die' : 'unknown',
+        reason: graphError?.message || `HTTP_${response.status}`,
+        http_status: response.status,
+        error_code: errorCode,
+        proxy: proxyUrl,
+      };
+      if (explicitDie) return lastResult;
+    } catch (err) {
+      lastResult = {
+        status: 'unknown',
+        reason: err.code === 'ECONNABORTED' ? 'TIMEOUT' : (err.code || 'REQUEST_FAILED'),
+        http_status: null,
+        error_code: null,
+        proxy: proxyUrl,
+      };
+    }
   }
+  return lastResult;
+};
+
+const restoreFacebookStatusAfterLive = (account) => {
+  if (account.status !== 'ACCOUNT_DIE') return null;
+  const savedStatus = String(account.status_before_die || '').trim().toUpperCase();
+  if (STATUSES.includes(savedStatus) && savedStatus !== 'ACCOUNT_DIE') return savedStatus;
+  return account.login_at ? 'LOGIN_THANH_CONG' : 'CHO_LOGIN';
 };
 
 const checkLive = async (req, res, next) => {
@@ -1586,20 +1632,43 @@ const checkLive = async (req, res, next) => {
 
     const accounts = await FacebookAccount.findAll({ where, limit: ids.length ? undefined : 500, order: [['id', 'ASC']] });
     const { proxyPool, concurrency } = await loadFacebookCheckConfig(owner_username);
-    const rows = await mapWithConcurrency(accounts, concurrency, async (account) => {
-      const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
-      const result = await checkFacebookUidLive(account.uid, proxyUrl);
-      const live_status = result === true ? 'live' : result === false ? 'die' : 'unknown';
-      const updates = { live_status, last_live_check_at: new Date() };
-      if (live_status === 'die') updates.status = 'ACCOUNT_DIE';
-      await account.update(updates);
-      return { id: account.id, uid: account.uid, result: live_status, proxy: maskProxy(proxyUrl) };
+    const actualConcurrency = effectiveFacebookConcurrency(concurrency, proxyPool, accounts.length);
+    const rows = await mapWithConcurrency(accounts, actualConcurrency, async (account) => {
+      try {
+        const result = await checkFacebookUidLive(account.uid, proxyPool);
+        const updates = { live_status: result.status, last_live_check_at: new Date() };
+        let restoredStatus = null;
+        if (result.status === 'die' && account.status !== 'ACCOUNT_DIE') {
+          updates.status_before_die = account.status;
+          updates.status = 'ACCOUNT_DIE';
+        } else if (result.status === 'live') {
+          restoredStatus = restoreFacebookStatusAfterLive(account);
+          if (restoredStatus) {
+            updates.status = restoredStatus;
+            updates.status_before_die = null;
+          }
+        }
+        await account.update(updates);
+        return {
+          id: account.id,
+          uid: account.uid,
+          result: result.status,
+          restored_status: restoredStatus,
+          reason: result.reason,
+          http_status: result.http_status,
+          error_code: result.error_code,
+          proxy: maskProxy(result.proxy),
+        };
+      } catch (err) {
+        return { id: account.id, uid: account.uid, result: 'unknown', reason: err.message || 'ACCOUNT_CHECK_FAILED', proxy: 'unknown' };
+      }
     });
     const live = rows.filter((row) => row.result === 'live').length;
     const die = rows.filter((row) => row.result === 'die').length;
     const unknown = rows.length - live - die;
+    const restored = rows.filter((row) => row.restored_status).length;
 
-    return success(res, { live, die, unknown, concurrency, rows }, 'Check live Facebook thanh cong');
+    return success(res, { live, die, unknown, restored, concurrency: actualConcurrency, rows }, 'Check live Facebook thanh cong');
   } catch (err) {
     next(err);
   }
@@ -1616,33 +1685,60 @@ const normalizeGraphAccessToken = (value) => {
   return raw;
 };
 
-const checkFacebookPagesByToken = async (token, proxyUrl = null) => {
+const checkFacebookPagesByToken = async (token, proxyPool = [], stableKey = '') => {
   const accessToken = normalizeGraphAccessToken(token);
-  if (!accessToken) return { ok: false, message: 'NO_TOKEN', pages: [], token_status: 'die', error_code: null };
+  if (!accessToken) return { ok: false, message: 'NO_TOKEN', pages: [], token_status: 'unknown', error_code: null, proxy: null };
 
-  try {
-    const url = new URL('https://graph.facebook.com/v26.0/me/accounts');
-    url.searchParams.set('fields', 'id,name,access_token,tasks');
-    url.searchParams.set('access_token', accessToken);
-    const response = await facebookGet(url.toString(), proxyUrl, 15000);
-    const json = response.data;
-    if (response.status < 200 || response.status >= 300 || json?.error) {
-      const message = json?.error?.message || 'GRAPH_ERROR';
-      const errorCode = Number(json?.error?.code) || null;
-      const tokenDie = [190, 459].includes(errorCode)
-        || /validating access token|session has been invalidated|checkpointed/i.test(message);
-      return { ok: false, message, pages: [], token_status: tokenDie ? 'die' : 'unknown', error_code: errorCode };
+  const attempts = facebookProxyAttempts(proxyPool, stableKey || accessToken.slice(-24), 2);
+  let lastResult = { ok: false, message: 'REQUEST_FAILED', pages: [], token_status: 'unknown', error_code: null, proxy: null };
+  for (const proxyUrl of attempts) {
+    try {
+      const firstUrl = new URL('https://graph.facebook.com/v26.0/me/accounts');
+      firstUrl.searchParams.set('fields', 'id,name,access_token,tasks');
+      firstUrl.searchParams.set('limit', '100');
+      firstUrl.searchParams.set('access_token', accessToken);
+      let nextUrl = firstUrl.toString();
+      const pagesById = new Map();
+      let pageRequests = 0;
+      while (nextUrl && pageRequests < 20) {
+        const response = await facebookGet(nextUrl, proxyUrl, 15000);
+        const json = response.data;
+        if (response.status < 200 || response.status >= 300 || json?.error) {
+          const message = json?.error?.message || `HTTP_${response.status}`;
+          const errorCode = Number(json?.error?.code) || null;
+          const tokenDie = [190, 459].includes(errorCode)
+            || /validating access token|session has been invalidated|checkpointed/i.test(message);
+          lastResult = { ok: false, message, pages: [], token_status: tokenDie ? 'die' : 'unknown', error_code: errorCode, proxy: proxyUrl };
+          if (tokenDie) return lastResult;
+          throw Object.assign(new Error(message), { graphResult: lastResult });
+        }
+        for (const page of Array.isArray(json?.data) ? json.data : []) {
+          if (!page?.id) continue;
+          pagesById.set(String(page.id), {
+            id: page.id,
+            name: page.name || null,
+            access_token: page.access_token || null,
+            tasks: Array.isArray(page.tasks) ? page.tasks : [],
+          });
+        }
+        nextUrl = json?.paging?.next || null;
+        pageRequests += 1;
+      }
+      return { ok: true, message: 'OK', pages: [...pagesById.values()], token_status: 'live', error_code: null, proxy: proxyUrl };
+    } catch (err) {
+      if (!err.graphResult) {
+        lastResult = {
+          ok: false,
+          message: err.code === 'ECONNABORTED' ? 'TIMEOUT' : (err.code || 'REQUEST_FAILED'),
+          pages: [],
+          token_status: 'unknown',
+          error_code: null,
+          proxy: proxyUrl,
+        };
+      }
     }
-    const pages = Array.isArray(json?.data) ? json.data.map((page) => ({
-      id: page.id || null,
-      name: page.name || null,
-      access_token: page.access_token || null,
-      tasks: Array.isArray(page.tasks) ? page.tasks : [],
-    })) : [];
-    return { ok: true, message: 'OK', pages, token_status: 'live', error_code: null };
-  } catch (err) {
-    return { ok: false, message: err.code === 'ECONNABORTED' ? 'TIMEOUT' : 'REQUEST_FAILED', pages: [], token_status: 'unknown', error_code: null };
   }
+  return lastResult;
 };
 
 const regPageBaseWhere = ({ owner_username, device_id, eligibleLoginBefore }) => ({
@@ -1718,8 +1814,7 @@ const getRegPageAccount = async (req, res, next) => {
 
     const data = hydrateFacebookData(account);
     const proxyPool = await loadFacebookProxyPool(owner_username);
-    const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
-    const pageResult = await checkFacebookPagesByToken(data.token, proxyUrl);
+    const pageResult = await checkFacebookPagesByToken(data.token, proxyPool, account.uid);
     if (!pageResult.ok) {
       const tokenDie = pageResult.token_status === 'die';
       await account.update({
@@ -1748,7 +1843,7 @@ const getRegPageAccount = async (req, res, next) => {
 
     return success(res, {
       account: serialize(account),
-      page_check: { ok: true, page_count, max_pages: REG_PAGE_MAX_PAGES, proxy: maskProxy(proxyUrl) },
+      page_check: { ok: true, page_count, max_pages: REG_PAGE_MAX_PAGES, proxy: maskProxy(pageResult.proxy) },
       cooldown_hours: workflowSettings.reg_page_reset_hours,
       min_login_age_hours: workflowSettings.reg_page_wait_hours,
       eligible_login_before: eligibleLoginBefore,
@@ -1818,8 +1913,7 @@ const reportRegPage = async (req, res, next) => {
     if (reportStatus === 'REG_XONG') {
       const previousPageCount = Number(account.page_count) || 0;
       const proxyPool = await loadFacebookProxyPool(owner_username);
-      const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
-      const pageResult = await checkFacebookPagesByToken(hydrateFacebookData(account).token, proxyUrl);
+      const pageResult = await checkFacebookPagesByToken(hydrateFacebookData(account).token, proxyPool, account.uid);
       if (!pageResult.ok) {
         const tokenDie = pageResult.token_status === 'die';
         await account.update({
@@ -1833,7 +1927,7 @@ const reportRegPage = async (req, res, next) => {
           device_id,
           token_status: pageResult.token_status,
           error_code: pageResult.error_code,
-          proxy: maskProxy(proxyUrl),
+          proxy: maskProxy(pageResult.proxy),
         });
       }
 
@@ -1881,7 +1975,7 @@ const reportRegPage = async (req, res, next) => {
         current_page_count: currentPageCount,
         page_difference: pageDifference,
         pages_added: pagesAdded,
-        proxy: maskProxy(proxyUrl),
+        proxy: maskProxy(pageResult.proxy),
       };
     } else {
       await account.update({ reg_page_locked_by: null, reg_page_locked_at: null });
@@ -2111,8 +2205,7 @@ const checkPageToken = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     const token = req.body.token || req.body.access_token || req.query.token || req.query.access_token;
     const proxyPool = await loadFacebookProxyPool(owner_username);
-    const proxyUrl = pickFacebookProxy(proxyPool, normalizeGraphAccessToken(token));
-    const result = await checkFacebookPagesByToken(token, proxyUrl);
+    const result = await checkFacebookPagesByToken(token, proxyPool, normalizeGraphAccessToken(token));
     return success(res, {
       ok: result.ok,
       message: result.message,
@@ -2120,7 +2213,7 @@ const checkPageToken = async (req, res, next) => {
       error_code: result.error_code,
       page_count: result.ok ? result.pages.length : null,
       pages: result.pages,
-      proxy: maskProxy(proxyUrl),
+      proxy: maskProxy(result.proxy),
     }, result.ok ? 'Check page token thanh cong' : 'Check page token that bai');
   } catch (err) {
     next(err);
@@ -2137,44 +2230,64 @@ const checkPages = async (req, res, next) => {
 
     const accounts = await FacebookAccount.findAll({ where, limit: ids.length ? undefined : 300, order: [['id', 'ASC']] });
     const { proxyPool, concurrency } = await loadFacebookCheckConfig(owner_username);
-    const rows = await mapWithConcurrency(accounts, concurrency, async (account) => {
-      const data = hydrateFacebookData(account);
-      const proxyUrl = pickFacebookProxy(proxyPool, account.uid);
-      const result = await checkFacebookPagesByToken(data.token, proxyUrl);
-      const pageCount = result.pages.length;
-      if (result.ok) {
-        await account.update({
-          page_count: pageCount,
-          pages: JSON.stringify(result.pages),
-          last_page_check_at: new Date(),
-          page_token_status: 'live',
-          page_token_error: null,
-        });
-        await syncFacebookPageJobs(account, result.pages);
-      } else {
-        await account.update({
-          last_page_check_at: new Date(),
-          page_token_status: result.token_status,
-          page_token_error: result.message,
-        });
+    const actualConcurrency = effectiveFacebookConcurrency(concurrency, proxyPool, accounts.length);
+    const rows = await mapWithConcurrency(accounts, actualConcurrency, async (account) => {
+      try {
+        const data = hydrateFacebookData(account);
+        const result = await checkFacebookPagesByToken(data.token, proxyPool, account.uid);
+        const pageCount = result.pages.length;
+        if (result.ok) {
+          const transaction = await sequelize.transaction();
+          try {
+            await account.update({
+              page_count: pageCount,
+              pages: JSON.stringify(result.pages),
+              last_page_check_at: new Date(),
+              page_token_status: 'live',
+              page_token_error: null,
+            }, { transaction });
+            await syncFacebookPageJobs(account, result.pages, transaction);
+            await transaction.commit();
+          } catch (err) {
+            if (!transaction.finished) await transaction.rollback();
+            throw err;
+          }
+        } else {
+          await account.update({
+            last_page_check_at: new Date(),
+            page_token_status: result.token_status,
+            page_token_error: result.message,
+          });
+        }
+        return {
+          id: account.id,
+          uid: account.uid,
+          ok: result.ok,
+          message: result.message,
+          token_status: result.token_status,
+          page_count: result.ok ? pageCount : null,
+          pages: result.pages,
+          proxy: maskProxy(result.proxy),
+        };
+      } catch (err) {
+        return {
+          id: account.id,
+          uid: account.uid,
+          ok: false,
+          message: err.message || 'ACCOUNT_PAGE_CHECK_FAILED',
+          token_status: 'unknown',
+          page_count: null,
+          pages: [],
+          proxy: 'unknown',
+        };
       }
-      return {
-        id: account.id,
-        uid: account.uid,
-        ok: result.ok,
-        message: result.message,
-        token_status: result.token_status,
-        page_count: result.ok ? pageCount : null,
-        pages: result.pages,
-        proxy: maskProxy(proxyUrl),
-      };
     });
     const checked = rows.length;
     const successCount = rows.filter((row) => row.ok).length;
     const tokenDieCount = rows.filter((row) => row.token_status === 'die').length;
     const totalPages = rows.reduce((total, row) => total + (row.ok ? row.page_count : 0), 0);
 
-    return success(res, { checked, success: successCount, token_die: tokenDieCount, page_count: totalPages, concurrency, rows }, 'Check page Facebook thanh cong');
+    return success(res, { checked, success: successCount, token_die: tokenDieCount, page_count: totalPages, concurrency: actualConcurrency, rows }, 'Check page Facebook thanh cong');
   } catch (err) {
     next(err);
   }
