@@ -1585,9 +1585,16 @@ const checkFacebookUidLive = async (uid, proxyPool = []) => {
       const response = await facebookGet(`https://graph.facebook.com/${encodeURIComponent(uid)}/picture?redirect=false`, proxyUrl, 10000);
       const json = response.data;
       const graphError = json?.error;
-      const hasPicture = response.status >= 200 && response.status < 300
-        && json?.data && typeof json.data === 'object'
-        && (json.data.url || json.data.height != null || json.data.width != null || json.data.is_silhouette != null);
+      const picture = json?.data && typeof json.data === 'object' ? json.data : null;
+      const hasDimensions = picture?.height != null && picture?.width != null;
+      const isDefaultPlaceholder = response.status >= 200 && response.status < 300
+        && picture
+        && !hasDimensions
+        && (picture.is_silhouette === true || /UlIqmHJn-SK\.gif/i.test(String(picture.url || '')));
+      if (isDefaultPlaceholder) {
+        return { status: 'die', reason: 'DEFAULT_PROFILE_PLACEHOLDER', http_status: response.status, error_code: null, proxy: proxyUrl };
+      }
+      const hasPicture = response.status >= 200 && response.status < 300 && hasDimensions;
       if (hasPicture) {
         return { status: 'live', reason: 'PICTURE_FOUND', http_status: response.status, error_code: null, proxy: proxyUrl };
       }
