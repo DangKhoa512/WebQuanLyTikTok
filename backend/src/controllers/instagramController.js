@@ -614,6 +614,7 @@ const loginCookies = async (req, res, next) => {
         reason: result.reason,
         cookie_saved: result.status === 'success',
         proxy_index: result.proxy_index,
+        proxy_attempts: result.proxy_attempts || 1,
       });
     }
     const successCount = safeResults.filter((item) => item.status === 'success').length;
@@ -663,9 +664,13 @@ const checkLive = async (req, res, next) => {
       getInstagramCheckCookieSettings(owner_username),
     ]);
     const requestProxies = Array.isArray(req.body.proxies) ? req.body.proxies.map((item) => String(item || '').trim()).filter(Boolean) : [];
-    const savedProxies = Array.isArray(savedSettings.proxies) ? savedSettings.proxies : [];
-    const proxies = savedProxies.length ? savedProxies : requestProxies;
-    const proxySource = savedProxies.length ? 'settings' : requestProxies.length ? 'request' : 'direct';
+    const savedProxies = Array.isArray(savedSettings.proxies) ? savedSettings.proxies.map((item) => String(item || '').trim()).filter(Boolean) : [];
+    // Keep request proxies first so a newly edited UI value is usable
+    // immediately, while retaining saved proxies as automatic fallbacks.
+    const proxies = [...new Set([...requestProxies, ...savedProxies])];
+    const proxySource = requestProxies.length && savedProxies.length
+      ? 'request+settings'
+      : requestProxies.length ? 'request' : savedProxies.length ? 'settings' : 'direct';
     const concurrency = Math.min(Math.max(parseInt(req.body.concurrency, 10) || savedSettings.concurrency || 20, 1), 40);
     const delayMs = Math.min(Math.max(parseInt(req.body.delay_ms, 10) || 0, 0), 10_000);
     const checked = await batchCheckInstagram(accounts, proxies, concurrency, delayMs, cookieSettings.cookies);

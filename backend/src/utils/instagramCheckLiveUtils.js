@@ -235,10 +235,13 @@ const fetchPublicPostStats = async (username, userId, proxyUrl, cookies = null) 
   for (const endpoint of endpoints) {
     try {
       const response = await axios.get(endpoint.url, requestConfig(username, proxyUrl, true, cookies));
-      if ((response.status === 404 || response.status === 410) && !partial && !/\/accounts\/login|\/challenge\//i.test(responseUrl(response))) {
-      return { ...dieResult('web_profile_info_404'), source: 'web_profile_info', http_status: response.status };
-    }
-    const parsed = parseProfileJson(response.data);
+      // These endpoints are only fallbacks for the post count after the profile
+      // has already been confirmed live. A 404 here may mean that the private
+      // endpoint is unavailable, not that the Instagram account is dead.
+      if ([401, 403, 404, 410, 429].includes(response.status)
+          || response.status >= 500
+          || /\/accounts\/login|\/challenge\//i.test(responseUrl(response))) continue;
+      const parsed = parseProfileJson(response.data);
       if (parsed?.live === true && parsed.posts !== null) {
         return { ...parsed, source: endpoint.source, http_status: response.status };
       }
@@ -254,7 +257,10 @@ const fetchPublicPostStats = async (username, userId, proxyUrl, cookies = null) 
           http_status: response.status,
         };
       }
-    } catch (_) {}
+    } catch (_) {
+      // Try the next public endpoint. The caller keeps the already-confirmed
+      // live result even when every post-count endpoint is unavailable.
+    }
   }
   return null;
 };

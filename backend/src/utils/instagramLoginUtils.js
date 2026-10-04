@@ -1,4 +1,4 @@
-const { By } = require('selenium-webdriver');
+const { By, Key } = require('selenium-webdriver');
 const ProxyChain = require('proxy-chain');
 const crypto = require('crypto');
 const { parseProxy } = require('./checkLiveUtils');
@@ -44,16 +44,26 @@ const findFirst = async (driver, selectors) => {
 };
 
 const findSubmitControl = async (driver) => {
-  const candidates = await driver.findElements(By.css('button[type="submit"], input[type="submit"], [role="button"]'));
+  // Prefer a real submit control. This remains stable when Instagram changes
+  // or localizes the visible button label.
+  const submitCandidates = await driver.findElements(By.css('button[type="submit"], input[type="submit"]'));
+  for (const candidate of submitCandidates) {
+    try {
+      if (!await candidate.isDisplayed()) continue;
+      if (await candidate.getAttribute('disabled')) continue;
+      if (String(await candidate.getAttribute('aria-disabled')).toLowerCase() === 'true') continue;
+      return candidate;
+    } catch (_) {}
+  }
+
+  const candidates = await driver.findElements(By.css('button, [role="button"]'));
   for (const candidate of candidates) {
     try {
       if (!await candidate.isDisplayed()) continue;
       if (await candidate.getAttribute('disabled')) continue;
       if (String(await candidate.getAttribute('aria-disabled')).toLowerCase() === 'true') continue;
-      const tag = String(await candidate.getTagName()).toLowerCase();
-      const type = String(await candidate.getAttribute('type')).toLowerCase();
       const text = String(await candidate.getText()).trim().toLowerCase();
-      if ((tag === 'input' && type === 'submit') || /^(log in|continue|confirm|next|submit)$/.test(text)) return candidate;
+      if (/^(log in|login|continue|confirm|next|submit|verify)$/.test(text)) return candidate;
     } catch (_) {}
   }
   return null;
@@ -143,7 +153,7 @@ const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
     await dismissCookieDialog(driver);
 
     let usernameInput = null;
-    for (let attempt = 0; attempt < 20 && !usernameInput; attempt += 1) {
+    for (let attempt = 0; attempt < 60 && !usernameInput; attempt += 1) {
       usernameInput = await findFirst(driver, [
         'input[name="username"]',
         'input[name="email"]',
@@ -153,7 +163,11 @@ const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
       if (!usernameInput) await sleep(250);
     }
     if (!usernameInput) return { status: 'failed', reason: 'login_form_not_found' };
-    const passwordInput = await findFirst(driver, ['input[name="password"]', 'input[name="pass"]', 'input[type="password"]']);
+    let passwordInput = null;
+    for (let attempt = 0; attempt < 40 && !passwordInput; attempt += 1) {
+      passwordInput = await findFirst(driver, ['input[name="password"]', 'input[name="pass"]', 'input[type="password"]']);
+      if (!passwordInput) await sleep(250);
+    }
     if (!passwordInput) return { status: 'failed', reason: 'password_field_not_found' };
 
     await usernameInput.clear();
@@ -162,11 +176,20 @@ const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
     await passwordInput.sendKeys(String(password));
     await sleep(150);
     const submit = await findSubmitControl(driver);
-    if (!submit) return { status: 'failed', reason: 'login_button_not_found' };
-    await submit.click();
+    if (submit) {
+      try { await submit.click(); } catch (_) {
+        await driver.executeScript('arguments[0].click();', submit);
+      }
+    } else {
+      // Some Instagram builds render a button without a stable selector.
+      // Enter on the password field submits the same form.
+      try { await passwordInput.sendKeys(Key.ENTER); } catch (_) {
+        return { status: 'failed', reason: 'login_button_not_found' };
+      }
+    }
 
     let twoFaSubmitted = false;
-    for (let attempt = 0; attempt < 80; attempt += 1) {
+    for (let attempt = 0; attempt < 240; attempt += 1) {
       await sleep(250);
       const state = await readPageState(driver, attempt % 4 === 0);
       const sessionCookie = state.cookies.find((item) => item.name === 'sessionid' && item.value);
@@ -226,13 +249,32 @@ const loginInstagramAccounts = async (accounts, rawProxies) => {
       const index = cursor++;
       if (index >= accounts.length) return;
       const account = accounts[index];
-      const result = await loginInstagramAccount({
-        username: account.uid,
-        password: account.password,
-        two_fa: account.two_fa,
-        proxy: proxies[index % proxies.length],
-      });
-      results[index] = { id: account.id, uid: account.uid, ...result, proxy_index: (index % proxies.length) + 1 };
+      const firstProxyIndex = index % proxies.length;
+      const maxAttempts = Math.min(3, proxies.length);
+      let result = null;
+      let proxyIndex = firstProxyIndex;
+      let attempts = 0;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        proxyIndex = (firstProxyIndex + attempt) % proxies.length;
+        attempts += 1;
+        result = await loginInstagramAccount({
+          username: account.uid,
+          password: account.password,
+          two_fa: account.two_fa,
+          proxy: proxies[proxyIndex],
+        });
+        if (result.status === 'success') break;
+        const retryable = /login_form_not_found|login_button_not_found|login_timeout|timeout|webdriver|econn|socket|proxy|net::/i.test(String(result.reason || ''));
+        if (!retryable) break;
+        if (attempt + 1 < maxAttempts) await sleep(500);
+      }
+      results[index] = {
+        id: account.id,
+        uid: account.uid,
+        ...result,
+        proxy_index: proxyIndex + 1,
+        proxy_attempts: attempts,
+      };
     }
   };
   const workerCount = Math.min(accounts.length, proxies.length, 2);
