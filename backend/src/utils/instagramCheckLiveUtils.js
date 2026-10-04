@@ -75,7 +75,7 @@ const buildHeaders = (username, json = true, cookies = null) => {
 const requestConfig = (username, proxyUrl, json = true, cookies = null) => {
   const config = {
     headers: buildHeaders(username, json, cookies),
-    timeout: 15_000,
+    timeout: 10_000,
     maxRedirects: 3,
     validateStatus: () => true,
     decompress: true,
@@ -373,7 +373,11 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
   const configuredProxies = Array.isArray(rawProxies) ? rawProxies.map((item) => String(item || '').trim()).filter(Boolean) : [];
   const proxyPool = configuredProxies.map(parseProxy).filter(Boolean);
   if (configuredProxies.length && !proxyPool.length) throw new Error('Cau hinh proxy Instagram khong hop le; da dung check de tranh su dung mang chinh');
-  const workerCount = Math.min(Math.max(parseInt(concurrency, 10) || 20, 1), 40);
+  const requestedConcurrency = Math.min(Math.max(parseInt(concurrency, 10) || 20, 1), 40);
+  // Avoid flooding a small proxy pool. One proxy handling 20 simultaneous
+  // profiles works for a single account but commonly times out for a batch.
+  const proxyConcurrencyLimit = proxyPool.length ? proxyPool.length * 2 : requestedConcurrency;
+  const workerCount = Math.min(requestedConcurrency, proxyConcurrencyLimit, Math.max(accounts.length, 1));
   const delay = Math.min(Math.max(parseInt(delayMs, 10) || 0, 0), 10_000);
   const results = [];
   const proxyStates = proxyPool.map((proxy) => ({ proxy, cooldownUntil: 0 }));
@@ -410,6 +414,13 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
     else if (/ECONNRESET|ETIMEDOUT|request_failed/i.test(reason)) state.cooldownUntil = Date.now() + 10_000;
     else if (stats?.live === true || stats?.live === false) state.cooldownUntil = 0;
   };
+  const shouldTryCookieFallback = (stats) => {
+    if (stats?.live === true || stats?.live === false) return false;
+    const reason = String(stats?.reason || '');
+    // Cookies cannot repair a dead/overloaded proxy or an Instagram rate
+    // limit. Retrying cookies in those cases only multiplies batch duration.
+    return !/rate_limited|forbidden|server_error|ECONN|ETIMEDOUT|ENOTFOUND|request_failed|timeout/i.test(reason);
+  };
 
   for (let index = 0; index < accounts.length; index += workerCount) {
     const batch = accounts.slice(index, index + workerCount);
@@ -418,7 +429,7 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
       let proxyUrl = nextProxy();
       let attempts = 0;
       let cookieFallbackAttempts = 0;
-      const maxAttempts = proxyPool.length ? Math.min(3, Math.max(2, proxyPool.length)) : 1;
+      const maxAttempts = proxyPool.length ? Math.min(2, proxyPool.length) : 1;
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         attempts += 1;
         stats = await checkInstagramProfile(account.uid, proxyUrl, account.cookies || null);
@@ -430,9 +441,9 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
         }
       }
 
-      if (stats.live !== true && stats.live !== false && configuredCookies.length) {
+      if (shouldTryCookieFallback(stats) && configuredCookies.length) {
         const triedCookies = new Set(account.cookies ? [String(account.cookies).trim()] : []);
-        const maxCookieAttempts = Math.min(3, configuredCookies.length);
+        const maxCookieAttempts = Math.min(2, configuredCookies.length);
         for (let cookieAttempt = 0; cookieAttempt < maxCookieAttempts; cookieAttempt += 1) {
           const fallbackCookie = nextFallbackCookie(triedCookies);
           if (!fallbackCookie) break;

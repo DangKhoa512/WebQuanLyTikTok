@@ -104,7 +104,9 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
     if(!targetIds.length)return toast.warn('Không có account Instagram để kiểm tra');
     setChecking(true);setCheckProgress({done:0,total:targetIds.length,live:0,die:0,unknown:0});
     try{
-      const result=await checkLiveInBatches('/instagram/check-live',targetIds,loadCheckLiveSettings(),setCheckProgress);
+      const settings=loadCheckLiveSettings();
+      const instagramSettings={...settings,batchSize:Math.min(Number(settings.batchSize)||20,20)};
+      const result=await checkLiveInBatches('/instagram/check-live',targetIds,instagramSettings,setCheckProgress);
       const postsChecked=result.rows.filter((row)=>row.result==='live'&&row.posts!==null&&row.posts!==undefined).length;
       toast.success(`Đã check ${targetIds.length} account: ${result.live} live, ${result.die} die, ${result.unknown} unknown · ${postsChecked}/${result.live} live có số post · ${result.proxyCount > 0 ? result.proxyCount + ' proxy' : 'mạng chính'}`);
       reset();await load();

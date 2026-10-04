@@ -109,7 +109,7 @@ const testCookieFallback = async () => {
       if (String(config?.headers?.Cookie || '').includes('fallback-session')) {
         return mockResponse(url, 200, '<script>{"username":"cookie_user","media_count":8,"follower_count":120,"following_count":33}</script>');
       }
-      return mockResponse(url, 429, { message: 'Please wait a few minutes' });
+      return mockResponse(url, 200, '<title>Login - Instagram</title><form action="/accounts/login/ajax/"><input name="username"><input name="password"></form>');
     },
     async () => {
       const checked = await batchCheckInstagram([account], [], 1, 0, [savedCookie]);
@@ -124,12 +124,80 @@ const testCookieFallback = async () => {
   );
 };
 
+const testRateLimitSkipsCookieFallback = async () => {
+  let requestCount = 0;
+  const account = {
+    id: 2,
+    uid: 'rate_limited_user',
+    cookies: null,
+    post_count: null,
+    followers: null,
+    following: null,
+    async update(values) {
+      Object.assign(this, values);
+    },
+  };
+
+  await withMockGet(
+    async (url) => {
+      requestCount += 1;
+      return mockResponse(url, 429, { message: 'Please wait a few minutes' });
+    },
+    async () => {
+      const checked = await batchCheckInstagram(
+        [account],
+        [],
+        20,
+        0,
+        ['sessionid=should-not-be-used']
+      );
+      const result = checked.results[0];
+      assert.strictEqual(result.result, 'unknown');
+      assert.strictEqual(result.cookie_fallback_used, false);
+      assert.strictEqual(result.cookie_attempts, 0);
+      assert.strictEqual(requestCount, 3);
+    }
+  );
+};
+
+const testConcurrencyFollowsProxyPool = async () => {
+  const accounts = Array.from({ length: 5 }, (_, index) => ({
+    id: index + 10,
+    uid: 'proxy_user_' + index,
+    cookies: null,
+    post_count: null,
+    followers: null,
+    following: null,
+    async update(values) {
+      Object.assign(this, values);
+    },
+  }));
+
+  await withMockGet(
+    async (url) => mockResponse(url, 200, '<script>{"username":"proxy_user","media_count":1,"follower_count":2,"following_count":3}</script>'),
+    async () => {
+      const checked = await batchCheckInstagram(
+        accounts,
+        ['127.0.0.1:8080'],
+        20,
+        0,
+        []
+      );
+      assert.strictEqual(checked.concurrency, 2);
+      assert.strictEqual(checked.results.length, 5);
+      assert.ok(checked.results.every((row) => row.result === 'live'));
+    }
+  );
+};
+
 const main = async () => {
   await testLiveProfile();
   await testDeadProfile();
   await testUnknownProfile();
   await testPostFallback();
   await testCookieFallback();
+  await testRateLimitSkipsCookieFallback();
+  await testConcurrencyFollowsProxyPool();
   console.log(JSON.stringify({
     ok: true,
     cases: [
@@ -138,6 +206,8 @@ const main = async () => {
       'unknown_rate_limited',
       'post_count_fallback',
       'settings_cookie_fallback',
+      'rate_limit_skips_cookie_retry',
+      'concurrency_follows_proxy_pool',
     ],
   }, null, 2));
 };

@@ -24,7 +24,10 @@ export async function checkLiveInBatches(endpoint, ids, settings, onProgress) {
     // Instagram may rotate proxies and then retry with a configured cookie.
     // Give the backend enough time to finish the batch instead of aborting the
     // browser request while it is still updating account results.
-    const timeoutMs = Math.max(60_000, Math.min(300_000, Math.ceil(batch.length / concurrency) * 45_000));
+    const effectiveConcurrency = proxyList.length
+      ? Math.min(concurrency, Math.max(1, proxyList.length * 2))
+      : concurrency;
+    const timeoutMs = Math.max(120_000, Math.min(540_000, Math.ceil(batch.length / effectiveConcurrency) * 40_000));
     const res = await api.post(
       endpoint,
       { ids: batch, proxies: proxyList, concurrency, delay_ms: delayMs },
