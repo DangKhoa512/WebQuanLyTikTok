@@ -351,10 +351,10 @@ pm2 monit                     # dashboard CPU/RAM
 pm2 save                      # lưu process list
 
 # Update code
-cd /opt/tiktok-manager
-git pull
-cd backend && npm install --production
-pm2 reload tiktok-backend
+cd /opt/WebQuanLyTikTok
+git pull origin main
+docker compose up -d --build
+docker compose logs backend
 ```
 
 ---
