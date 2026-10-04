@@ -1,8 +1,13 @@
-const { By, Key } = require('selenium-webdriver');
-const ProxyChain = require('proxy-chain');
+const axios = require('axios');
 const crypto = require('crypto');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const { parseProxy } = require('./checkLiveUtils');
-const { createInstagramDriver } = require('./instagramCookieCheckUtils');
+
+const APP_ID = '936619743392459';
+const LOGIN_URL = 'https://www.instagram.com/accounts/login/';
+const LOGIN_AJAX_URL = 'https://www.instagram.com/api/v1/web/accounts/login/ajax/';
+const TWO_FACTOR_URL = 'https://www.instagram.com/api/v1/web/accounts/login/ajax/two_factor/';
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const clean = (value) => String(value || '').trim();
@@ -17,7 +22,9 @@ const decodeBase32 = (value) => {
     bits += index.toString(2).padStart(5, '0');
   }
   const bytes = [];
-  for (let offset = 0; offset + 8 <= bits.length; offset += 8) bytes.push(parseInt(bits.slice(offset, offset + 8), 2));
+  for (let offset = 0; offset + 8 <= bits.length; offset += 8) {
+    bytes.push(parseInt(bits.slice(offset, offset + 8), 2));
+  }
   if (!bytes.length) throw new Error('invalid_two_fa_secret');
   return Buffer.from(bytes);
 };
@@ -33,209 +40,239 @@ const createTotp = (secret, timestamp = Date.now()) => {
   return String(code).padStart(6, '0');
 };
 
-const findFirst = async (driver, selectors) => {
-  for (const selector of selectors) {
-    const rows = await driver.findElements(By.css(selector));
+const resolveTwoFactorCode = (value) => {
+  const token = clean(value).replace(/\s+/g, '');
+  if (/^\d{6}$/.test(token)) return token;
+  return createTotp(token);
+};
+
+class CookieJar {
+  constructor() {
+    this.values = new Map();
+  }
+
+  update(response) {
+    let rows = response?.headers?.['set-cookie'] || [];
+    if (!Array.isArray(rows)) rows = rows ? [rows] : [];
     for (const row of rows) {
-      try { if (await row.isDisplayed()) return row; } catch (_) {}
+      const pair = String(row || '').split(';', 1)[0];
+      const separator = pair.indexOf('=');
+      if (separator <= 0) continue;
+      const name = pair.slice(0, separator).trim();
+      const value = pair.slice(separator + 1).trim();
+      if (!name) continue;
+      if (!value) this.values.delete(name);
+      else this.values.set(name, value);
     }
   }
-  return null;
-};
 
-const findSubmitControl = async (driver) => {
-  // Prefer a real submit control. This remains stable when Instagram changes
-  // or localizes the visible button label.
-  const submitCandidates = await driver.findElements(By.css('button[type="submit"], input[type="submit"]'));
-  for (const candidate of submitCandidates) {
-    try {
-      if (!await candidate.isDisplayed()) continue;
-      if (await candidate.getAttribute('disabled')) continue;
-      if (String(await candidate.getAttribute('aria-disabled')).toLowerCase() === 'true') continue;
-      return candidate;
-    } catch (_) {}
+  set(name, value) {
+    if (name && value) this.values.set(String(name), String(value));
   }
 
-  const candidates = await driver.findElements(By.css('button, [role="button"]'));
-  for (const candidate of candidates) {
-    try {
-      if (!await candidate.isDisplayed()) continue;
-      if (await candidate.getAttribute('disabled')) continue;
-      if (String(await candidate.getAttribute('aria-disabled')).toLowerCase() === 'true') continue;
-      const text = String(await candidate.getText()).trim().toLowerCase();
-      if (/^(log in|login|continue|confirm|next|submit|verify)$/.test(text)) return candidate;
-    } catch (_) {}
+  get(name) {
+    return this.values.get(name) || '';
   }
-  return null;
-};
-const dismissCookieDialog = async (driver) => {
-  const selectors = [
-    "//button[contains(., 'Allow all cookies')]",
-    "//button[contains(., 'Only allow essential cookies')]",
-    "//button[contains(., 'Decline optional cookies')]",
-  ];
-  for (const selector of selectors) {
-    try {
-      const buttons = await driver.findElements(By.xpath(selector));
-      if (buttons.length && await buttons[0].isDisplayed()) {
-        await buttons[0].click();
-        await sleep(150);
-        return;
-      }
-    } catch (_) {}
+
+  toString() {
+    const priority = ['ds_user_id', 'ig_did', 'datr', 'mid', 'sessionid', 'csrftoken', 'rur'];
+    return [...this.values.entries()]
+      .sort(([left], [right]) => {
+        const leftIndex = priority.indexOf(left);
+        const rightIndex = priority.indexOf(right);
+        return (leftIndex < 0 ? 999 : leftIndex) - (rightIndex < 0 ? 999 : rightIndex);
+      })
+      .map(([name, value]) => name + '=' + value)
+      .join('; ');
   }
-};
-const readPageState = async (driver, includeText = true) => {
-  let url = '';
-  let text = '';
-  try { url = await driver.getCurrentUrl(); } catch (_) {}
-  if (includeText) {
-    try { text = String(await driver.findElement(By.css('body')).getText()).toLowerCase().slice(0, 4000); } catch (_) {}
+
+  export() {
+    return [...this.values.entries()].map(([name, value]) => ({
+      name,
+      value,
+      domain: '.instagram.com',
+      path: '/',
+    }));
   }
-  let cookies = [];
-  try { cookies = await driver.manage().getCookies(); } catch (_) {}
-  return { url: String(url).toLowerCase(), text, cookies };
+}
+
+const responseData = (response) => {
+  if (response?.data && typeof response.data === 'object') return response.data;
+  try { return JSON.parse(String(response?.data || '')); } catch (_) { return {}; }
 };
 
-const diagnosePage = async (driver) => {
-  const state = await readPageState(driver);
-  const fields = [];
-  try {
-    const inputs = await driver.findElements(By.css('input'));
-    for (const input of inputs.slice(0, 12)) {
-      fields.push({
-        type: await input.getAttribute('type'),
-        name: await input.getAttribute('name'),
-        autocomplete: await input.getAttribute('autocomplete'),
-        aria_label: await input.getAttribute('aria-label'),
-        displayed: await input.isDisplayed(),
-      });
-    }
-  } catch (_) {}
-  let pageUrl = state.url;
-  try { const parsed = new URL(state.url); pageUrl = parsed.origin + parsed.pathname; } catch (_) {}
-  return { state, diagnostic: { page_url: pageUrl, fields } };
-};
-const classifyFailure = ({ url, text }) => {
-  if (/challenge|checkpoint/.test(url) || /confirm it.?s you|suspicious login|security code/.test(text)) return 'challenge_required';
-  if (/incorrect password|password was incorrect|wrong password/.test(text)) return 'invalid_password';
-  if (/incorrect code|code.*incorrect|invalid code/.test(text)) return 'invalid_two_fa';
-  if (/please wait a few minutes|try again later|feedback_required/.test(text)) return 'rate_limited';
-  if (/couldn.?t log you in|problem logging you|sorry, there was a problem/.test(text)) return 'login_rejected';
-  return 'login_timeout';
+const responseUrl = (response) => response?.request?.res?.responseUrl || response?.config?.url || '';
+
+const landingHeaders = () => ({
+  'User-Agent': USER_AGENT,
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cache-Control': 'no-cache',
+  Pragma: 'no-cache',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Upgrade-Insecure-Requests': '1',
+});
+
+const ajaxHeaders = (jar) => ({
+  'User-Agent': USER_AGENT,
+  Accept: '*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Content-Type': 'application/x-www-form-urlencoded',
+  Origin: 'https://www.instagram.com',
+  Referer: LOGIN_URL,
+  'X-CSRFToken': jar.get('csrftoken'),
+  'X-IG-App-ID': APP_ID,
+  'X-ASBD-ID': '129477',
+  'X-Requested-With': 'XMLHttpRequest',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
+  Cookie: jar.toString(),
+});
+
+const requestConfig = (proxyUrl, headers) => ({
+  headers,
+  timeout: 30_000,
+  maxRedirects: 5,
+  validateStatus: () => true,
+  decompress: true,
+  httpsAgent: new HttpsProxyAgent(proxyUrl),
+  proxy: false,
+});
+
+const findCsrfInHtml = (html) => {
+  const text = String(html || '');
+  return text.match(/"csrf_token"\s*:\s*"([^"]+)"/i)?.[1]
+    || text.match(/"csrfToken"\s*:\s*"([^"]+)"/i)?.[1]
+    || '';
 };
 
-const serializeCookies = (cookies) => {
-  const priority = ['ds_user_id', 'ig_did', 'datr', 'mid', 'sessionid', 'csrftoken', 'rur'];
-  const rows = cookies.filter((item) => item && item.name && item.value);
-  rows.sort((left, right) => {
-    const leftIndex = priority.indexOf(left.name);
-    const rightIndex = priority.indexOf(right.name);
-    return (leftIndex < 0 ? 999 : leftIndex) - (rightIndex < 0 ? 999 : rightIndex);
+const isTwoFactorRequired = (data) => Boolean(
+  data?.two_factor_required
+  || data?.error_type === 'two_factor_required'
+  || data?.two_factor_info
+);
+
+const failure = (reason, message = null, extra = {}) => ({
+  status: 'failed',
+  reason,
+  message: message || reason,
+  ...extra,
+});
+
+const classifyResponseFailure = (response, data, fallback = 'login_rejected') => {
+  const status = Number(response?.status) || 0;
+  const finalUrl = String(responseUrl(response)).toLowerCase();
+  const errorType = String(data?.error_type || '').toLowerCase();
+  const text = [data?.message, errorType, data?.status].map((item) => String(item || '')).join(' ').toLowerCase();
+
+  if (/challenge|checkpoint/.test(finalUrl)
+      || data?.checkpoint_url
+      || data?.challenge
+      || /challenge_required|checkpoint_required|consent_required/.test(text)) {
+    return failure('challenge_required', 'Instagram requires checkpoint or challenge', { http_status: status || null });
+  }
+  if (/invalid_user|user_not_found|user not found|no user found|doesn.?t belong to an account|does not belong to an account|account does not exist|account has been deleted/.test(text)) {
+    return failure('account_disabled', 'Instagram account does not exist or is disabled', { http_status: status || null });
+  }
+  if (/bad_password|incorrect password|password is incorrect|wrong password/.test(text)) {
+    return failure('invalid_password', 'Instagram rejected the password', { http_status: status || null });
+  }
+  if (/invalid_two_factor|incorrect code|code.*incorrect|invalid code/.test(text)) {
+    return failure('invalid_two_fa', 'Instagram rejected the two-factor code', { http_status: status || null });
+  }
+  if (status === 429 || /please wait a few minutes|try again later|feedback_required|rate.limit/.test(text)) {
+    return failure('rate_limited', 'Instagram rate limited this login', { http_status: status || null });
+  }
+  if (status >= 500) {
+    return failure('instagram_server_error', 'Instagram server error', { http_status: status });
+  }
+  return failure(fallback, String(data?.message || data?.status || fallback), { http_status: status || null });
+};
+
+const authenticatedResult = (jar, data) => {
+  const cookies = jar.toString();
+  if (!jar.get('sessionid')) return failure('session_cookie_missing', 'Login succeeded but sessionid was not returned');
+  return {
+    status: 'success',
+    reason: 'login_success',
+    message: 'Instagram login successful',
+    cookies,
+    cookie_jar: jar.export(),
+    ds_user_id: jar.get('ds_user_id') || String(data?.userId || data?.user_id || ''),
+    username: String(data?.username || ''),
+  };
+};
+
+const finishTwoFactor = async ({ jar, proxyUrl, data, identifier, twoFa }) => {
+  if (!clean(twoFa)) return failure('missing_two_fa', 'Instagram requires a two-factor code');
+  let verificationCode;
+  try { verificationCode = resolveTwoFactorCode(twoFa); } catch (_) {
+    return failure('invalid_two_fa_secret', 'Invalid Base32 two-factor secret');
+  }
+
+  const info = data?.two_factor_info || {};
+  const payload = new URLSearchParams({
+    username: String(info.username || identifier),
+    verificationCode,
+    identifier: String(info.two_factor_identifier || data?.two_factor_identifier || info.identifier || ''),
+    queryParams: '{}',
+    trust_signal: 'true',
+    verification_method: '3',
   });
-  return rows.map((item) => item.name + '=' + item.value).join('; ');
+
+  const response = await axios.post(TWO_FACTOR_URL, payload.toString(), requestConfig(proxyUrl, ajaxHeaders(jar)));
+  jar.update(response);
+  const result = responseData(response);
+  if (!result?.authenticated) return classifyResponseFailure(response, result, 'two_factor_rejected');
+  return authenticatedResult(jar, result);
 };
 
 const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
-  const safeUsername = clean(username).replace(/^@/, '');
-  if (!safeUsername || !clean(password)) return { status: 'failed', reason: 'missing_username_or_password' };
+  const identifier = clean(username).replace(/^@/, '');
+  if (!identifier || !String(password || '')) return failure('missing_username_or_password');
   const proxyUrl = parseProxy(clean(proxy));
-  if (!proxyUrl) return { status: 'failed', reason: 'invalid_proxy' };
+  if (!proxyUrl) return failure('invalid_proxy');
 
-  let browserProxy = null;
-  let driver = null;
+  const jar = new CookieJar();
   try {
-    browserProxy = await ProxyChain.anonymizeProxy(proxyUrl);
-    driver = await createInstagramDriver(browserProxy);
-
-    await driver.get('https://www.instagram.com/accounts/login/');
-    await sleep(200);
-    await dismissCookieDialog(driver);
-
-    let usernameInput = null;
-    for (let attempt = 0; attempt < 60 && !usernameInput; attempt += 1) {
-      usernameInput = await findFirst(driver, [
-        'input[name="username"]',
-        'input[name="email"]',
-        'input[autocomplete="username"]',
-        'input[autocomplete*="username"]',
-      ]);
-      if (!usernameInput) await sleep(250);
-    }
-    if (!usernameInput) return { status: 'failed', reason: 'login_form_not_found' };
-    let passwordInput = null;
-    for (let attempt = 0; attempt < 40 && !passwordInput; attempt += 1) {
-      passwordInput = await findFirst(driver, ['input[name="password"]', 'input[name="pass"]', 'input[type="password"]']);
-      if (!passwordInput) await sleep(250);
-    }
-    if (!passwordInput) return { status: 'failed', reason: 'password_field_not_found' };
-
-    await usernameInput.clear();
-    await usernameInput.sendKeys(safeUsername);
-    await passwordInput.clear();
-    await passwordInput.sendKeys(String(password));
-    await sleep(150);
-    const submit = await findSubmitControl(driver);
-    if (submit) {
-      try { await submit.click(); } catch (_) {
-        await driver.executeScript('arguments[0].click();', submit);
-      }
-    } else {
-      // Some Instagram builds render a button without a stable selector.
-      // Enter on the password field submits the same form.
-      try { await passwordInput.sendKeys(Key.ENTER); } catch (_) {
-        return { status: 'failed', reason: 'login_button_not_found' };
-      }
+    const landing = await axios.get(LOGIN_URL, requestConfig(proxyUrl, landingHeaders()));
+    jar.update(landing);
+    if (!jar.get('csrftoken')) jar.set('csrftoken', findCsrfInHtml(landing.data));
+    if (!jar.get('csrftoken')) return failure('csrf_token_missing', 'Could not obtain Instagram CSRF token', { http_status: landing.status });
+    if ([403, 429].includes(landing.status) || landing.status >= 500) {
+      return classifyResponseFailure(landing, responseData(landing), 'login_page_rejected');
     }
 
-    let twoFaSubmitted = false;
-    for (let attempt = 0; attempt < 240; attempt += 1) {
-      await sleep(250);
-      const state = await readPageState(driver, attempt % 4 === 0);
-      const sessionCookie = state.cookies.find((item) => item.name === 'sessionid' && item.value);
-      if (sessionCookie) {
-        const cookieText = serializeCookies(state.cookies);
-        const dsUserId = state.cookies.find((item) => item.name === 'ds_user_id')?.value || null;
-        return { status: 'success', reason: 'login_success', cookies: cookieText, ds_user_id: dsUserId };
-      }
+    const payload = new URLSearchParams({
+      username: identifier,
+      enc_password: '#PWD_INSTAGRAM_BROWSER:0:' + Math.floor(Date.now() / 1000) + ':' + String(password),
+      queryParams: '{}',
+      optIntoOneTap: 'false',
+      trustedDeviceRecords: '{}',
+    });
+    const response = await axios.post(LOGIN_AJAX_URL, payload.toString(), requestConfig(proxyUrl, ajaxHeaders(jar)));
+    jar.update(response);
+    const data = responseData(response);
 
-      if (!twoFaSubmitted) {
-        let twoFaInput = await findFirst(driver, [
-          'input[name="verificationCode"]',
-          'input[name="security_code"]',
-          'input[name="approvals_code"]',
-          'input[name="code"]',
-          'input[autocomplete="one-time-code"]',
-        ]);
-        const onTwoStepPage = /two_step_verification|two_factor|two-factor/.test(state.url + ' ' + state.text);
-        if (!twoFaInput && onTwoStepPage) {
-          twoFaInput = await findFirst(driver, ['input[type="text"]', 'input[type="tel"]', 'input[inputmode="numeric"]']);
-        }
-        if (twoFaInput) {
-          if (!clean(two_fa)) return { status: 'failed', reason: 'missing_two_fa' };
-          let code;
-          try { code = createTotp(two_fa); } catch (_) { return { status: 'failed', reason: 'invalid_two_fa_secret' }; }
-          await twoFaInput.clear();
-          await twoFaInput.sendKeys(code);
-          await sleep(150);
-          const verifyButton = await findSubmitControl(driver);
-          if (verifyButton) await verifyButton.click();
-          twoFaSubmitted = true;
-          continue;
-        }
-      }
-
-      if (/challenge|checkpoint/.test(state.url)) return { status: 'failed', reason: 'challenge_required' };
-      if (/incorrect password|password was incorrect|wrong password/.test(state.text)) return { status: 'failed', reason: 'invalid_password' };
-      if (/please wait a few minutes|try again later|feedback_required/.test(state.text)) return { status: 'failed', reason: 'rate_limited' };
+    if (isTwoFactorRequired(data)) {
+      return await finishTwoFactor({
+        jar,
+        proxyUrl,
+        data,
+        identifier,
+        twoFa: two_fa,
+      });
     }
-    const finalPage = await diagnosePage(driver);
-    return { status: 'failed', reason: classifyFailure(finalPage.state), diagnostic: finalPage.diagnostic };
+    if (!data?.authenticated) return classifyResponseFailure(response, data);
+    return authenticatedResult(jar, data);
   } catch (error) {
-    return { status: 'failed', reason: error?.name || error?.code || 'selenium_login_failed' };
-  } finally {
-    if (driver) { try { await driver.quit(); } catch (_) {} }
-    if (browserProxy) { try { await ProxyChain.closeAnonymizedProxy(browserProxy, true); } catch (_) {} }
+    const reason = error?.code === 'ECONNABORTED'
+      ? 'request_timeout'
+      : error?.code || error?.name || 'request_login_failed';
+    return failure(reason, String(error?.message || reason));
   }
 };
 
@@ -244,6 +281,7 @@ const loginInstagramAccounts = async (accounts, rawProxies) => {
   if (!proxies.length) throw new Error('instagram_login_proxy_required');
   const results = new Array(accounts.length);
   let cursor = 0;
+
   const worker = async () => {
     while (true) {
       const index = cursor++;
@@ -254,6 +292,7 @@ const loginInstagramAccounts = async (accounts, rawProxies) => {
       let result = null;
       let proxyIndex = firstProxyIndex;
       let attempts = 0;
+
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         proxyIndex = (firstProxyIndex + attempt) % proxies.length;
         attempts += 1;
@@ -264,10 +303,11 @@ const loginInstagramAccounts = async (accounts, rawProxies) => {
           proxy: proxies[proxyIndex],
         });
         if (result.status === 'success') break;
-        const retryable = /login_form_not_found|login_button_not_found|login_timeout|timeout|webdriver|econn|socket|proxy|net::/i.test(String(result.reason || ''));
+        const retryable = /csrf_token_missing|request_timeout|econn|socket|proxy|network|server_error|login_page_rejected/i.test(String(result.reason || ''));
         if (!retryable) break;
         if (attempt + 1 < maxAttempts) await sleep(500);
       }
+
       results[index] = {
         id: account.id,
         uid: account.uid,
@@ -277,9 +317,16 @@ const loginInstagramAccounts = async (accounts, rawProxies) => {
       };
     }
   };
-  const workerCount = Math.min(accounts.length, proxies.length, 2);
+
+  const workerCount = Math.min(accounts.length, proxies.length, 3);
   await Promise.all(Array.from({ length: workerCount }, worker));
-  return { results, proxy_count: proxies.length, engine: 'selenium' };
+  return { results, proxy_count: proxies.length, engine: 'request' };
 };
 
-module.exports = { createTotp, loginInstagramAccount, loginInstagramAccounts };
+module.exports = {
+  CookieJar,
+  createTotp,
+  resolveTwoFactorCode,
+  loginInstagramAccount,
+  loginInstagramAccounts,
+};

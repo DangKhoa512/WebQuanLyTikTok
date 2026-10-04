@@ -114,7 +114,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
   const handleLoginCookies=async()=>{
     if(!ids.length)return toast.warn('Chọn account Instagram trước');
     if(ids.length>10)return toast.warn('Mỗi lần chỉ login tối đa 10 account');
-    if(!confirm('Selenium sẽ login '+ids.length+' account qua proxy và lưu cookie mới. Tiếp tục?'))return;
+    if(!confirm('Request sẽ login '+ids.length+' account qua proxy và lưu cookie mới. Tiếp tục?'))return;
     setLoggingCookies(true);setLoginCookieResults([]);
     try{
       const response=await instagramApi.loginCookies(ids);

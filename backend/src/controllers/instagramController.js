@@ -605,13 +605,14 @@ const loginCookies = async (req, res, next) => {
           fail_reason: null,
         });
       } else {
-        await account.update({ fail_reason: 'Selenium login: ' + String(result.reason || 'unknown').slice(0, 450) });
+        await account.update({ fail_reason: 'Request login: ' + String(result.reason || 'unknown').slice(0, 450) });
       }
       safeResults.push({
         id: result.id,
         uid: result.uid,
         status: result.status,
         reason: result.reason,
+        message: result.message || null,
         cookie_saved: result.status === 'success',
         proxy_index: result.proxy_index,
         proxy_attempts: result.proxy_attempts || 1,
@@ -625,7 +626,7 @@ const loginCookies = async (req, res, next) => {
       failed: safeResults.length - successCount,
       proxy_count: checked.proxy_count,
       results: safeResults,
-    }, 'Da login Instagram bang Selenium: ' + successCount + '/' + safeResults.length + ' thanh cong');
+    }, 'Da login Instagram bang request: ' + successCount + '/' + safeResults.length + ' thanh cong');
   } catch (err) {
     if (err?.message === 'instagram_login_proxy_required') return error(res, 'Proxy Instagram khong hop le', 400);
     next(err);
