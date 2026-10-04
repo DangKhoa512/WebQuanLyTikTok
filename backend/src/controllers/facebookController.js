@@ -20,6 +20,7 @@ const {
 } = require('../services/settingsService');
 const { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs, addFacebookPageClaim } = require('../services/facebookJobStatService');
 const { resetExpiredNurtureStates, resetExpiredPageJobStates } = require('../services/facebookWorkflowService');
+const { allocateFriendSuggestions } = require('../services/facebookFriendSuggestionService');
 const { parseProxy } = require('../utils/checkLiveUtils');
 
 const STATUSES = ['CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
@@ -1255,31 +1256,32 @@ const getNurtureAccount = async (req, res, next) => {
         cooldown_hours: workflowSettings.nurture_reset_hours,
       });
     }
-    let friend_candidates = [];
-    if (claimed.scenario?.actions?.friend_request?.enabled) {
-      const candidates = await FacebookAccount.findAll({
-        attributes: ['uid'],
-        where: {
-          owner_username,
-          kind: 'job',
-          uid: { [Op.ne]: claimed.account.uid },
-          status: { [Op.in]: NURTURE_ELIGIBLE_ACCOUNT_STATUSES },
-          [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }],
-        },
-        order: [['login_at', 'DESC'], ['id', 'DESC']],
-        limit: 1000,
-        raw: true,
-      });
-      friend_candidates = candidates.map((item) => item.uid).filter(Boolean);
-      for (let index = friend_candidates.length - 1; index > 0; index -= 1) {
-        const randomIndex = Math.floor(Math.random() * (index + 1));
-        [friend_candidates[index], friend_candidates[randomIndex]] = [friend_candidates[randomIndex], friend_candidates[index]];
-      }
-    }
+    const friendAction = claimed.scenario?.actions?.friend_request || { enabled: false, min: 0, max: 0 };
+    const friendSuggestion = await allocateFriendSuggestions({
+      owner: owner_username,
+      sourceAccount: claimed.account,
+      runId: claimed.account.nurture_run_id,
+      action: friendAction,
+    });
+    const friend_candidates = friendSuggestion.uids;
+    const friend_request = {
+      ...friendAction,
+      requested_count: friendSuggestion.requested_count,
+      returned_count: friend_candidates.length,
+      uids: friend_candidates,
+    };
+    const responseScenario = {
+      ...claimed.scenario,
+      actions: {
+        ...claimed.scenario.actions,
+        friend_request,
+      },
+    };
     return success(res, {
       run_id: claimed.account.nurture_run_id,
       account: serialize(claimed.account),
-      scenario: claimed.scenario,
+      scenario: responseScenario,
+      friend_request,
       friend_candidates,
       friend_candidate_count: friend_candidates.length,
       resumed: claimed.resumed,
