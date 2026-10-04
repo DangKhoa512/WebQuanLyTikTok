@@ -5,6 +5,7 @@ import { toast } from '../components/Toast';
 import { authService } from '../services/authService';
 import FacebookNurtureSettings from '../components/FacebookNurtureSettings';
 import InstagramNurtureSettings from '../components/InstagramNurtureSettings';
+import TaskDispatcherSettings from '../components/TaskDispatcherSettings';
 
 const SETTINGS_TABS = [
   { key: 'tiktok', label: 'TikTok', color: '#111827' },
@@ -12,6 +13,26 @@ const SETTINGS_TABS = [
   { key: 'instagram', label: 'Instagram', color: '#ec4899' },
   { key: 'common', label: 'Cài đặt chung', color: '#10b981' },
 ];
+const TASK_DISPATCHER_TYPES = [
+  'PAGE_JOB',
+  'INSTAGRAM_JOB',
+  'REG_PAGE',
+  'REG_INSTAGRAM',
+  'NUOI_FACEBOOK',
+  'NUOI_INSTAGRAM',
+];
+const DEFAULT_TASK_DISPATCHER = {
+  lock_timeout_minutes: 30,
+  max_retry: 3,
+  tasks: {
+    PAGE_JOB: { priority: 100, enabled: true },
+    INSTAGRAM_JOB: { priority: 90, enabled: true },
+    REG_PAGE: { priority: 80, enabled: true },
+    REG_INSTAGRAM: { priority: 70, enabled: true },
+    NUOI_FACEBOOK: { priority: 60, enabled: true },
+    NUOI_INSTAGRAM: { priority: 50, enabled: true },
+  },
+};
 function MachineLoginLimitCard({ isAdmin, title, description, currentLimit, users, setUsers, savingUser, onSaveUser }) {
   if (!isAdmin) return <div className="card"><h3 style={{marginTop:0,marginBottom:'.75rem',fontSize:'1rem',color:'#e2e8f0'}}>{title}</h3><div style={{color:'#94a3b8',fontSize:'.85rem'}}>Limit hiện tại: <b style={{color:'#e2e8f0'}}>{currentLimit}</b> account/máy</div></div>;
   return <div className="card"><h3 style={{marginTop:0,marginBottom:'.75rem',fontSize:'1rem',color:'#e2e8f0'}}>{title} theo user</h3><div style={{color:'#64748b',fontSize:'.78rem',marginBottom:'.85rem'}}>{description}</div><div style={{overflowX:'auto'}}><table className="table" style={{margin:0}}><thead><tr><th>User</th><th>Role</th><th>Trạng thái</th><th>Limit account/máy</th><th></th></tr></thead><tbody>{users.length===0?<tr><td colSpan={5} style={{textAlign:'center',color:'#94a3b8',padding:'1rem'}}>Chưa tải được danh sách user</td></tr>:users.map((user)=><tr key={user.username}><td style={{fontWeight:700}}>{user.username}</td><td>{user.role}</td><td style={{color:user.is_active?'#10b981':'#ef4444',fontWeight:700}}>{user.is_active?'Đang bật':'Đã tắt'}</td><td><input type="number" min={1} value={user.limit} onChange={(e)=>setUsers((prev)=>prev.map((item)=>item.username===user.username?{...item,limit:e.target.value}:item))} style={{width:120,boxSizing:'border-box',background:'#1e293b',color:'#e2e8f0',border:'1px solid #334155',borderRadius:8,padding:'.45rem .6rem',fontWeight:700}}/></td><td><button onClick={()=>onSaveUser(user.username)} disabled={savingUser===user.username} style={{background:savingUser===user.username?'#334155':'#ec4899',border:'none',color:'#fff',borderRadius:7,padding:'.45rem .85rem',cursor:savingUser===user.username?'not-allowed':'pointer',fontWeight:700,whiteSpace:'nowrap'}}>{savingUser===user.username?'Đang lưu...':'Lưu'}</button></td></tr>)}</tbody></table></div></div>;
@@ -39,6 +60,11 @@ export default function ProxySettings() {
   const [savingInstagramLimitUser, setSavingInstagramLimitUser] = useState('');
   const [jobAccountDailyLimit, setJobAccountDailyLimit] = useState(20);
   const [facebookRegPageWaitHours, setFacebookRegPageWaitHours] = useState(8);
+  const [facebookRegPageResetHours, setFacebookRegPageResetHours] = useState(24);
+  const [facebookNurtureResetHours, setFacebookNurtureResetHours] = useState(24);
+  const [facebookPageJobResetHours, setFacebookPageJobResetHours] = useState(24);
+  const [savingFacebookWorkflow, setSavingFacebookWorkflow] = useState('');
+  const [savingOwnFacebookLimit, setSavingOwnFacebookLimit] = useState(false);
   const [instagramFacebookReuseHours, setInstagramFacebookReuseHours] = useState(24);
   const [instagramPerFacebookLimit, setInstagramPerFacebookLimit] = useState(1);
   const [userJobAccountDailyLimits, setUserJobAccountDailyLimits] = useState([]);
@@ -47,12 +73,44 @@ export default function ProxySettings() {
   const [machineApiKeys, setMachineApiKeys] = useState([]);
   const [newMachineApiKey, setNewMachineApiKey] = useState('');
   const [savingMachineApiKeys, setSavingMachineApiKeys] = useState(false);
+  const [taskDispatcher, setTaskDispatcher] = useState(DEFAULT_TASK_DISPATCHER);
+  const [savingTaskDispatcher, setSavingTaskDispatcher] = useState(false);
   const [saving,      setSaving]      = useState(false);
   const [settingsTab, setSettingsTab] = useState('tiktok');
   const isAdminUser = authService.getRole() === 'admin';
 
   const proxyList = proxies.split('\n').map((l) => l.trim()).filter(Boolean);
   const instagramCookieList = instagramCheckCookies.split('\n').map((line) => line.trim()).filter(Boolean);
+  const facebookWorkflowRows = [
+    {
+      key: 'reg_page_reset_hours',
+      label: 'Thời gian Reset REG PAGE',
+      description: 'Account đã báo cáo Reg Page được mở lại để reg sau thời gian này.',
+      value: facebookRegPageResetHours,
+      setter: setFacebookRegPageResetHours,
+    },
+    {
+      key: 'reg_page_wait_hours',
+      label: 'Thời gian chờ được Reg Page sau login',
+      description: 'Account mới login thành công phải chờ đủ thời gian này mới được lấy để Reg Page.',
+      value: facebookRegPageWaitHours,
+      setter: setFacebookRegPageWaitHours,
+    },
+    {
+      key: 'nurture_reset_hours',
+      label: 'Thời gian reset Nuôi',
+      description: 'Tự động chuyển trạng thái Đã nuôi về Chưa nuôi sau thời gian này.',
+      value: facebookNurtureResetHours,
+      setter: setFacebookNurtureResetHours,
+    },
+    {
+      key: 'page_job_reset_hours',
+      label: 'Thời gian reset Page làm JOB',
+      description: 'Tự động chuyển account Đã làm xong về Login thành công và Page về Chưa làm.',
+      value: facebookPageJobResetHours,
+      setter: setFacebookPageJobResetHours,
+    },
+  ];
 
   useEffect(() => {
     let mounted = true;
@@ -79,13 +137,16 @@ export default function ProxySettings() {
         setInstagramCheckCookies((res.data?.settings?.cookies || []).join('\n'));
       })
       .catch((err) => toast.error(err.message || 'Không tải được cookie check Instagram'));
-    settingsApi.getFacebookRegPageWait()
+    settingsApi.getFacebookWorkflow()
       .then((res) => {
         if (!mounted) return;
-        const hours = res.data?.settings?.hours;
-        if (Number.isInteger(hours)) setFacebookRegPageWaitHours(hours);
+        const settings = res.data?.settings || {};
+        if (Number.isInteger(settings.reg_page_reset_hours)) setFacebookRegPageResetHours(settings.reg_page_reset_hours);
+        if (Number.isInteger(settings.reg_page_wait_hours)) setFacebookRegPageWaitHours(settings.reg_page_wait_hours);
+        if (Number.isInteger(settings.nurture_reset_hours)) setFacebookNurtureResetHours(settings.nurture_reset_hours);
+        if (Number.isInteger(settings.page_job_reset_hours)) setFacebookPageJobResetHours(settings.page_job_reset_hours);
       })
-      .catch((err) => toast.error(err.message || 'Không tải được thời gian chờ reg Page'));
+      .catch((err) => toast.error(err.message || 'Không tải được cấu hình luồng Facebook'));
     settingsApi.getInstagramFacebookReg()
       .then((res) => {
         if (!mounted) return;
@@ -121,6 +182,13 @@ export default function ProxySettings() {
         setJobAccountDailyLimit(settings.limit || 20);
       })
       .catch((err) => toast.error(err.message || 'Khong tai duoc limit JOB'));
+    settingsApi.getTaskDispatcher()
+      .then((res) => {
+        if (!mounted) return;
+        const settings = res.data?.settings;
+        if (settings) setTaskDispatcher(settings);
+      })
+      .catch((err) => toast.error(err.message || 'Khong tai duoc cau hinh Task Dispatcher'));
     if (isAdminUser) {
       settingsApi.getChromeKhangLimits()
         .then((res) => {
@@ -164,7 +232,12 @@ export default function ProxySettings() {
           settingsApi.updateEligibility(parseInt(minAgeDays, 10), parseInt(minVideos, 10)),
           settingsApi.updateFacebookCheckProxies(proxies, parseInt(concurrency, 10)),
           settingsApi.updateInstagramCheckCookies(instagramCheckCookies),
-          settingsApi.updateFacebookRegPageWait(parseInt(facebookRegPageWaitHours, 10)),
+          settingsApi.updateFacebookWorkflow({
+            reg_page_reset_hours: parseInt(facebookRegPageResetHours, 10),
+            reg_page_wait_hours: parseInt(facebookRegPageWaitHours, 10),
+            nurture_reset_hours: parseInt(facebookNurtureResetHours, 10),
+            page_job_reset_hours: parseInt(facebookPageJobResetHours, 10),
+          }),
           settingsApi.updateInstagramFacebookReg(parseInt(instagramFacebookReuseHours, 10), parseInt(instagramPerFacebookLimit, 10)),
         ]);
       })
@@ -218,6 +291,9 @@ export default function ProxySettings() {
     setInstagramLoginLimit(10);
     setJobAccountDailyLimit(20);
     setFacebookRegPageWaitHours(8);
+    setFacebookRegPageResetHours(24);
+    setFacebookNurtureResetHours(24);
+    setFacebookPageJobResetHours(24);
     setInstagramFacebookReuseHours(24);
     setInstagramPerFacebookLimit(1);
     saveCheckLiveSettings({ proxies: '', concurrency: 20, delayMs: 200, batchSize: 60 });
@@ -225,7 +301,7 @@ export default function ProxySettings() {
       settingsApi.updateEligibility(4, 20),
       settingsApi.updateFacebookCheckProxies('', 20),
       settingsApi.updateInstagramCheckCookies(''),
-      settingsApi.updateFacebookRegPageWait(8),
+      settingsApi.updateFacebookWorkflow({ reg_page_reset_hours: 24, reg_page_wait_hours: 8, nurture_reset_hours: 24, page_job_reset_hours: 24 }),
       settingsApi.updateInstagramFacebookReg(24, 1),
     ])
       .then(() => toast.success('Đã reset cài đặt'))
@@ -289,6 +365,47 @@ export default function ProxySettings() {
     }
   };
 
+  const handleSaveOwnFacebookLimit = async () => {
+    const limit = parseInt(facebookLoginLimit, 10);
+    if (!Number.isInteger(limit) || limit <= 0) return toast.error('Limit Login phải lớn hơn 0');
+    setSavingOwnFacebookLimit(true);
+    try {
+      const res = await settingsApi.updateFacebookLoginLimit(limit, authService.getUsername());
+      setFacebookLoginLimit(res.data?.settings?.limit || limit);
+      toast.success('Đã lưu Limit Login Facebook');
+    } catch (err) {
+      toast.error(err.message || 'Lưu Limit Login Facebook thất bại');
+    } finally {
+      setSavingOwnFacebookLimit(false);
+    }
+  };
+
+  const handleSaveFacebookWorkflow = async (field) => {
+    const payload = {
+      reg_page_reset_hours: parseInt(facebookRegPageResetHours, 10),
+      reg_page_wait_hours: parseInt(facebookRegPageWaitHours, 10),
+      nurture_reset_hours: parseInt(facebookNurtureResetHours, 10),
+      page_job_reset_hours: parseInt(facebookPageJobResetHours, 10),
+    };
+    if (Object.values(payload).some((value) => !Number.isInteger(value) || value < 0 || value > 720)) {
+      return toast.error('Thời gian phải từ 0 đến 720 giờ');
+    }
+    setSavingFacebookWorkflow(field);
+    try {
+      const res = await settingsApi.updateFacebookWorkflow(payload);
+      const saved = res.data?.settings || payload;
+      setFacebookRegPageResetHours(saved.reg_page_reset_hours);
+      setFacebookRegPageWaitHours(saved.reg_page_wait_hours);
+      setFacebookNurtureResetHours(saved.nurture_reset_hours);
+      setFacebookPageJobResetHours(saved.page_job_reset_hours);
+      toast.success('Đã lưu cấu hình Facebook');
+    } catch (err) {
+      toast.error(err.message || 'Lưu cấu hình Facebook thất bại');
+    } finally {
+      setSavingFacebookWorkflow('');
+    }
+  };
+
   const handleSaveInstagramUserLimit = async (username) => {
     const row = userInstagramLoginLimits.find((item) => item.username === username);
     const limit = parseInt(row?.limit, 10);
@@ -349,6 +466,19 @@ export default function ProxySettings() {
   };
 
   const normalizeMachineApiKey = (value) => String(value || '').trim().toUpperCase();
+
+  const handleSaveTaskDispatcher = async () => {
+    setSavingTaskDispatcher(true);
+    try {
+      const res = await settingsApi.updateTaskDispatcher(taskDispatcher);
+      setTaskDispatcher(res.data?.settings || taskDispatcher);
+      toast.success('Da luu cau hinh Task Dispatcher');
+    } catch (err) {
+      toast.error(err.message || 'Luu Task Dispatcher that bai');
+    } finally {
+      setSavingTaskDispatcher(false);
+    }
+  };
 
   const saveMachineApiKeys = async (keys) => {
     setSavingMachineApiKeys(true);
@@ -593,7 +723,7 @@ export default function ProxySettings() {
         )}
 
         {isAdminUser ? (
-          <div className="card settings-section settings-section-facebook">
+          <div className="card settings-section settings-section-obsolete">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               📘 Limit Facebook login theo user
             </h3>
@@ -663,7 +793,7 @@ export default function ProxySettings() {
             </div>
           </div>
         ) : (
-          <div className="card settings-section settings-section-facebook">
+          <div className="card settings-section settings-section-obsolete">
             <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
               📘 Limit Facebook login
             </h3>
@@ -672,6 +802,43 @@ export default function ProxySettings() {
             </div>
           </div>
         )}
+
+        <div className="card settings-section settings-section-facebook facebook-workflow-settings">
+          <h3 style={{ marginTop: 0, marginBottom: '.35rem', fontSize: '1rem', color: '#0f172a' }}>
+            ⚙ Luồng Facebook
+          </h3>
+          <div style={{ color: '#64748b', fontSize: '.78rem', marginBottom: '.75rem' }}>
+            Cấu hình được áp dụng riêng cho tài khoản <b>{authService.getUsername()}</b>. Đơn vị thời gian là giờ.
+          </div>
+
+          <div className="facebook-workflow-row">
+            <div className="facebook-workflow-row-info">
+              <strong>Limit Login</strong>
+              <span>Số account Login thành công + Đang làm + Đã xong tối đa trên mỗi máy.</span>
+            </div>
+            <div className="facebook-workflow-row-control">
+              <input type="number" min={1} value={facebookLoginLimit} disabled={!isAdminUser} onChange={(event) => setFacebookLoginLimit(event.target.value)} />
+              <span>account</span>
+              {isAdminUser
+                ? <button type="button" disabled={savingOwnFacebookLimit} onClick={handleSaveOwnFacebookLimit}>{savingOwnFacebookLimit ? 'Đang lưu...' : 'Lưu'}</button>
+                : <span className="facebook-workflow-readonly">Chỉ admin được sửa</span>}
+            </div>
+          </div>
+
+          {facebookWorkflowRows.map((row) => <div className="facebook-workflow-row" key={row.key}>
+            <div className="facebook-workflow-row-info">
+              <strong>{row.label}</strong>
+              <span>{row.description}</span>
+            </div>
+            <div className="facebook-workflow-row-control">
+              <input type="number" min={0} max={720} value={row.value} onChange={(event) => row.setter(event.target.value)} />
+              <span>giờ</span>
+              <button type="button" disabled={savingFacebookWorkflow === row.key} onClick={() => handleSaveFacebookWorkflow(row.key)}>
+                {savingFacebookWorkflow === row.key ? 'Đang lưu...' : 'Lưu'}
+              </button>
+            </div>
+          </div>)}
+        </div>
 
         <div className={'settings-section settings-section-instagram'}><MachineLoginLimitCard
           isAdmin={isAdminUser}
@@ -791,7 +958,7 @@ export default function ProxySettings() {
           </div>
         )}
 
-        <div className="card settings-section settings-section-facebook">
+        <div className="card settings-section settings-section-obsolete">
           <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>
             Facebook Reg Page - thời gian chờ sau login
           </h3>
@@ -840,6 +1007,13 @@ export default function ProxySettings() {
             </label>
           </div>
         </div>
+        <TaskDispatcherSettings
+          settings={taskDispatcher}
+          setSettings={setTaskDispatcher}
+          saving={savingTaskDispatcher}
+          onSave={handleSaveTaskDispatcher}
+        />
+
         {/* Proxy pool */}
         <div className="card settings-section settings-section-common">
           <h3 style={{ marginTop: 0, marginBottom: '.75rem', fontSize: '1rem', color: '#e2e8f0' }}>

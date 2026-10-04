@@ -1,319 +1,161 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { statsApi, accountApi, chromeAccountApi } from '../services/api';
-import StatCard from '../components/StatCard';
-import StatusBadge from '../components/StatusBadge';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { dashboardApi } from '../services/api';
 
-const fmt = (d) =>
-  d ? new Date(d).toLocaleString('vi-VN', { hour12: false }) : '-';
+const number = (value) => Number(value) || 0;
+const fmtNumber = (value) => number(value).toLocaleString('vi-VN');
+const fmtDate = (value) => value ? new Date(value).toLocaleString('vi-VN', { hour12: false }) : '-';
+const fmtTime = (value) => value ? new Date(value).toLocaleTimeString('vi-VN', { hour12: false }) : '-';
+const relativeTime = (value) => {
+  if (!value) return '-';
+  const seconds = Math.max(Math.floor((Date.now() - new Date(value).getTime()) / 1000), 0);
+  if (seconds < 10) return 'Vừa xong';
+  if (seconds < 60) return `${seconds} giây trước`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} phút trước`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} giờ trước`;
+  return `${Math.floor(seconds / 86400)} ngày trước`;
+};
+const runtime = (startedAt) => {
+  if (!startedAt) return '-';
+  const seconds = Math.max(Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000), 0);
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+};
 
-const STATUS_CARDS = [
-  { key: 'ACC_LOGIN', label: 'Chờ login', color: '#f59e0b', icon: '📝' },
-  { key: 'LOGIN_THANH_CONG', label: 'Login xong', color: '#10b981', icon: '✅' },
-  { key: 'ACC_DA_KHANG', label: 'Đã kháng', color: '#0ea5e9', icon: '🛡️' },
-  { key: 'ACC_CHUA_KHANG', label: 'Chưa kháng', color: '#f97316', icon: '⚠️' },
-  { key: 'ACC_DU_DK', label: 'Đủ điều kiện', color: '#8b5cf6', icon: '🎯' },
-  { key: 'ACC_DIE', label: 'Die', color: '#6b7280', icon: '☠️' },
-];
+const STATUS_COLOR = { RUNNING: '#7c3aed', IDLE: '#0284c7', OFFLINE: '#64748b', ONLINE: '#059669' };
 
 const TASKS = [
-  {
-    key: 'app',
-    title: 'Accounts App',
-    description: 'Bảng accounts',
-    path: '/accounts',
-    accent: '#10b981',
-  },
-  {
-    key: 'chrome',
-    title: 'Task Chrome',
-    description: 'Bang chrome_accounts',
-    path: '/chrome-accounts',
-    accent: '#3b82f6',
-  },
+  { key: 'nurture_facebook', title: 'Nuôi Facebook', to: '/facebook-nurture' },
+  { key: 'nurture_instagram', title: 'Nuôi Instagram', to: '/facebook-nurture?platform=instagram' },
+  { key: 'reg_page', title: 'Reg Page', to: '/facebook-jobs' },
+  { key: 'page_job', title: 'Page Job', to: '/facebook-jobs' },
+  { key: 'reg_instagram', title: 'Reg Instagram', to: '/facebook-reg' },
+  { key: 'instagram_job', title: 'Instagram Job', to: '/facebook-jobs?platform=instagram' },
 ];
 
-function LiveSummary({ data }) {
-  const total = data?.total || 0;
-  const items = [
-    { key: 'live', label: 'Live', color: '#16a34a' },
-    { key: 'die_live', label: 'Die', color: '#dc2626' },
-    { key: 'unknown_live', label: 'Unknown', color: '#64748b' },
-  ];
-
-  return (
-    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
-      {items.map(({ key, label, color }) => {
-        const value = data?.[key] || 0;
-        const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-        return (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '.4rem', fontSize: '.8rem' }}>
-            <span style={{ width: 10, height: 10, borderRadius: 999, background: color }} />
-            <span style={{ color: '#475569' }}>{label}</span>
-            <strong style={{ color }}>{value}</strong>
-            <span style={{ color: '#94a3b8' }}>({pct}%)</span>
-          </div>
-        );
-      })}
+function SummaryCard({ title, value, rows, color, icon, to }) {
+  return <Link className="dashboard-summary-card" style={{ '--summary-color': color }} to={to || '#'}>
+    <div className="dashboard-summary-head">
+      <span className="dashboard-summary-icon" style={{ background: `${color}14`, color }}>{icon}</span>
+      <span><small>{title}</small><strong>{fmtNumber(value)}</strong></span>
     </div>
-  );
+    <div className="dashboard-summary-details">
+      {rows.map((row) => <span key={row.label}><em>{row.label}</em><b className={row.danger ? 'is-danger' : ''}>{fmtNumber(row.value)}</b></span>)}
+    </div>
+  </Link>;
 }
 
-function StatusDistribution({ data }) {
-  const total = data?.total || 0;
-  if (!total) return null;
-
-  return (
-    <div className="card" style={{ marginTop: '1rem' }}>
-      <div className="card-header">
-        <h3>Phân bổ trạng thái</h3>
-      </div>
-      <div className="card-body">
-        <div style={{ display: 'flex', height: 24, borderRadius: 6, overflow: 'hidden', gap: 2 }}>
-          {STATUS_CARDS.map(({ key, color }) => {
-            const pct = ((data[key] || 0) / total) * 100;
-            return pct > 0 ? (
-              <div
-                key={key}
-                style={{ background: color, width: `${pct}%`, transition: 'width .5s' }}
-                title={`${key}: ${data[key]} (${pct.toFixed(1)}%)`}
-              />
-            ) : null;
-          })}
-        </div>
-        <div style={{ display: 'flex', gap: '1.25rem', marginTop: '.75rem', flexWrap: 'wrap' }}>
-          {STATUS_CARDS.map(({ key, color, label }) => {
-            const value = data[key] || 0;
-            const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-            return (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '.4rem', fontSize: '.8rem' }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: color }} />
-                <span style={{ color: '#475569' }}>{label}</span>
-                <strong>{value}</strong>
-                <span style={{ color: '#94a3b8' }}>({pct}%)</span>
-              </div>
-            );
-          })}
-        </div>
-        <LiveSummary data={data} />
-      </div>
-    </div>
-  );
-}
-
-function TaskSection({ task, data }) {
-  return (
-    <section style={{ marginBottom: '1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '.8rem' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>{task.title}</h2>
-          <div style={{ color: '#64748b', fontSize: '.82rem', marginTop: '.15rem' }}>
-            {task.description}
-          </div>
-        </div>
-        <Link to={task.path} className="btn btn-secondary btn-sm">Mở danh sách</Link>
-      </div>
-
-      <div className="stats-grid">
-        <StatCard title="Tổng account" value={data?.total || 0} color={task.accent} icon="📊" />
-        {STATUS_CARDS.map(({ key, label, color, icon }) => (
-          <StatCard key={key} title={label} value={data?.[key] || 0} color={color} icon={icon} />
-        ))}
-      </div>
-
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-        <StatCard title="Reg hôm nay" value={data?.today_reg || 0} color="#3b82f6" icon="🆕" />
-        <StatCard title="Cập nhật hôm nay" value={data?.today_updated || 0} color="#10b981" icon="↻" />
-        <StatCard title="Live" value={data?.live || 0} color="#16a34a" icon="●" />
-      </div>
-
-      <StatusDistribution data={data} />
-    </section>
-  );
-}
-
-function TaskSwitcher({ activeKey, onChange, stats }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', flexWrap: 'wrap', margin: '1rem 0 1.25rem' }}>
-      {TASKS.map((task) => {
-        const active = task.key === activeKey;
-        const count = stats?.tasks?.[task.key]?.total || 0;
-        return (
-          <button
-            key={task.key}
-            type="button"
-            onClick={() => onChange(task.key)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '.55rem',
-              border: active ? `1px solid ${task.accent}` : '1px solid #cbd5e1',
-              background: active ? task.accent : '#ffffff',
-              color: active ? '#ffffff' : '#0f172a',
-              borderRadius: 8,
-              padding: '.55rem .85rem',
-              fontSize: '.86rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: active ? `0 6px 16px ${task.accent}33` : '0 1px 2px rgba(15,23,42,.06)',
-            }}
-          >
-            <span>{task.title.replace('Task ', 'Acc ')}</span>
-            <span
-              style={{
-                minWidth: 24,
-                height: 22,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 999,
-                background: active ? 'rgba(255,255,255,.22)' : '#e2e8f0',
-                color: active ? '#ffffff' : '#334155',
-                padding: '0 .45rem',
-                fontSize: '.78rem',
-              }}
-            >
-              {count}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function RecentTable({ title, rows, path, emptyText }) {
-  const navigate = useNavigate();
-
-  return (
-    <div className="card">
-      <div className="card-header">
-        <h3>{title}</h3>
-        <Link to={path} className="btn btn-secondary btn-sm">Xem tất cả</Link>
-      </div>
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>STT</th>
-              <th>Username</th>
-              <th>Device</th>
-              <th>Status</th>
-              <th>Live</th>
-              <th>Videos</th>
-              <th>Followers</th>
-              <th>Following</th>
-              <th>Reg At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={9}>
-                  <div className="empty-state" style={{ padding: '2rem' }}>
-                    <p>{emptyText}</p>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              rows.map((acc, index) => (
-                <tr key={acc.id} onClick={() => navigate(`${path}/${acc.id}`)}>
-                  <td className="td-mono">{index + 1}</td>
-                  <td><strong>{acc.username || <span className="text-muted">N/A</span>}</strong></td>
-                  <td className="td-mono">{acc.device_id || '-'}</td>
-                  <td><StatusBadge status={acc.status} /></td>
-                  <td><StatusBadge status={acc.live_status} /></td>
-                  <td><strong style={{ color: '#047857' }}>{acc.video_count ?? 0}</strong></td>
-                  <td><strong style={{ color: '#2563eb' }}>{acc.followers ?? '-'}</strong></td>
-                  <td><strong style={{ color: '#7c3aed' }}>{acc.following ?? '-'}</strong></td>
-                  <td className="text-muted text-sm">{fmt(acc.reg_at)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+function StatusBadge({ status }) {
+  const color = STATUS_COLOR[status] || STATUS_COLOR.OFFLINE;
+  return <span className="dashboard-status" style={{ color, background: `${color}12` }}><i style={{ background: color }} />{status}</span>;
 }
 
 export default function Dashboard() {
-  const [stats, setStats] = useState(null);
-  const [recentApp, setRecentApp] = useState([]);
-  const [recentChrome, setRecentChrome] = useState([]);
-  const [activeTask, setActiveTask] = useState('app');
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [lastSync, setLastSync] = useState(null);
+  const [error, setError] = useState('');
+  const [deviceSearch, setDeviceSearch] = useState('');
 
-  const fetchAll = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
-      const [statsRes, appRes, chromeRes] = await Promise.all([
-        statsApi.getStats(),
-        accountApi.getAll({ limit: 6, page: 1 }),
-        chromeAccountApi.getAll({ limit: 6, page: 1 }),
-      ]);
-      setStats(statsRes.data);
-      setRecentApp(appRes.data?.accounts || []);
-      setRecentChrome(chromeRes.data?.accounts || []);
-      setError(null);
-      setLastSync(new Date());
+      const response = await dashboardApi.getSummary();
+      setData(response.data || {});
+      setError('');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Không tải được Dashboard');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchAll();
-    const id = setInterval(fetchAll, 30_000);
-    return () => clearInterval(id);
-  }, [fetchAll]);
+    load();
+    const timer = setInterval(load, 15_000);
+    return () => clearInterval(timer);
+  }, [load]);
 
-  if (loading) {
-    return (
-      <div className="loading-wrap">
-        <div className="spinner" />
-        Đang tải Dashboard...
-      </div>
-    );
-  }
+  const devices = useMemo(() => {
+    const search = deviceSearch.trim().toLowerCase();
+    return (data?.devices?.rows || []).filter((row) => !search || `${row.device_name} ${row.device_id} ${row.current_uid}`.toLowerCase().includes(search));
+  }, [data, deviceSearch]);
 
-  const appStats = stats?.tasks?.app || {};
-  const chromeStats = stats?.tasks?.chrome || {};
-  const currentTask = TASKS.find((task) => task.key === activeTask) || TASKS[0];
-  const currentStats = activeTask === 'chrome' ? chromeStats : appStats;
-  const currentRows = activeTask === 'chrome' ? recentChrome : recentApp;
+  if (loading) return <div className="loading-wrap"><div className="spinner" />Đang tải Dashboard...</div>;
+  const accounts = data?.accounts || {};
+  const fb = accounts.facebook || {};
+  const ig = accounts.instagram || {};
+  const pages = accounts.pages || {};
+  const tasks = data?.tasks || {};
+  const deviceSummary = data?.devices?.summary || {};
+  const nurtureErrors = number(tasks.nurture_facebook?.errors) + number(tasks.nurture_instagram?.errors);
+  const pageErrors = number(tasks.reg_page?.errors) + number(tasks.page_job?.errors);
+  const instagramErrors = number(tasks.reg_instagram?.errors) + number(tasks.instagram_job?.errors);
+  const taskErrors = nurtureErrors + pageErrors + instagramErrors;
+  const alerts = [
+    number(deviceSummary.offline) > 0 && { label: `${fmtNumber(deviceSummary.offline)} thiết bị Offline`, to: '#devices' },
+    ...TASKS.filter((task) => number(tasks[task.key]?.errors) > 0).map((task) => ({ label: `${fmtNumber(tasks[task.key].errors)} ${task.title} Error`, to: task.to })),
+    data?.scheduler?.last_error && { label: 'Scheduler đang có lỗi', to: '#tasks' },
+  ].filter(Boolean);
 
-  return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1>Dashboard</h1>
-          {lastSync && (
-            <div className="subtitle">
-              Cập nhật lúc {lastSync.toLocaleTimeString('vi-VN')} - tự refresh mỗi 30 giây
-            </div>
-          )}
-        </div>
-        <button className="btn btn-secondary btn-sm" onClick={fetchAll}>
-          Làm mới
-        </button>
-      </div>
-
-      {error && <div className="error-bar">Lỗi: {error}</div>}
-
-      <TaskSwitcher activeKey={activeTask} onChange={setActiveTask} stats={stats} />
-
-      <TaskSection task={currentTask} data={currentStats} />
-
-      <RecentTable
-        title={activeTask === 'chrome' ? 'Account Chrome mới nhất' : 'Accounts App mới nhất'}
-        rows={currentRows}
-        path={currentTask.path}
-        emptyText={activeTask === 'chrome' ? 'Chưa có account Chrome nào' : 'Chưa có Accounts App nào'}
-      />
+  return <div className="page dashboard-monitor-page">
+    <div className="page-header dashboard-monitor-header">
+      <div><h1>📊 Dashboard hệ thống</h1><p>Giám sát gần realtime · cập nhật mỗi 15 giây</p></div>
+      <div className="dashboard-last-sync" title={fmtDate(data?.generated_at)}><span className="dashboard-live-dot" />Dữ liệu lúc {fmtTime(data?.generated_at)}</div>
     </div>
-  );
+    {error && <div className="error-bar">{error}</div>}
+
+    {alerts.length > 0 && <div className="dashboard-alerts" aria-label="Cảnh báo nhanh">
+      {alerts.map((alert) => <Link key={alert.label} to={alert.to}><span>⚠</span>{alert.label}</Link>)}
+    </div>}
+
+    <section>
+      <div className="dashboard-section-title"><h2>Tổng quan</h2><span>Chọn card để mở danh sách</span></div>
+      <div className="dashboard-summary-grid-main">
+        <SummaryCard icon="f" title="Facebook" value={fb.total} color="#1877f2" to="/facebook-jobs" rows={[
+          { label: 'Login thành công', value: fb.login_success }, { label: 'Chưa nuôi', value: fb.not_nurtured }, { label: 'Lỗi', value: fb.errors, danger: true },
+        ]} />
+        <SummaryCard icon="P" title="Page" value={pages.total} color="#d97706" to="/facebook-jobs" rows={[
+          { label: 'Chưa làm', value: pages.ready }, { label: 'Đang chạy', value: pages.running }, { label: 'Đã xong', value: pages.done },
+        ]} />
+        <SummaryCard icon="IG" title="Instagram" value={ig.total} color="#db2777" to="/facebook-jobs?platform=instagram" rows={[
+          { label: 'Active', value: ig.active }, { label: 'Chưa nuôi', value: ig.not_nurtured }, { label: 'Lỗi', value: ig.errors, danger: true },
+        ]} />
+        <SummaryCard icon="▣" title="Device" value={deviceSummary.total} color="#0284c7" to="#devices" rows={[
+          { label: 'Running', value: deviceSummary.running }, { label: 'Idle', value: deviceSummary.idle }, { label: 'Offline', value: deviceSummary.offline, danger: true },
+        ]} />
+        <SummaryCard icon="!" title="Error" value={taskErrors} color="#dc2626" to="#tasks" rows={[
+          { label: 'Nuôi account', value: nurtureErrors, danger: true }, { label: 'Page', value: pageErrors, danger: true }, { label: 'Instagram', value: instagramErrors, danger: true },
+        ]} />
+      </div>
+    </section>
+
+    <section id="tasks" className="card dashboard-task-section">
+      <div className="card-header"><div><h3>Công việc realtime</h3><small>Trạng thái hiện tại của từng luồng</small></div></div>
+      <div className="table-container"><table className="dashboard-task-table"><thead><tr><th>Công việc</th><th>READY</th><th>RUNNING</th><th>ERROR</th></tr></thead>
+        <tbody>{TASKS.map((task) => <tr key={task.key}>
+          <td><Link to={task.to}>{task.title}</Link></td>
+          <td><Link className="dashboard-task-value is-ready" to={task.to}>{fmtNumber(tasks[task.key]?.ready)}</Link></td>
+          <td><Link className="dashboard-task-value is-running" to={task.to}>{fmtNumber(tasks[task.key]?.running)}</Link></td>
+          <td><Link className="dashboard-task-value is-error" to={task.to}>{fmtNumber(tasks[task.key]?.errors)}</Link></td>
+        </tr>)}</tbody>
+      </table></div>
+    </section>
+
+    <section id="devices" className="card dashboard-device-card">
+      <div className="card-header"><div><h3>🖥 Thiết bị</h3><small>{fmtNumber(deviceSummary.running)} running · {fmtNumber(deviceSummary.idle)} idle · {fmtNumber(deviceSummary.offline)} offline</small></div><input value={deviceSearch} onChange={(event) => setDeviceSearch(event.target.value)} placeholder="Tìm máy hoặc account..." /></div>
+      <div className="table-container"><table className="dashboard-device-table"><thead><tr><th>STT</th><th>Thiết bị</th><th>Facebook</th><th>Instagram</th><th>Trạng thái</th><th>Task</th><th>Account</th><th>Runtime</th><th>Next available</th><th>Last Seen</th></tr></thead>
+        <tbody>{!devices.length ? <tr><td colSpan={10} className="empty-cell">Chưa có dữ liệu thiết bị</td></tr> : devices.map((row, index) => {
+          const offline = row.status === 'OFFLINE';
+          const running = row.status === 'RUNNING';
+          return <tr key={row.device_id} className={`dashboard-device-row is-${String(row.status || '').toLowerCase()}`}>
+            <td>{index + 1}</td><td><strong>{row.device_name || row.device_id}</strong>{row.device_name !== row.device_id && <small className="dashboard-device-id">{row.device_id}</small>}</td><td className="dashboard-account-count">{fmtNumber(row.facebook_accounts)}</td><td className="dashboard-account-count">{fmtNumber(row.instagram_accounts)}</td>
+            <td><StatusBadge status={row.status} />{row.status === 'IDLE' && <small className={row.next_available ? 'dashboard-idle-ready' : 'dashboard-idle-empty'}>{row.next_available ? 'CÓ VIỆC' : 'Không có việc'}</small>}</td>
+            <td className={offline ? 'dashboard-last-value' : ''}>{offline && row.current_task && <small>Last Task</small>}{row.current_task || '-'}</td>
+            <td className={offline ? 'dashboard-last-value' : ''}>{offline && row.current_uid && <small>Last Account</small>}{row.current_uid || '-'}</td>
+            <td>{running ? runtime(row.started_at) : '-'}</td><td>{row.status === 'IDLE' && row.next_available ? <span className="dashboard-next-task"><b>{row.next_available.task_type}</b><small>{fmtNumber(row.next_available.count)} task</small></span> : '-'}</td><td title={fmtDate(row.last_seen)}>{relativeTime(row.last_seen)}</td>
+          </tr>;
+        })}</tbody>
+      </table></div>
+    </section>
+  </div>;
 }

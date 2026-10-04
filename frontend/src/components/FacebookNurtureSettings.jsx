@@ -12,6 +12,15 @@ const emptyActions = () => ({
   like_pages: { enabled: false, min: 1, max: 1, page_uids: [] },
 });
 
+const emptyGeneratorConfig = () => ({
+  actions: {
+    ...emptyActions(),
+    newfeed: { enabled: true },
+    reels: { enabled: true },
+    like_newfeed: { enabled: true, min: 1, max: 3 },
+  },
+});
+
 const actionRows = [
   { key: 'newfeed', label: 'Lướt bảng tin', unit: 'giây' },
   { key: 'reels', label: 'Xem Reels', unit: 'giây' },
@@ -37,22 +46,52 @@ const cardStyle = {
 };
 
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomCountAction = (action = {}) => {
+  const configuredMin = Math.max(parseInt(action.min, 10) || 0, 0);
+  const configuredMax = Math.max(parseInt(action.max, 10) || configuredMin, configuredMin);
+  const min = randomInt(configuredMin, configuredMax);
+  return { enabled: action.enabled === true, min, max: randomInt(min, configuredMax) };
+};
+
+const validateGeneratorSetup = (actions = {}) => {
+  if (!actions.newfeed?.enabled && !actions.reels?.enabled) {
+    return 'Setup ngẫu nhiên cần bật Lướt bảng tin hoặc Xem Reels';
+  }
+  for (const row of [...actionRows.filter((item) => !['newfeed', 'reels'].includes(item.key)), ...targetActionRows]) {
+    const action = actions[row.key];
+    if (!action?.enabled) continue;
+    const min = parseInt(action.min, 10);
+    const max = parseInt(action.max, 10);
+    if (!Number.isInteger(min) || !Number.isInteger(max) || min < 0 || max < min) {
+      return `Khoảng min/max của ${row.label} không hợp lệ`;
+    }
+    if (row.field) {
+      const targets = Array.isArray(action[row.field]) ? action[row.field] : [];
+      if (!targets.length || max > targets.length) {
+        return `${row.label} cần danh sách và Max không lớn hơn số mục hiện có`;
+      }
+    }
+  }
+  return null;
+};
 
 export default function FacebookNurtureSettings() {
-  const [settings, setSettings] = useState({ active_scenario_id: null, cooldown_hours: 24, scenarios: [] });
+  const [settings, setSettings] = useState({ active_scenario_id: null, cooldown_hours: 24, generator_config: emptyGeneratorConfig(), scenarios: [] });
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generatorCount, setGeneratorCount] = useState(10);
   const [generatorMinMinutes, setGeneratorMinMinutes] = useState(15);
   const [generatorMaxMinutes, setGeneratorMaxMinutes] = useState(30);
+  const [generatorSetupOpen, setGeneratorSetupOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     settingsApi.getFacebookNurture()
       .then((res) => {
         if (!mounted) return;
-        const value = res.data?.settings || { active_scenario_id: null, cooldown_hours: 24, scenarios: [] };
+        const value = res.data?.settings || { active_scenario_id: null, cooldown_hours: 24, generator_config: emptyGeneratorConfig(), scenarios: [] };
+        if (!value.generator_config) value.generator_config = emptyGeneratorConfig();
         setSettings(value);
         setSelectedId(value.active_scenario_id || value.scenarios?.[0]?.id || '');
       })
@@ -75,6 +114,8 @@ export default function FacebookNurtureSettings() {
       return total;
     }, { min: 0, max: 0 });
   }, [selected]);
+  const generatorSetupActions = settings.generator_config?.actions || emptyGeneratorConfig().actions;
+  const generatorEnabledCount = Object.values(generatorSetupActions).filter((action) => action?.enabled).length;
 
   const addScenario = () => {
     const id = `scenario-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -85,6 +126,23 @@ export default function FacebookNurtureSettings() {
     };
     setSettings((current) => ({ ...current, scenarios: [...current.scenarios, scenario] }));
     setSelectedId(id);
+  };
+
+  const updateGeneratorAction = (actionKey, field, value) => {
+    setSettings((current) => {
+      const generatorConfig = current.generator_config || emptyGeneratorConfig();
+      const action = generatorConfig.actions?.[actionKey] || emptyGeneratorConfig().actions[actionKey];
+      return {
+        ...current,
+        generator_config: {
+          ...generatorConfig,
+          actions: {
+            ...generatorConfig.actions,
+            [actionKey]: { ...action, [field]: value },
+          },
+        },
+      };
+    });
   };
 
   const generateRandomScenarios = async () => {
@@ -109,14 +167,20 @@ export default function FacebookNurtureSettings() {
       toast.error(`Chỉ còn có thể tạo thêm ${availableSlots} kịch bản`);
       return;
     }
+    const generatorConfig = settings.generator_config || emptyGeneratorConfig();
+    const generatorActions = generatorConfig.actions || emptyGeneratorConfig().actions;
+    const generatorError = validateGeneratorSetup(generatorActions);
+    if (generatorError) {
+      toast.error(generatorError);
+      return;
+    }
 
     const generatedAt = Date.now();
     const totalMinSeconds = minMinutes * 60;
     const totalMaxSeconds = maxMinutes * 60;
     const generated = Array.from({ length: count }, (_, index) => {
-      let newfeedEnabled = Math.random() < .8;
-      let reelsEnabled = Math.random() < .65;
-      if (!newfeedEnabled && !reelsEnabled) newfeedEnabled = true;
+      const newfeedEnabled = generatorActions.newfeed?.enabled === true;
+      const reelsEnabled = generatorActions.reels?.enabled === true;
 
       let newfeedMin = 0;
       let newfeedMax = 0;
@@ -136,12 +200,15 @@ export default function FacebookNurtureSettings() {
         reelsMax = totalMaxSeconds;
       }
 
-      const likeMin = randomInt(1, 3);
       const actions = {
         ...emptyActions(),
         newfeed: { enabled: newfeedEnabled, min: newfeedMin, max: newfeedMax },
         reels: { enabled: reelsEnabled, min: reelsMin, max: reelsMax },
-        like_newfeed: { enabled: Math.random() < .35, min: likeMin, max: likeMin + randomInt(0, 3) },
+        like_newfeed: randomCountAction(generatorActions.like_newfeed),
+        friend_request: randomCountAction(generatorActions.friend_request),
+        accept_friend: randomCountAction(generatorActions.accept_friend),
+        join_groups: { ...randomCountAction(generatorActions.join_groups), links: [...(generatorActions.join_groups?.links || [])] },
+        like_pages: { ...randomCountAction(generatorActions.like_pages), page_uids: [...(generatorActions.like_pages?.page_uids || [])] },
       };
       return {
         id: `auto-${generatedAt}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
@@ -150,6 +217,7 @@ export default function FacebookNurtureSettings() {
       };
     });
     const nextSettings = {
+      ...settings,
       active_scenario_id: settings.active_scenario_id || generated[0].id,
       cooldown_hours: settings.cooldown_hours || 24,
       scenarios: [...settings.scenarios, ...generated],
@@ -213,6 +281,11 @@ export default function FacebookNurtureSettings() {
   };
 
   const save = async () => {
+    const generatorError = validateGeneratorSetup(settings.generator_config?.actions || emptyGeneratorConfig().actions);
+    if (generatorError) {
+      toast.error(generatorError);
+      return;
+    }
     for (const scenario of settings.scenarios) {
       if (!String(scenario.name || '').trim()) {
         toast.error('Tên kịch bản không được để trống');
@@ -279,22 +352,6 @@ export default function FacebookNurtureSettings() {
           </button>
         </div>
 
-        <div style={{ marginBottom: '1rem', padding: '.85rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#f8fafc' }}>
-          <label style={{ color: '#0f172a', fontWeight: 800, fontSize: '.85rem' }}>
-            Khoảng nghỉ trước khi nuôi lại (giờ)
-            <input
-              type={'number'}
-              min={1}
-              max={720}
-              value={settings.cooldown_hours ?? 24}
-              onChange={(event) => setSettings((current) => ({ ...current, cooldown_hours: event.target.value }))}
-              style={{ ...inputStyle, marginTop: '.4rem', maxWidth: 220 }}
-            />
-          </label>
-          <div style={{ color: '#64748b', fontSize: '.75rem', marginTop: '.4rem' }}>
-            Account đã nuôi vẫn được chạy Job hoặc Reg Page; thời gian này chỉ áp dụng cho lần nuôi tiếp theo.
-          </div>
-        </div>
         {settings.scenarios.length === 0 ? (
           <div style={{ padding: '1.5rem', border: '1px dashed #94a3b8', borderRadius: 8, textAlign: 'center', color: '#475569', background: '#f8fafc' }}>
             Chưa có kịch bản. Bấm “Thêm kịch bản” để bắt đầu.
@@ -315,7 +372,7 @@ export default function FacebookNurtureSettings() {
         <div style={{ marginTop: '1rem', padding: '.9rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#f8fafc' }}>
           <div style={{ color: '#0f172a', fontWeight: 800, fontSize: '.9rem' }}>Tạo nhanh kịch bản ngẫu nhiên</div>
           <div style={{ color: '#475569', fontSize: '.78rem', margin: '.25rem 0 .7rem' }}>
-            Nhập tổng thời gian một phiên. Web sẽ chia hợp lý cho Bảng tin và Reels, sau đó lưu ngay.
+            Chọn các tính năng trong Setup, nhập khoảng số lượng và danh sách đích. Web sẽ tạo kịch bản ngẫu nhiên từ cấu hình đó.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '.6rem', marginBottom: '.65rem' }}>
             <label style={{ color: '#334155', fontSize: '.75rem', fontWeight: 700 }}>
@@ -331,6 +388,69 @@ export default function FacebookNurtureSettings() {
               <input type={'number'} min={1} max={1440} value={generatorMaxMinutes} onChange={(event) => setGeneratorMaxMinutes(event.target.value)} style={{ ...inputStyle, marginTop: '.3rem' }} />
             </label>
           </div>
+          <button
+            type={'button'}
+            onClick={() => setGeneratorSetupOpen((open) => !open)}
+            style={{ width: '100%', marginBottom: '.65rem', background: generatorSetupOpen ? '#1e293b' : '#fff', color: generatorSetupOpen ? '#fff' : '#334155', border: '1px solid #94a3b8', borderRadius: 8, padding: '.58rem .8rem', cursor: 'pointer', fontWeight: 800 }}
+          >
+            ⚙ Setup tính năng ngẫu nhiên ({generatorEnabledCount}/7) {generatorSetupOpen ? '▲' : '▼'}
+          </button>
+          {generatorSetupOpen && <div style={{ marginBottom: '.75rem', border: '1px solid #cbd5e1', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
+            {['newfeed', 'reels'].map((key, index) => {
+              const labels = { newfeed: 'Lướt bảng tin', reels: 'Xem Reels' };
+              const action = generatorSetupActions[key] || { enabled: true };
+              return <label key={key} style={{ display: 'flex', gap: '.55rem', alignItems: 'center', padding: '.75rem', borderTop: index ? '1px solid #e2e8f0' : 0, color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>
+                <input type={'checkbox'} checked={action.enabled} onChange={(event) => updateGeneratorAction(key, 'enabled', event.target.checked)} />
+                {labels[key]} <span style={{ color: '#64748b', fontSize: '.72rem', fontWeight: 600 }}>(chia theo tổng thời gian phiên)</span>
+              </label>;
+            })}
+            {actionRows.filter((row) => !['newfeed', 'reels'].includes(row.key)).map((row) => {
+              const action = generatorSetupActions[row.key] || emptyGeneratorConfig().actions[row.key];
+              return <div key={row.key} style={{ padding: '.75rem', borderTop: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'flex', gap: '.55rem', alignItems: 'center', color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>
+                  <input type={'checkbox'} checked={action.enabled} onChange={(event) => updateGeneratorAction(row.key, 'enabled', event.target.checked)} />
+                  {row.label}
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.55rem', marginTop: '.55rem', opacity: action.enabled ? 1 : .5 }}>
+                  <input aria-label={`Min ${row.label}`} type={'number'} min={0} disabled={!action.enabled} value={action.min} onChange={(event) => updateGeneratorAction(row.key, 'min', event.target.value)} style={inputStyle} placeholder={'Min'} />
+                  <input aria-label={`Max ${row.label}`} type={'number'} min={0} disabled={!action.enabled} value={action.max} onChange={(event) => updateGeneratorAction(row.key, 'max', event.target.value)} style={inputStyle} placeholder={'Max'} />
+                </div>
+              </div>;
+            })}
+            {targetActionRows.map((row) => {
+              const action = generatorSetupActions[row.key] || emptyGeneratorConfig().actions[row.key];
+              const targets = Array.isArray(action[row.field]) ? action[row.field] : [];
+              return <div key={row.key} style={{ padding: '.75rem', borderTop: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'flex', gap: '.55rem', alignItems: 'center', color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>
+                  <input type={'checkbox'} checked={action.enabled} onChange={(event) => updateGeneratorAction(row.key, 'enabled', event.target.checked)} />
+                  {row.label}
+                </label>
+                <textarea
+                  disabled={!action.enabled}
+                  value={targets.join('\n')}
+                  onChange={(event) => updateGeneratorAction(row.key, row.field, event.target.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))}
+                  placeholder={row.placeholder}
+                  rows={3}
+                  style={{ ...inputStyle, marginTop: '.55rem', resize: 'vertical', fontFamily: 'monospace', opacity: action.enabled ? 1 : .5 }}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.55rem', marginTop: '.55rem', opacity: action.enabled ? 1 : .5 }}>
+                  <input aria-label={`Min ${row.label}`} type={'number'} min={0} max={targets.length || 0} disabled={!action.enabled} value={action.min} onChange={(event) => updateGeneratorAction(row.key, 'min', event.target.value)} style={inputStyle} placeholder={'Min'} />
+                  <input aria-label={`Max ${row.label}`} type={'number'} min={0} max={targets.length || 0} disabled={!action.enabled} value={action.max} onChange={(event) => updateGeneratorAction(row.key, 'max', event.target.value)} style={inputStyle} placeholder={'Max'} />
+                </div>
+                <div style={{ color: '#64748b', fontSize: '.7rem', marginTop: '.3rem' }}>{targets.length} {row.itemLabel}</div>
+              </div>;
+            })}
+            <div style={{ padding: '.75rem', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              <button
+                type={'button'}
+                onClick={save}
+                disabled={saving}
+                style={{ width: '100%', background: saving ? '#64748b' : '#0f766e', border: 'none', color: '#fff', borderRadius: 8, padding: '.58rem .8rem', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 800 }}
+              >
+                {saving ? 'Đang lưu...' : 'Lưu setup tính năng'}
+              </button>
+            </div>
+          </div>}
           <div>
             <button
               onClick={generateRandomScenarios}
@@ -365,7 +485,7 @@ export default function FacebookNurtureSettings() {
           </div>
           <div style={{ margin: '-.35rem 0 .85rem', color: '#475569', fontSize: '.8rem' }}>
             Tổng thời gian: <b style={{ color: '#0f172a' }}>{(selectedDuration.min / 60).toFixed(1)} - {(selectedDuration.max / 60).toFixed(1)} phút</b>
-            {' '}(không tính số lượt thích)
+            {' '}(không tính các hành động theo số lượng)
           </div>
 
           <div style={{ border: '1px solid #cbd5e1', borderRadius: 8, overflow: 'hidden' }}>

@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import InstagramAccounts from './InstagramAccounts';
 import SocialPlatformSwitch from '../components/SocialPlatformSwitch';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { facebookApi, accountGroupApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
@@ -399,7 +399,7 @@ function FacebookJobMachinePanel({ machines, selectedDevice, onSelect }) {
   );
 }
 
-function FacebookAccountPanel({ kind = 'job', platformSwitch = null }) {
+function FacebookAccountPanel({ kind = 'job', platformSwitch = null, initialStatus = '' }) {
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [statusCounts, setStatusCounts] = useState({});
@@ -408,7 +408,8 @@ function FacebookAccountPanel({ kind = 'job', platformSwitch = null }) {
   const [viewMode, setViewMode] = useState('accounts');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(initialStatus);
+  useEffect(() => { setStatus(initialStatus); setPage(1); }, [initialStatus]);
   const [liveStatus, setLiveStatus] = useState('');
   const [groupId, setGroupId] = useState('');
   const [q, setQ] = useState('');
@@ -1001,10 +1002,20 @@ function FacebookAccountPanel({ kind = 'job', platformSwitch = null }) {
 }
 
 export default function FacebookAccounts({ kind = 'job' }) {
-  const [platform, setPlatform] = useState('facebook');
-  useEffect(() => { setPlatform('facebook'); }, [kind]);
-  const platformSwitch = <SocialPlatformSwitch active={platform} onChange={setPlatform} />;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedPlatform = searchParams.get('platform') === 'instagram' ? 'instagram' : 'facebook';
+  const initialStatus = searchParams.get('status') || '';
+  const [platform, setPlatform] = useState(requestedPlatform);
+  useEffect(() => { setPlatform(requestedPlatform); }, [kind, requestedPlatform]);
+  const changePlatform = (value) => {
+    setPlatform(value);
+    const next = new URLSearchParams(searchParams);
+    if (value === 'instagram') next.set('platform', 'instagram'); else next.delete('platform');
+    next.delete('status');
+    setSearchParams(next, { replace: true });
+  };
+  const platformSwitch = <SocialPlatformSwitch active={platform} onChange={changePlatform} />;
   return platform === 'instagram'
-    ? <InstagramAccounts kind={kind} platformSwitch={platformSwitch} />
-    : <FacebookAccountPanel kind={kind} platformSwitch={platformSwitch} />;
+    ? <InstagramAccounts kind={kind} platformSwitch={platformSwitch} initialStatus={initialStatus} />
+    : <FacebookAccountPanel kind={kind} platformSwitch={platformSwitch} initialStatus={initialStatus} />;
 }

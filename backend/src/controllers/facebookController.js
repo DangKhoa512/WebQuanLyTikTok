@@ -15,10 +15,11 @@ const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const {
   getFacebookLoginLimitSettings,
   getFacebookCheckProxySettings,
-  getFacebookRegPageWaitSettings,
+  getFacebookWorkflowSettings,
   getFacebookNurtureSettings,
 } = require('../services/settingsService');
 const { FACEBOOK_JOB_WEBS, normalizeFacebookJobWeb, addFacebookDailyJobs, addFacebookPageClaim } = require('../services/facebookJobStatService');
+const { resetExpiredNurtureStates, resetExpiredPageJobStates } = require('../services/facebookWorkflowService');
 const { parseProxy } = require('../utils/checkLiveUtils');
 
 const STATUSES = ['CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
@@ -27,7 +28,6 @@ const KINDS = ['reg', 'job'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.FACEBOOK_LOCK_TIMEOUT_MIN, 10) || 120;
 const MAX_LOGIN_GET_COUNT = 3;
 const REG_PAGE_MAX_PAGES = 15;
-const REG_PAGE_COOLDOWN_HOURS = 24;
 const NURTURE_STATUSES = ['CHUA_NUOI', 'DANG_NUOI', 'DA_NUOI', 'NUOI_FAIL'];
 const NURTURE_ELIGIBLE_ACCOUNT_STATUSES = ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'];
 const VN_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
@@ -144,7 +144,12 @@ const parseFacebookLine = (line) => {
   const passwordIndex = firstUidIndex >= 0 ? firstUidIndex + 1 : 1;
   if (passwordIndex < parts.length && !used.has(passwordIndex)) {
     const candidate = nullify(parts[passwordIndex]);
-    if (candidate && !looksLikeCookie(candidate) && !looksLikeToken(candidate) && !looksLikeEmail(candidate) && !looksLikeTwoFa(candidate)) {
+    const hasFollowingTwoFa = parts.some((part, index) => (
+      index > passwordIndex
+      && !used.has(index)
+      && looksLikeTwoFa(part)
+    ));
+    if (candidate && !looksLikeCookie(candidate) && !looksLikeToken(candidate) && !looksLikeEmail(candidate) && (!looksLikeTwoFa(candidate) || hasFollowingTwoFa)) {
       parsed.password = candidate;
       used.add(passwordIndex);
     }
@@ -564,6 +569,10 @@ const list = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
     const kind = normalizeKind(req.query.kind, 'job');
+    if (kind === 'job') {
+      const workflowSettings = await getFacebookWorkflowSettings(owner_username);
+      await resetExpiredPageJobStates({ owner_username, resetHours: workflowSettings.page_job_reset_hours });
+    }
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 2000);
     const sortBy = ['device_id', 'page_count', 'reg_page_locked_by'].includes(req.query.sort_by) ? req.query.sort_by : null;
@@ -974,6 +983,9 @@ const getLoginSuccessJobForPhone = async (req, res, next) => {
     const requestedUid = nullify(req.body.uid || req.body.username || req.query.uid || req.query.username);
     if (!device_id) return error(res, 'Can truyen device_id', 400);
 
+    const workflowSettings = await getFacebookWorkflowSettings(owner_username);
+    await resetExpiredPageJobStates({ owner_username, resetHours: workflowSettings.page_job_reset_hours });
+
     const groupId = await resolveJobGroupIdForRequest(req, owner_username);
     if (groupId === false) return error(res, 'Nhom Facebook JOB khong hop le', 400);
 
@@ -1131,10 +1143,14 @@ const getNurtureAccount = async (req, res, next) => {
     const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
     if (!device_id) return error(res, 'Can truyen device_id', 400);
 
-    const settings = await getFacebookNurtureSettings(owner_username);
+    const [settings, workflowSettings] = await Promise.all([
+      getFacebookNurtureSettings(owner_username),
+      getFacebookWorkflowSettings(owner_username),
+    ]);
     const scenarios = getEligibleNurtureScenarios(settings);
     if (!scenarios.length) return error(res, 'Chua co kich ban Facebook nao duoc bat', 404, { account: null });
-    const cooldownAt = new Date(Date.now() - settings.cooldown_hours * 60 * 60 * 1000);
+    await resetExpiredNurtureStates({ owner_username, resetHours: workflowSettings.nurture_reset_hours });
+    const cooldownAt = new Date(Date.now() - workflowSettings.nurture_reset_hours * 60 * 60 * 1000);
     await FacebookNurtureAssignment.findOrCreate({
       where: { owner_username, device_id },
       defaults: { owner_username, device_id, scenario_id: scenarios[0].id },
@@ -1236,7 +1252,7 @@ const getNurtureAccount = async (req, res, next) => {
       return error(res, 'Het account Facebook co the nuoi luc nay', 404, {
         account: null,
         device_id,
-        cooldown_hours: settings.cooldown_hours,
+        cooldown_hours: workflowSettings.nurture_reset_hours,
       });
     }
     let friend_candidates = [];
@@ -1267,7 +1283,7 @@ const getNurtureAccount = async (req, res, next) => {
       friend_candidates,
       friend_candidate_count: friend_candidates.length,
       resumed: claimed.resumed,
-      cooldown_hours: settings.cooldown_hours,
+      cooldown_hours: workflowSettings.nurture_reset_hours,
     }, claimed.resumed ? 'Tiep tuc account Facebook dang nuoi' : 'Lay account Facebook nuoi thanh cong');
   } catch (err) {
     next(err);
@@ -1351,6 +1367,8 @@ const reportNurtureAccount = async (req, res, next) => {
 const listNurtureAccounts = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
+    const workflowSettings = await getFacebookWorkflowSettings(owner_username);
+    await resetExpiredNurtureStates({ owner_username, resetHours: workflowSettings.nurture_reset_hours });
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 2000);
     const where = { owner_username, kind: 'job', status: 'LOGIN_THANH_CONG' };
@@ -1389,7 +1407,7 @@ const listNurtureAccounts = async (req, res, next) => {
     return success(res, {
       accounts: rows.map(serialize),
       status_counts,
-      cooldown_hours: settings.cooldown_hours,
+      cooldown_hours: workflowSettings.nurture_reset_hours,
       pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) || 1 },
     }, 'Lay danh sach Facebook Nuoi thanh cong');
   } catch (err) {
@@ -1642,8 +1660,8 @@ const getRegPageAccount = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.query.device_id || req.query.device || req.query.phone);
     if (!device_id) return error(res, 'Can truyen device_id', 400);
-    const waitSettings = await getFacebookRegPageWaitSettings(owner_username);
-    const eligibleLoginBefore = new Date(Date.now() - waitSettings.hours * 60 * 60 * 1000);
+    const workflowSettings = await getFacebookWorkflowSettings(owner_username);
+    const eligibleLoginBefore = new Date(Date.now() - workflowSettings.reg_page_wait_hours * 60 * 60 * 1000);
 
     // Neu tool dung giua chung, lan goi tiep theo phai tra lai dung account dang lock.
     let account = await FacebookAccount.findOne({
@@ -1668,7 +1686,7 @@ const getRegPageAccount = async (req, res, next) => {
         });
 
         if (!candidate) {
-          const cooldownAt = new Date(Date.now() - REG_PAGE_COOLDOWN_HOURS * 60 * 60 * 1000);
+          const cooldownAt = new Date(Date.now() - workflowSettings.reg_page_reset_hours * 60 * 60 * 1000);
           candidate = await FacebookAccount.findOne({
             where: { ...commonWhere, last_reg_page_at: { [Op.lte]: cooldownAt } },
             order: [['last_reg_page_at', 'ASC'], ['id', 'ASC']],
@@ -1690,8 +1708,8 @@ const getRegPageAccount = async (req, res, next) => {
       return error(res, 'Het account co the reg Page luc nay', 404, {
         account: null,
         max_pages: REG_PAGE_MAX_PAGES,
-        cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
-        min_login_age_hours: waitSettings.hours,
+        cooldown_hours: workflowSettings.reg_page_reset_hours,
+        min_login_age_hours: workflowSettings.reg_page_wait_hours,
         eligible_login_before: eligibleLoginBefore,
       });
     }
@@ -1729,8 +1747,8 @@ const getRegPageAccount = async (req, res, next) => {
     return success(res, {
       account: serialize(account),
       page_check: { ok: true, page_count, max_pages: REG_PAGE_MAX_PAGES, proxy: maskProxy(proxyUrl) },
-      cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
-      min_login_age_hours: waitSettings.hours,
+      cooldown_hours: workflowSettings.reg_page_reset_hours,
+      min_login_age_hours: workflowSettings.reg_page_wait_hours,
       eligible_login_before: eligibleLoginBefore,
     }, 'Lay account reg Page thanh cong');
   } catch (err) {
@@ -1872,7 +1890,7 @@ const reportRegPage = async (req, res, next) => {
       reg_page_status: reportStatus,
       report_source: reportSource,
       page_check: pageCheck,
-      cooldown_hours: REG_PAGE_COOLDOWN_HOURS,
+      cooldown_hours: (await getFacebookWorkflowSettings(owner_username)).reg_page_reset_hours,
     }, reportStatus === 'REG_XONG' ? 'Da bao cao reg Page xong' : 'Da bao cao reg Page that bai');
   } catch (err) {
     next(err);
@@ -2711,4 +2729,5 @@ module.exports = {
   listTrash,
   restoreTrash,
   deleteTrash,
+  parseFacebookLine,
 };

@@ -20,12 +20,16 @@ const {
   saveInstagramCheckCookieSettings,
   getFacebookRegPageWaitSettings,
   saveFacebookRegPageWaitSettings,
+  getFacebookWorkflowSettings,
+  saveFacebookWorkflowSettings,
   getInstagramFacebookRegSettings,
   saveInstagramFacebookRegSettings,
   getFacebookNurtureSettings,
   saveFacebookNurtureSettings,
   getInstagramNurtureSettings,
   saveInstagramNurtureSettings,
+  getTaskDispatcherSettings,
+  saveTaskDispatcherSettings,
 } = require('../services/settingsService');
 const { checkInstagramCookies } = require('../utils/instagramCookieCheckUtils');
 
@@ -367,6 +371,31 @@ const updateFacebookRegPageWait = async (req, res, next) => {
   }
 };
 
+const getFacebookWorkflow = async (req, res, next) => {
+  try {
+    const settings = await getFacebookWorkflowSettings(ownerFromAdmin(req));
+    return success(res, { settings }, 'Lay cau hinh luong Facebook thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateFacebookWorkflow = async (req, res, next) => {
+  try {
+    const fields = ['reg_page_reset_hours', 'reg_page_wait_hours', 'nurture_reset_hours', 'page_job_reset_hours'];
+    for (const field of fields) {
+      const value = parseInt(req.body[field], 10);
+      if (!Number.isInteger(value) || value < 0 || value > 720) {
+        return error(res, field + ' phai tu 0 den 720 gio', 400);
+      }
+    }
+    const settings = await saveFacebookWorkflowSettings(ownerFromAdmin(req), req.body);
+    return success(res, { settings }, 'Da luu cau hinh luong Facebook');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getInstagramFacebookReg = async (req, res, next) => {
   try {
     const settings = await getInstagramFacebookRegSettings(ownerFromAdmin(req));
@@ -423,4 +452,19 @@ const updateInstagramNurture = async (req, res, next) => {
     return success(res, { settings }, 'Da luu cau hinh nuoi Instagram');
   } catch (err) { next(err); }
 };
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getInstagramCheckCookies, updateInstagramCheckCookies, checkInstagramCheckCookies, getFacebookRegPageWait, updateFacebookRegPageWait, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture };
+
+const getTaskDispatcher = async (req, res, next) => {
+  try {
+    const settings = await getTaskDispatcherSettings(ownerFromAdmin(req));
+    return success(res, { settings }, 'Lay cau hinh Task Dispatcher thanh cong');
+  } catch (err) { next(err); }
+};
+
+const updateTaskDispatcher = async (req, res, next) => {
+  try {
+    const settings = await saveTaskDispatcherSettings(ownerFromAdmin(req), req.body || {});
+    return success(res, { settings }, 'Da luu cau hinh Task Dispatcher');
+  } catch (err) { next(err); }
+};
+
+module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getInstagramCheckCookies, updateInstagramCheckCookies, checkInstagramCheckCookies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookWorkflow, updateFacebookWorkflow, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture, getTaskDispatcher, updateTaskDispatcher };

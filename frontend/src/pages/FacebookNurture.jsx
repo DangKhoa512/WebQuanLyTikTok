@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { facebookApi, instagramApi } from '../services/api';
 import Pagination from '../components/Pagination';
 import { toast } from '../components/Toast';
+import { useSearchParams } from 'react-router-dom';
 
 const TABS = [
   { value: '', label: 'Tất cả', color: '#64748b' },
@@ -25,19 +26,31 @@ const short = (value, max = 24) => {
 };
 
 export default function FacebookNurture() {
-  const [platform, setPlatform] = useState('facebook');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedPlatform = searchParams.get('platform') === 'instagram' ? 'instagram' : 'facebook';
+  const requestedStatus = searchParams.get('status') || '';
+  const [platform, setPlatform] = useState(requestedPlatform);
   const [rows, setRows] = useState([]);
   const [logs, setLogs] = useState([]);
   const [counts, setCounts] = useState({});
   const [pagination, setPagination] = useState(null);
   const [cooldownHours, setCooldownHours] = useState(24);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(requestedStatus);
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [resetting, setResetting] = useState(false);
+  useEffect(() => { setPlatform(requestedPlatform); setStatus(requestedStatus); setPage(1); }, [requestedPlatform, requestedStatus]);
+
+  const changePlatform = (item) => {
+    setPlatform(item); setStatus(''); setPage(1); setSelected(new Set());
+    const next = new URLSearchParams(searchParams);
+    if (item === 'instagram') next.set('platform', 'instagram'); else next.delete('platform');
+    next.delete('status');
+    setSearchParams(next, { replace: true });
+  };
 
   const platformApi = platform === 'instagram' ? instagramApi : facebookApi;
   const platformName = platform === 'instagram' ? 'Instagram' : 'Facebook';
@@ -112,7 +125,7 @@ export default function FacebookNurture() {
       </div>
 
       <div style={{ display: 'flex', gap: '.55rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        {['facebook','instagram'].map((item) => <button key={item} type="button" className="btn btn-sm" onClick={() => { setPlatform(item); setStatus(''); setPage(1); setSelected(new Set()); }} style={{ background: platform === item ? '#10b981' : '#fff', color: platform === item ? '#fff' : '#334155', border: `1px solid ${platform === item ? '#10b981' : '#cbd5e1'}`, fontWeight: 800 }}>{item === 'facebook' ? 'Facebook' : 'Instagram'}</button>)}
+        {['facebook','instagram'].map((item) => <button key={item} type="button" className="btn btn-sm" onClick={() => changePlatform(item)} style={{ background: platform === item ? '#10b981' : '#fff', color: platform === item ? '#fff' : '#334155', border: `1px solid ${platform === item ? '#10b981' : '#cbd5e1'}`, fontWeight: 800 }}>{item === 'facebook' ? 'Facebook' : 'Instagram'}</button>)}
       </div>
 
       <div style={{ display: 'flex', gap: '.55rem', flexWrap: 'wrap', marginBottom: '1rem' }}>

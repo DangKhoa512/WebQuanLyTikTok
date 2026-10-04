@@ -78,11 +78,11 @@ function InstagramFacebookInlineDetails({ source, details, loading }) {
     </div>
   </td></tr>;
 }
-export default function InstagramAccounts({ kind = 'job', platformSwitch = null }) {
+export default function InstagramAccounts({ kind = 'job', platformSwitch = null, initialStatus = '' }) {
   const isReg = kind === 'reg';
   const tabs = isReg ? REG_TABS : TABS;
   const [rows,setRows]=useState([]),[pagination,setPagination]=useState(null),[counts,setCounts]=useState({}),[machines,setMachines]=useState([]),[groups,setGroups]=useState([]);
-  const [page,setPage]=useState(1),[limit,setLimit]=useState(50),[status,setStatus]=useState(''),[q,setQ]=useState(''),[groupId,setGroupId]=useState(''),[device,setDevice]=useState(''),[dateFrom,setDateFrom]=useState(''),[dateTo,setDateTo]=useState(''),[soakDays,setSoakDays]=useState(''),[liveStatus,setLiveStatus]=useState('');
+  const [page,setPage]=useState(1),[limit,setLimit]=useState(50),[status,setStatus]=useState(initialStatus),[q,setQ]=useState(''),[groupId,setGroupId]=useState(''),[device,setDevice]=useState(''),[dateFrom,setDateFrom]=useState(''),[dateTo,setDateTo]=useState(''),[soakDays,setSoakDays]=useState(''),[liveStatus,setLiveStatus]=useState('');
   const [sort,setSort]=useState({field:'login_at',direction:'desc'}),[selected,setSelected]=useState(new Set()),[loading,setLoading]=useState(false),[importing,setImporting]=useState(false);
   const [checking,setChecking]=useState(false),[checkProgress,setCheckProgress]=useState(null);
   const [loggingCookies,setLoggingCookies]=useState(false),[loginCookieResults,setLoginCookieResults]=useState([]);
@@ -90,6 +90,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null 
   const [bulkStatus,setBulkStatus]=useState(''),[bulkGroup,setBulkGroup]=useState('');
   const [regView,setRegView]=useState('accounts');
   const [expandedFacebook,setExpandedFacebook]=useState(null),[facebookDetails,setFacebookDetails]=useState({}),[loadingFacebookUid,setLoadingFacebookUid]=useState(null);
+  useEffect(()=>{setStatus(initialStatus);setPage(1);},[initialStatus]);
   const params=useMemo(()=>({kind,page,limit,status,q,group_id:groupId,device_id:device||undefined,live_status:liveStatus||undefined,date_from:dateFrom||undefined,date_to:dateTo||undefined,soak_days:soakDays||undefined,sort_by:sort.field||undefined,sort_order:sort.direction}),[kind,page,limit,status,q,groupId,device,dateFrom,dateTo,soakDays,liveStatus,sort]);
   const loadGroups=useCallback(async()=>{try{const r=await accountGroupApi.getAll(groupType(kind));setGroups(r.data?.groups||[]);}catch(e){toast.error(e.message);}},[kind]);
   const load=useCallback(async()=>{setLoading(true);try{const r=trash?await instagramApi.getTrash(params):await instagramApi.getAll(params);setRows(r.data?.accounts||[]);setPagination(r.data?.pagination||null);if(!trash){setCounts(r.data?.status_counts||{});setMachines(r.data?.machine_stats||[]);setTrashCount(r.data?.trash_count||0);}else setTrashCount(r.data?.pagination?.total||0);}catch(e){toast.error(e.message);}finally{setLoading(false);}},[params,trash]);

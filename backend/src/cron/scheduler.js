@@ -1,8 +1,25 @@
 const cron           = require('node-cron');
 const accountService = require('../services/accountService');
+const { runFacebookWorkflowResets } = require('../services/facebookWorkflowService');
+const schedulerState = require('../services/schedulerState');
+const { releaseExpiredTasks } = require('../services/taskDispatcherService');
 const logger         = require('../config/logger');
 
 let cronJob = null;
+
+const runScheduledTransitions = async () => {
+  const startedAt = new Date();
+  schedulerState.markStarted();
+  try {
+    await accountService.runStatusTransitions();
+    const result = await runFacebookWorkflowResets();
+    result.dispatcher_released = await releaseExpiredTasks();
+    schedulerState.markCompleted({ startedAt, result });
+  } catch (error) {
+    schedulerState.markFailed({ startedAt, error });
+    logger.error('CRON: scheduled transitions failed', { error: error.message });
+  }
+};
 
 /**
  * Start the 5-minute status-transition cron job.
@@ -11,12 +28,12 @@ let cronJob = null;
 const startCronJobs = () => {
   // Run immediately on startup
   logger.info('CRON: initial run on startup');
-  accountService.runStatusTransitions();
+  runScheduledTransitions();
 
   // Then every 5 minutes
   cronJob = cron.schedule('*/5 * * * *', async () => {
     logger.info('CRON: running scheduled status transitions');
-    await accountService.runStatusTransitions();
+    await runScheduledTransitions();
   });
 
   logger.info('CRON: scheduler started (every 5 minutes)');

@@ -104,6 +104,20 @@ export const statsApi = {
   getInstagramJobDeviceStats: (days = 1) => api.get('/stats/instagram-job/devices', { params: { days }, timeout: 60_000 }),
 };
 
+export const dashboardApi = {
+  getSummary: () => api.get('/dashboard/summary', { timeout: 60_000 }),
+};
+
+export const deviceApi = {
+  heartbeat: (data) => api.post('/device/heartbeat', data),
+  getNextTask: (device_id, capabilities = undefined) =>
+    api.post('/device/next-task', { device_id, ...(capabilities ? { capabilities } : {}) }),
+  reportTask: (data) => api.post('/device/task/report', data),
+  getCapabilities: (device_id) => api.get('/device/capabilities/' + encodeURIComponent(device_id)),
+  updateCapabilities: (device_id, capabilities) =>
+    api.put('/device/capabilities/' + encodeURIComponent(device_id), { capabilities }),
+};
+
 export const settingsApi = {
   getEligibility: () => api.get('/settings/eligibility'),
   updateEligibility: (min_age_days, min_videos) =>
@@ -133,12 +147,16 @@ export const settingsApi = {
   checkInstagramCheckCookies: (cookies) => api.post('/settings/instagram-check-cookies/check', { cookies }, { timeout: 600_000 }),
   getFacebookRegPageWait: () => api.get('/settings/facebook-reg-page-wait'),
   updateFacebookRegPageWait: (hours) => api.put('/settings/facebook-reg-page-wait', { hours }),
+  getFacebookWorkflow: () => api.get('/settings/facebook-workflow'),
+  updateFacebookWorkflow: (settings) => api.put('/settings/facebook-workflow', settings),
   getInstagramFacebookReg: () => api.get('/settings/instagram-facebook-reg'),
   updateInstagramFacebookReg: (reuse_hours, max_instagram_per_facebook) => api.put('/settings/instagram-facebook-reg', { reuse_hours, max_instagram_per_facebook }),
   getFacebookNurture: () => api.get('/settings/facebook-nurture'),
   updateFacebookNurture: (settings) => api.put('/settings/facebook-nurture', settings),
   getInstagramNurture: () => api.get('/settings/instagram-nurture'),
   updateInstagramNurture: (settings) => api.put('/settings/instagram-nurture', settings),
+  getTaskDispatcher: () => api.get('/settings/task-dispatcher'),
+  updateTaskDispatcher: (settings) => api.put('/settings/task-dispatcher', settings),
 };
 
 

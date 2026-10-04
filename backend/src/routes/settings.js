@@ -26,11 +26,15 @@ router.put('/instagram-check-cookies', ctrl.updateInstagramCheckCookies);
 router.post('/instagram-check-cookies/check', ctrl.checkInstagramCheckCookies);
 router.get('/facebook-reg-page-wait', ctrl.getFacebookRegPageWait);
 router.put('/facebook-reg-page-wait', ctrl.updateFacebookRegPageWait);
+router.get('/facebook-workflow', ctrl.getFacebookWorkflow);
+router.put('/facebook-workflow', ctrl.updateFacebookWorkflow);
 router.get('/instagram-facebook-reg', ctrl.getInstagramFacebookReg);
 router.put('/instagram-facebook-reg', ctrl.updateInstagramFacebookReg);
 router.get('/facebook-nurture', ctrl.getFacebookNurture);
 router.put('/facebook-nurture', ctrl.updateFacebookNurture);
 router.get('/instagram-nurture', ctrl.getInstagramNurture);
 router.put('/instagram-nurture', ctrl.updateInstagramNurture);
+router.get('/task-dispatcher', ctrl.getTaskDispatcher);
+router.put('/task-dispatcher', ctrl.updateTaskDispatcher);
 
 module.exports = router;
