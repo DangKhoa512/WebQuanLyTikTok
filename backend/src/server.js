@@ -304,6 +304,12 @@ const startServer = async () => {
       logger.warn('Migration facebook_accounts nurture lock index skipped:', e.message);
     }
     try {
+      await sequelize.query('ALTER TABLE facebook_accounts ADD INDEX idx_facebook_friend_pool (owner_username, kind, status, id)');
+      logger.info('facebook_accounts friend suggestion index ready');
+    } catch (e) {
+      logger.warn('Migration facebook_accounts friend suggestion index skipped:', e.message);
+    }
+    try {
       await sequelize.query(`
         CREATE TABLE IF NOT EXISTS facebook_nurture_logs (
           id INT UNSIGNED NOT NULL AUTO_INCREMENT,

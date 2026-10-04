@@ -197,6 +197,10 @@ const FacebookAccount = sequelize.define(
       { fields: ['locked_by'] },
       { fields: ['device_id'] },
       { fields: ['live_status'] },
+      {
+        name: 'idx_facebook_friend_pool',
+        fields: ['owner_username', 'kind', 'status', 'id'],
+      },
     ],
   }
 );
