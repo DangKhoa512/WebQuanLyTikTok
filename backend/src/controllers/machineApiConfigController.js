@@ -2,10 +2,12 @@ const { Op } = require('sequelize');
 const MachineApiConfig = require('../models/MachineApiConfig');
 const FacebookNurtureAssignment = require('../models/FacebookNurtureAssignment');
 const InstagramNurtureAssignment = require('../models/InstagramNurtureAssignment');
+const FacebookAccount = require('../models/FacebookAccount');
 const sequelize = require('../config/database');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { DEFAULT_MACHINE_API_KEYS, getMachineApiKeys, saveMachineApiKeys, getFacebookNurtureSettings, getInstagramNurtureSettings } = require('../services/settingsService');
+const { allocateFriendSuggestions } = require('../services/facebookFriendSuggestionService');
 
 const COMMON_DEVICE_ID = '__COMMON__';
 const MACHINE_MARKER_KEY = '__MACHINE__';
@@ -334,11 +336,48 @@ const getRandomNurtureScenario = async (req, res, next) => {
       };
     });
 
+    const activeAccount = await FacebookAccount.findOne({
+      where: {
+        owner_username,
+        kind: 'job',
+        device_id,
+        nurture_status: 'DANG_NUOI',
+        nurture_locked_by: device_id,
+        status: { [Op.in]: ['LOGIN_THANH_CONG', 'DANG_LAM', 'DA_CHAY_XONG'] },
+      },
+      order: [['nurture_locked_at', 'DESC'], ['id', 'ASC']],
+    });
+    const friendAction = result.scenario.actions.friend_request || { enabled: false, min: 0, max: 0 };
+    const friendSuggestion = activeAccount
+      ? await allocateFriendSuggestions({
+        owner: owner_username,
+        sourceAccount: activeAccount,
+        runId: activeAccount.nurture_run_id,
+        action: friendAction,
+      })
+      : { requested_count: 0, uids: [] };
+    const friend_request = {
+      ...friendAction,
+      requested_count: friendSuggestion.requested_count,
+      returned_count: friendSuggestion.uids.length,
+      source_uid: activeAccount?.uid || null,
+      uids: friendSuggestion.uids,
+    };
+    const scenario = {
+      ...result.scenario,
+      actions: {
+        ...result.scenario.actions,
+        friend_request,
+      },
+    };
+
     return res.json({
       status: true,
       value: {
         device_id,
-        scenario: result.scenario,
+        scenario,
+        friend_request,
+        friend_candidates: friendSuggestion.uids,
         previous_scenario_id: result.previous_scenario_id,
         assigned_devices: result.assigned_devices,
         available_scenarios: eligibleScenarios.length,
