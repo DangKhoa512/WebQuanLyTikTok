@@ -120,6 +120,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
     try{
       const results=[];
       let successCount=0;
+      let skippedCount=0;
       for(let index=0;index<ids.length;index+=1){
         const id=ids[index];
         try{
@@ -127,14 +128,15 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
           const rows=response.data?.results||[];
           results.push(...rows);
           successCount+=rows.filter((item)=>item.status==='success').length;
+          skippedCount+=rows.filter((item)=>item.status==='skipped').length;
         }catch(error){
           results.push({id,uid:'ID '+id,status:'failed',reason:error.message||'Login request failed',cookie_saved:false});
         }
         setLoginCookieResults([...results]);
       }
-      const failedCount=results.length-successCount;
-      if(failedCount>0)toast.warn('Login cookie: '+successCount+' thành công, '+failedCount+' thất bại');
-      else toast.success('Đã login và lưu cookie Instagram: '+successCount+'/'+results.length);
+      const failedCount=results.length-successCount-skippedCount;
+      if(failedCount>0)toast.warn('Login cookie: '+successCount+' thành công, '+skippedCount+' bỏ qua, '+failedCount+' thất bại');
+      else toast.success('Login cookie: '+successCount+' thành công, '+skippedCount+' account đã có cookies');
       reset();await load();
     }catch(error){toast.error(error.message||'Login lấy cookie Instagram thất bại');}
     finally{setLoggingCookies(false);}
@@ -252,7 +254,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
 
         {loginCookieResults.length>0 && <div className="card" style={{marginBottom:'1rem',padding:0,overflow:'hidden'}}>
           <div className="card-header"><h3>Kết quả login cookie</h3><button type="button" className="btn btn-secondary btn-sm" onClick={()=>setLoginCookieResults([])}>Đóng</button></div>
-          <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th>ACCOUNT</th><th>KẾT QUẢ</th><th>LÝ DO</th><th>PROXY</th><th>COOKIE</th></tr></thead><tbody>{loginCookieResults.map((result)=><tr key={result.id}><td><strong>{result.uid}</strong></td><td style={{color:result.status==='success'?'#059669':'#dc2626',fontWeight:800}}>{result.status==='success'?'Thành công':'Thất bại'}</td><td>{result.reason||'-'}</td><td>Proxy #{result.proxy_index||'-'}</td><td style={{color:result.cookie_saved?'#059669':'#94a3b8',fontWeight:750}}>{result.cookie_saved?'Đã lưu':'Chưa lưu'}</td></tr>)}</tbody></table></div>
+          <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th>ACCOUNT</th><th>KẾT QUẢ</th><th>LÝ DO</th><th>PROXY</th><th>COOKIE</th></tr></thead><tbody>{loginCookieResults.map((result)=><tr key={result.id}><td><strong>{result.uid}</strong></td><td style={{color:result.status==='success'?'#059669':result.status==='skipped'?'#d97706':'#dc2626',fontWeight:800}}>{result.status==='success'?'Thành công':result.status==='skipped'?'Bỏ qua':'Thất bại'}</td><td>{result.reason||'-'}</td><td>Proxy #{result.proxy_index||'-'}</td><td style={{color:result.cookie_saved?'#059669':'#94a3b8',fontWeight:750}}>{result.status==='skipped'?'Đã có':result.cookie_saved?'Đã lưu':'Chưa lưu'}</td></tr>)}</tbody></table></div>
         </div>}
         <div className="card" style={{padding:0,overflow:'hidden'}}>
           <div className="card-header"><h3>{trash ? 'Thùng rác Instagram Job' : 'Danh sách account'}</h3><span style={{color:'#64748b',fontSize:'.8rem'}}>{pagination?.total || 0} account {loading ? '- đang tải...' : ''}</span></div>

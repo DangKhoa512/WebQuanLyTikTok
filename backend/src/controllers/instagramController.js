@@ -586,14 +586,27 @@ const loginCookies = async (req, res, next) => {
       order: [['id', 'ASC']],
     });
     if (!accounts.length) return error(res, 'Khong tim thay account Instagram Job hop le', 404);
-    const proxySettings = await getFacebookCheckProxySettings(owner_username);
-    const proxies = Array.isArray(proxySettings?.proxies) ? proxySettings.proxies : [];
-    if (!proxies.length) return error(res, 'Chua cau hinh proxy. Hay them proxy trong Cai dat truoc khi login Instagram', 400);
-
-    const proxyOffset = Math.max(parseInt(req.body.proxy_offset, 10) || 0, 0);
-    const checked = await loginInstagramAccounts(accounts, proxies, { proxyOffset });
+    const accountsWithCookies = accounts.filter((account) => nullify(account.cookies));
+    const accountsToLogin = accounts.filter((account) => !nullify(account.cookies));
+    let checked = { engine: 'request', results: [], proxy_count: 0 };
+    if (accountsToLogin.length) {
+      const proxySettings = await getFacebookCheckProxySettings(owner_username);
+      const proxies = Array.isArray(proxySettings?.proxies) ? proxySettings.proxies : [];
+      if (!proxies.length) return error(res, 'Chua cau hinh proxy. Hay them proxy trong Cai dat truoc khi login Instagram', 400);
+      const proxyOffset = Math.max(parseInt(req.body.proxy_offset, 10) || 0, 0);
+      checked = await loginInstagramAccounts(accountsToLogin, proxies, { proxyOffset });
+    }
     const accountMap = new Map(accounts.map((account) => [Number(account.id), account]));
-    const safeResults = [];
+    const safeResults = accountsWithCookies.map((account) => ({
+      id: account.id,
+      uid: account.uid,
+      status: 'skipped',
+      reason: 'existing_cookies',
+      message: 'Account already has cookies',
+      cookie_saved: true,
+      proxy_index: null,
+      proxy_attempts: 0,
+    }));
     for (const result of checked.results) {
       const account = accountMap.get(Number(result.id));
       if (!account) continue;
@@ -618,15 +631,19 @@ const loginCookies = async (req, res, next) => {
         proxy_attempts: result.proxy_attempts || 1,
       });
     }
+    const orderById = new Map(ids.map((id, index) => [Number(id), index]));
+    safeResults.sort((left, right) => (orderById.get(Number(left.id)) ?? Number.MAX_SAFE_INTEGER) - (orderById.get(Number(right.id)) ?? Number.MAX_SAFE_INTEGER));
     const successCount = safeResults.filter((item) => item.status === 'success').length;
+    const skippedCount = safeResults.filter((item) => item.status === 'skipped').length;
     return success(res, {
       engine: checked.engine,
       total: safeResults.length,
       success: successCount,
-      failed: safeResults.length - successCount,
+      skipped: skippedCount,
+      failed: safeResults.length - successCount - skippedCount,
       proxy_count: checked.proxy_count,
       results: safeResults,
-    }, 'Da login Instagram bang request: ' + successCount + '/' + safeResults.length + ' thanh cong');
+    }, 'Login cookie Instagram: ' + successCount + ' thanh cong, ' + skippedCount + ' da co cookies');
   } catch (err) {
     if (err?.message === 'instagram_login_proxy_required') return error(res, 'Proxy Instagram khong hop le', 400);
     next(err);
