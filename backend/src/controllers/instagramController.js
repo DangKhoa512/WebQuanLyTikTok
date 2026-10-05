@@ -132,11 +132,12 @@ const list = async (req, res, next) => {
     }
     const countWhere = { ...where };
     if (status) where.status = status;
-    const sortBy = ['device_id','updated_at','created_at','login_at','post_count','followers','following','last_live_check_at'].includes(req.query.sort_by) ? req.query.sort_by : null;
+    const sortBy = ['device_id','updated_at','created_at','login_at','post_count','followers','following','last_live_check_at','cookies'].includes(req.query.sort_by) ? req.query.sort_by : null;
     const direction = String(req.query.sort_order).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     let order = [[sequelize.literal('CASE WHEN login_at IS NULL THEN 1 ELSE 0 END'),'ASC'],['login_at','DESC'],['id','DESC']];
     if (sortBy === 'device_id') order = [[sequelize.literal("CASE WHEN device_id IS NULL OR device_id='' THEN 1 ELSE 0 END"),'ASC'],[sequelize.fn('CHAR_LENGTH',sequelize.col('device_id')),direction],['device_id',direction],['id','DESC']];
     else if (sortBy === 'login_at') order = [[sequelize.literal('CASE WHEN login_at IS NULL THEN 1 ELSE 0 END'),'ASC'],['login_at',direction],['id','DESC']];
+    else if (sortBy === 'cookies') order = [[sequelize.literal("CASE WHEN cookies IS NULL OR TRIM(cookies)='' OR LOWER(TRIM(cookies))='null' THEN 1 ELSE 0 END"),direction],['id','DESC']];
     else if (sortBy) order = [[sortBy,direction],['id','DESC']];
     const [{ rows, count }, counts, trash_count] = await Promise.all([
       InstagramAccount.findAndCountAll({ where, order, limit, offset: (page - 1) * limit }),
