@@ -119,6 +119,8 @@ export const deviceApi = {
 };
 
 export const settingsApi = {
+  getInstagramJob: () => api.get('/settings/instagram-job'),
+  updateInstagramJob: (settings) => api.put('/settings/instagram-job', settings),
   getEligibility: () => api.get('/settings/eligibility'),
   updateEligibility: (min_age_days, min_videos) =>
     api.put('/settings/eligibility', { min_age_days, min_videos }),

@@ -11,6 +11,8 @@ router.get('/chrome-khang-limits', ctrl.listChromeKhangLimits);
 router.get('/facebook-login-limit', ctrl.getFacebookLoginLimit);
 router.put('/facebook-login-limit', ctrl.updateFacebookLoginLimit);
 router.get('/facebook-login-limits', ctrl.listFacebookLoginLimits);
+router.get('/instagram-job', ctrl.getInstagramJob);
+router.put('/instagram-job', ctrl.updateInstagramJob);
 router.get('/instagram-login-limit', ctrl.getInstagramLoginLimit);
 router.put('/instagram-login-limit', ctrl.updateInstagramLoginLimit);
 router.get('/instagram-login-limits', ctrl.listInstagramLoginLimits);

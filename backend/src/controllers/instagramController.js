@@ -10,7 +10,7 @@ const AccountGroup = require('../models/AccountGroup');
 const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 const { INSTAGRAM_JOB_WEBS, normalizeInstagramJobWeb, addInstagramDailyJobs, addInstagramAccountClaim } = require('../services/instagramJobStatService');
-const { getInstagramLoginLimitSettings, getFacebookCheckProxySettings, getInstagramCheckCookieSettings, getInstagramNurtureSettings } = require('../services/settingsService');
+const { getInstagramJobSettings, getInstagramLoginLimitSettings, getFacebookCheckProxySettings, getInstagramCheckCookieSettings, getInstagramNurtureSettings } = require('../services/settingsService');
 const { batchCheckInstagram } = require('../utils/instagramCheckLiveUtils');
 const { loginInstagramAccounts } = require('../utils/instagramLoginUtils');
 const { normalizeInstagramUsernames, reportFacebookInstagramLinks } = require('../services/instagramFacebookLinkService');
@@ -317,17 +317,19 @@ const getLoginSuccess = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     const device_id = nullify(req.body.device_id || req.body.device || req.body.phone || req.body.may || req.query.device_id || req.query.device || req.query.phone || req.query.may);
     if (!device_id) return error(res, 'Can truyen device_id', 400);
+    const jobSettings = await getInstagramJobSettings(owner_username);
+    const ageWhere = jobSettings.min_login_days > 0 ? { login_at: { [Op.lte]: new Date(Date.now() - jobSettings.min_login_days * 86400000) } } : {};
     await releaseStaleInstagramLocks({ owner_username, status: 'DANG_LAM', releaseStatus: 'LOGIN_THANH_CONG' });
     const claimResult = await sequelize.transaction(async (transaction) => {
       let account = await InstagramAccount.findOne({
-        where: { owner_username, kind: 'job', status: 'DANG_LAM', locked_by: device_id, nurture_status: { [Op.ne]: 'DANG_NUOI' } },
+        where: { owner_username, kind: 'job', ...ageWhere, status: 'DANG_LAM', locked_by: device_id, nurture_status: { [Op.ne]: 'DANG_NUOI' } },
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
       if (account) return { account, resumed: true };
 
       account = await InstagramAccount.findOne({
-        where: { owner_username, kind: 'job', status: 'LOGIN_THANH_CONG', device_id, nurture_status: { [Op.ne]: 'DANG_NUOI' } },
+        where: { owner_username, kind: 'job', ...ageWhere, status: 'LOGIN_THANH_CONG', device_id, nurture_status: { [Op.ne]: 'DANG_NUOI' } },
         order: [['login_at', 'ASC'], ['id', 'ASC']],
         transaction,
         lock: transaction.LOCK.UPDATE,
@@ -346,6 +348,7 @@ const getLoginSuccess = async (req, res, next) => {
     });
     return success(res, {
       account: claimResult.account ? serialize(claimResult.account) : null,
+      job_settings: jobSettings,
       resumed: claimResult.resumed,
       lock_timeout_min: LOCK_TIMEOUT_MIN,
     }, claimResult.account ? (claimResult.resumed ? 'Tiep tuc Instagram Job dang lam' : 'Lay Instagram Job thanh cong') : 'Het Instagram Job');

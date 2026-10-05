@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { settingsApi } from '../services/api';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import { useSettingsData } from './SettingsData';
+import { ScenarioActivity, ScenarioSelector } from './ScenarioSettings';
 import { toast } from './Toast';
+import { MinMaxField } from './SettingsFields';
+import { SettingsCard, NumberField, SettingsModal } from './SettingsPrimitives';
 
 const emptyActions = () => ({
   newfeed: { enabled: false, min: 30, max: 60 },
@@ -14,21 +17,15 @@ const actionRows = [
   { key: 'story', label: 'Xem Story (STR)', unit: 'giây' },
 ];
 
-const inputStyle = {
-  width: '100%', boxSizing: 'border-box', background: '#fff', color: '#0f172a',
-  border: '1px solid #cbd5e1', borderRadius: 8, padding: '.6rem .7rem', fontWeight: 700,
-  fontFamily: "'Segoe UI', Arial, sans-serif", outline: 'none',
-};
-
-const cardStyle = {
-  padding: '1.1rem', border: '1px solid #dbe3ef', color: '#0f172a',
-  fontFamily: "'Segoe UI', Arial, sans-serif",
-};
-
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-export default function InstagramNurtureSettings() {
+const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ onStateChange, externalSaving = false }, ref) {
+  const { loadSettings, saveSettings } = useSettingsData();
   const [settings, setSettings] = useState({ active_scenario_id: null, cooldown_hours: 24, scenarios: [] });
+  const [savedSettings, setSavedSettings] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [reload, setReload] = useState(0);
+  const [generatorOpen, setGeneratorOpen] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,17 +35,19 @@ export default function InstagramNurtureSettings() {
 
   useEffect(() => {
     let mounted = true;
-    settingsApi.getInstagramNurture()
+    setLoading(true); setLoadError('');
+    loadSettings('getInstagramNurture')
       .then((res) => {
         if (!mounted) return;
         const value = res.data?.settings || { active_scenario_id: null, cooldown_hours: 24, scenarios: [] };
         setSettings(value);
+        setSavedSettings(JSON.parse(JSON.stringify(value)));
         setSelectedId(value.active_scenario_id || value.scenarios?.[0]?.id || '');
       })
-      .catch((err) => toast.error(err.message || 'Không tải được cấu hình nuôi Instagram'))
+      .catch((err) => { if (mounted) setLoadError(err.message || 'Không tải được cấu hình nuôi Instagram'); })
       .finally(() => mounted && setLoading(false));
     return () => { mounted = false; };
-  }, []);
+  }, [reload]);
 
   const selected = useMemo(
     () => settings.scenarios.find((scenario) => scenario.id === selectedId) || null,
@@ -139,10 +138,12 @@ export default function InstagramNurtureSettings() {
 
     setSaving(true);
     try {
-      const res = await settingsApi.updateInstagramNurture(nextSettings);
+      const res = await saveSettings('updateInstagramNurture', nextSettings);
       const saved = res.data?.settings || nextSettings;
       setSettings(saved);
+      setSavedSettings(JSON.parse(JSON.stringify(saved)));
       setSelectedId(generated[0].id);
+      setGeneratorOpen(false);
       toast.success(`Đã tạo và lưu ${count} kịch bản ngẫu nhiên`);
     } catch (err) {
       toast.error(err.message || 'Tạo kịch bản ngẫu nhiên thất bại');
@@ -182,9 +183,10 @@ export default function InstagramNurtureSettings() {
     };
     setSaving(true);
     try {
-      const res = await settingsApi.updateInstagramNurture(nextSettings);
+      const res = await saveSettings('updateInstagramNurture', nextSettings);
       const saved = res.data?.settings || nextSettings;
       setSettings(saved);
+      setSavedSettings(JSON.parse(JSON.stringify(saved)));
       setSelectedId(saved.active_scenario_id || saved.scenarios[0]?.id || '');
       toast.success('Đã xóa kịch bản');
     } catch (err) {
@@ -194,194 +196,80 @@ export default function InstagramNurtureSettings() {
     }
   };
 
-  const save = async () => {
+  const validate = () => {
+    if (settings.cooldown_hours === '' || !Number.isInteger(Number(settings.cooldown_hours)) || Number(settings.cooldown_hours) < 1 || Number(settings.cooldown_hours) > 720) { toast.error('Khoảng nghỉ phải là số nguyên từ 1 đến 720 giờ'); return false; }
     for (const scenario of settings.scenarios) {
       if (!String(scenario.name || '').trim()) {
         toast.error('Tên kịch bản không được để trống');
-        return;
+        return false;
       }
       for (const action of Object.values(scenario.actions)) {
         const min = parseInt(action.min, 10);
         const max = parseInt(action.max, 10);
         if (!Number.isInteger(min) || !Number.isInteger(max) || min < 0 || max < min) {
           toast.error('Giá trị min/max không hợp lệ');
-          return;
+          return false;
         }
       }
     }
+    return true;
+  };
+  const save = async () => {
+    if (!validate()) return false;
     setSaving(true);
     try {
-      const res = await settingsApi.updateInstagramNurture(settings);
+      const res = await saveSettings('updateInstagramNurture', settings);
       const saved = res.data?.settings || settings;
       setSettings(saved);
+      setSavedSettings(JSON.parse(JSON.stringify(saved)));
       setSelectedId((current) => (
         saved.scenarios.some((scenario) => scenario.id === current)
           ? current
           : saved.active_scenario_id || saved.scenarios[0]?.id || ''
       ));
       toast.success('Đã lưu cấu hình nuôi Instagram');
+      return true;
     } catch (err) {
       toast.error(err.message || 'Lưu cấu hình nuôi Instagram thất bại');
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return <div className={'card'} style={{ ...cardStyle, color: '#475569' }}>Đang tải cấu hình nuôi Instagram...</div>;
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', minWidth: 0, fontFamily: "'Segoe UI', Arial, sans-serif" }}>
-      <div className={'card'} style={cardStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.75rem', alignItems: 'center', marginBottom: '.75rem' }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#0f172a', fontWeight: 800 }}>Cấu hình nuôi Instagram</h3>
-            <div style={{ color: '#475569', fontSize: '.8rem', marginTop: '.3rem' }}>
-              Tạo nhiều kịch bản và chọn một kịch bản để điện thoại lấy qua API.
-            </div>
-          </div>
-          <button
-            onClick={addScenario}
-            style={{ background: '#10b981', border: 'none', color: '#fff', borderRadius: 8, padding: '.55rem .8rem', cursor: 'pointer', fontWeight: 800, whiteSpace: 'nowrap' }}
-          >
-            + Thêm kịch bản
-          </button>
-        </div>
-
-        <div style={{ marginBottom: '1rem', padding: '.85rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#f8fafc' }}>
-          <label style={{ color: '#0f172a', fontWeight: 800, fontSize: '.85rem' }}>
-            Khoảng nghỉ trước khi nuôi lại (giờ)
-            <input
-              type={'number'}
-              min={1}
-              max={720}
-              value={settings.cooldown_hours ?? 24}
-              onChange={(event) => setSettings((current) => ({ ...current, cooldown_hours: event.target.value }))}
-              style={{ ...inputStyle, marginTop: '.4rem', maxWidth: 220 }}
-            />
-          </label>
-          <div style={{ color: '#64748b', fontSize: '.75rem', marginTop: '.4rem' }}>
-            Account đã nuôi vẫn được chạy Job; thời gian này chỉ áp dụng cho lần nuôi tiếp theo.
-          </div>
-        </div>
-        {settings.scenarios.length === 0 ? (
-          <div style={{ padding: '1.5rem', border: '1px dashed #94a3b8', borderRadius: 8, textAlign: 'center', color: '#475569', background: '#f8fafc' }}>
-            Chưa có kịch bản. Bấm “Thêm kịch bản” để bắt đầu.
-          </div>
-        ) : (
-          <>
-            <label style={{ color: '#334155', fontSize: '.8rem', fontWeight: 700, display: 'block', marginBottom: '.4rem' }}>Kịch bản đang chỉnh sửa</label>
-            <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} style={inputStyle}>
-              {settings.scenarios.map((scenario) => (
-                <option key={scenario.id} value={scenario.id}>
-                  {scenario.name}{settings.active_scenario_id === scenario.id ? ' - Đang sử dụng' : ''}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-
-        <div style={{ marginTop: '1rem', padding: '.9rem', border: '1px solid #cbd5e1', borderRadius: 8, background: '#f8fafc' }}>
-          <div style={{ color: '#0f172a', fontWeight: 800, fontSize: '.9rem' }}>Tạo nhanh kịch bản ngẫu nhiên</div>
-          <div style={{ color: '#475569', fontSize: '.78rem', margin: '.25rem 0 .7rem' }}>
-            Nhập tổng thời gian một phiên. Web sẽ chia hợp lý cho Newfeed, Reels và Story (STR), sau đó lưu ngay.
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '.6rem', marginBottom: '.65rem' }}>
-            <label style={{ color: '#334155', fontSize: '.75rem', fontWeight: 700 }}>
-              Số kịch bản
-              <input type={'number'} min={1} max={50} value={generatorCount} onChange={(event) => setGeneratorCount(event.target.value)} style={{ ...inputStyle, marginTop: '.3rem' }} />
-            </label>
-            <label style={{ color: '#334155', fontSize: '.75rem', fontWeight: 700 }}>
-              Tổng Min (phút)
-              <input type={'number'} min={1} max={1440} value={generatorMinMinutes} onChange={(event) => setGeneratorMinMinutes(event.target.value)} style={{ ...inputStyle, marginTop: '.3rem' }} />
-            </label>
-            <label style={{ color: '#334155', fontSize: '.75rem', fontWeight: 700 }}>
-              Tổng Max (phút)
-              <input type={'number'} min={1} max={1440} value={generatorMaxMinutes} onChange={(event) => setGeneratorMaxMinutes(event.target.value)} style={{ ...inputStyle, marginTop: '.3rem' }} />
-            </label>
-          </div>
-          <div>
-            <button
-              onClick={generateRandomScenarios}
-              disabled={saving || settings.scenarios.length >= 50}
-              style={{ width: '100%', background: saving ? '#334155' : '#8b5cf6', border: 'none', color: '#fff', borderRadius: 8, padding: '.58rem .8rem', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 800 }}
-            >
-              {saving ? 'Đang tạo...' : 'Tạo và lưu ngẫu nhiên'}
-            </button>
-          </div>
-          <div style={{ color: '#64748b', fontSize: '.74rem', marginTop: '.5rem' }}>
-            Đang có {settings.scenarios.length}/50 kịch bản. Kịch bản cũ không bị xóa.
-          </div>
-        </div>
-      </div>
-
-      {selected && (
-        <div className={'card'} style={cardStyle}>
-          <div style={{ display: 'flex', gap: '.6rem', alignItems: 'center', marginBottom: '1rem' }}>
-            <input
-              value={selected.name}
-              maxLength={100}
-              onChange={(event) => updateScenario((scenario) => ({ ...scenario, name: event.target.value }))}
-              style={{ ...inputStyle, flex: 1 }}
-              placeholder={'Tên kịch bản'}
-            />
-            <button
-              onClick={() => setSettings((current) => ({ ...current, active_scenario_id: selected.id }))}
-              style={{ background: settings.active_scenario_id === selected.id ? '#064e3b' : '#2563eb', border: 'none', color: '#fff', borderRadius: 8, padding: '.55rem .8rem', cursor: 'pointer', fontWeight: 800, whiteSpace: 'nowrap' }}
-            >
-              {settings.active_scenario_id === selected.id ? 'Đang sử dụng' : 'Sử dụng'}
-            </button>
-          </div>
-          <div style={{ margin: '-.35rem 0 .85rem', color: '#475569', fontSize: '.8rem' }}>
-            Tổng thời gian: <b style={{ color: '#0f172a' }}>{(selectedDuration.min / 60).toFixed(1)} - {(selectedDuration.max / 60).toFixed(1)} phút</b>
-            {' '}(Newfeed + Reels + Story)
-          </div>
-
-          <div style={{ border: '1px solid #cbd5e1', borderRadius: 8, overflow: 'hidden' }}>
-            {actionRows.map((row, index) => {
-              const action = selected.actions[row.key];
-              return (
-                <div key={row.key} style={{ padding: '.9rem', borderTop: index ? '1px solid #e2e8f0' : 'none', background: index % 2 ? '#f8fafc' : '#fff' }}>
-                  <label style={{ display: 'flex', gap: '.55rem', alignItems: 'center', color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>
-                    <input
-                      type={'checkbox'}
-                      checked={action.enabled}
-                      onChange={(event) => updateAction(row.key, 'enabled', event.target.checked)}
-                    />
-                    {row.label}
-                  </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.7rem', marginTop: '.7rem', opacity: action.enabled ? 1 : .5 }}>
-                    <label style={{ color: '#475569', fontSize: '.76rem', fontWeight: 600 }}>
-                      Min ({row.unit})
-                      <input type={'number'} min={0} disabled={!action.enabled} value={action.min} onChange={(event) => updateAction(row.key, 'min', event.target.value)} style={{ ...inputStyle, marginTop: '.3rem' }} />
-                    </label>
-                    <label style={{ color: '#475569', fontSize: '.76rem', fontWeight: 600 }}>
-                      Max ({row.unit})
-                      <input type={'number'} min={0} disabled={!action.enabled} value={action.max} onChange={(event) => updateAction(row.key, 'max', event.target.value)} style={{ ...inputStyle, marginTop: '.3rem' }} />
-                    </label>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.75rem', marginTop: '1rem' }}>
-            <button onClick={removeScenario} disabled={saving} style={{ background: '#fff1f2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: 8, padding: '.58rem .9rem', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
-              {saving ? 'Đang xử lý...' : 'Xóa kịch bản'}
-            </button>
-            <button onClick={save} disabled={saving} style={{ background: saving ? '#334155' : '#10b981', border: 'none', color: '#fff', borderRadius: 8, padding: '.58rem 1.1rem', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 800 }}>
-              {saving ? 'Đang lưu...' : 'Lưu kịch bản'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!selected && settings.scenarios.length === 0 && (
-        <button onClick={save} disabled={saving} style={{ background: saving ? '#334155' : '#2563eb', border: 'none', color: '#fff', borderRadius: 8, padding: '.65rem 1rem', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 800 }}>
-          {saving ? 'Đang lưu...' : 'Lưu cấu hình trống'}
-        </button>
-      )}
-    </div>
-  );
-}
+  const dirty = savedSettings !== null && JSON.stringify(settings) !== JSON.stringify(savedSettings);
+  const activeName = settings.scenarios.find((scenario) => scenario.id === settings.active_scenario_id)?.name || '';
+  useEffect(() => {
+    onStateChange?.({ dirty, saving, loading, activeName });
+  }, [dirty, saving, loading, activeName, onStateChange]);
+  useImperativeHandle(ref, () => ({
+    save, validate,
+    discard: () => {
+      if (!savedSettings) return;
+      setSettings(JSON.parse(JSON.stringify(savedSettings)));
+      setSelectedId(savedSettings.active_scenario_id || savedSettings.scenarios[0]?.id || '');
+      setGeneratorOpen(false);
+    },
+  }));
+  const busy = saving || externalSaving;
+  if (loading) return <div id="ig-nurture" className="settings-loading" aria-busy="true">Đang tải kịch bản nuôi Instagram...</div>;
+  if (loadError) return <div id="ig-nurture" className="settings-error" role="alert">{loadError}<button className="settings-button secondary" onClick={() => setReload((old) => old + 1)}>Thử lại</button></div>;
+  return <SettingsCard id="ig-nurture" title="Kịch bản nuôi Instagram" description="Chọn kịch bản điện thoại sẽ lấy qua API và điều chỉnh từng hoạt động." action={<span className="settings-badge">{settings.scenarios.length} / 50 kịch bản</span>}>
+    <fieldset className="settings-workspace" disabled={busy}>
+      <ScenarioSelector scenarios={settings.scenarios} selectedId={selectedId} activeId={settings.active_scenario_id} onSelect={setSelectedId} onCreate={addScenario} onGenerate={() => setGeneratorOpen(true)} />
+      <div className="settings-nurture-cooldown"><NumberField label="Khoảng nghỉ trước khi nuôi lại" unit="giờ" min={1} max={720} value={settings.cooldown_hours ?? 24} onChange={(e) => setSettings((old) => ({ ...old, cooldown_hours: e.target.value === '' ? '' : Number(e.target.value) }))} /><p className="settings-helper">Account đã nuôi vẫn được chạy Job. Khoảng nghỉ chỉ áp dụng cho lần nuôi tiếp theo.</p></div>
+      {!selected && <div className="settings-empty">Chưa có kịch bản. Tạo kịch bản mới hoặc dùng trình tạo nhanh để bắt đầu.</div>}
+      {selected && <>
+        <div className="settings-scenario-heading"><label className="settings-field"><span>Tên kịch bản</span><input value={selected.name} maxLength={100} aria-label="Tên kịch bản" placeholder="Tên kịch bản" onChange={(e) => updateScenario((scenario) => ({ ...scenario, name: e.target.value }))} /></label>{settings.active_scenario_id === selected.id ? <span className="settings-badge success">● Đang sử dụng</span> : <button type="button" className="settings-button secondary" onClick={() => setSettings((old) => ({ ...old, active_scenario_id: selected.id }))}>Sử dụng kịch bản</button>}</div>
+        <div className="settings-duration">Tổng thời gian <strong>{(selectedDuration.min / 60).toFixed(1)} – {(selectedDuration.max / 60).toFixed(1)} phút</strong><span>Newfeed + Reels + Story</span></div>
+        <div className="settings-activities">{actionRows.map((row) => {
+          const action = selected.actions[row.key];
+          return <ScenarioActivity key={row.key} label={row.label} enabled={action.enabled} onToggle={(value) => updateAction(row.key,'enabled',value)}><MinMaxField minLabel="Thời gian tối thiểu" maxLabel="Thời gian tối đa" min={action.min} max={action.max} unit={row.unit} disabled={!action.enabled} onChange={(bound,value) => updateAction(row.key,bound,value)} /></ScenarioActivity>;
+        })}</div>
+        <div className="settings-nurture-footer"><span className={dirty ? 'settings-unsaved' : 'settings-helper'}>{dirty ? 'Kịch bản có thay đổi chưa lưu' : 'Đã đồng bộ kịch bản'}</span><button type="button" className="settings-button danger" onClick={removeScenario}>Xóa kịch bản</button></div>
+      </>}
+    </fieldset>
+    {generatorOpen && <SettingsModal title="Tạo nhanh kịch bản" onClose={() => { if (!saving) setGeneratorOpen(false); }}><p className="settings-helper">Chia tổng thời gian ngẫu nhiên cho Newfeed, Reels và Story. Kịch bản cũ được giữ nguyên; các kịch bản mới được tạo và lưu ngay.</p><fieldset className="settings-workspace" disabled={busy}><div className="settings-generator-fields"><NumberField label="Số kịch bản" unit="kịch bản" min={1} max={50} value={generatorCount} onChange={(e) => setGeneratorCount(e.target.value)} /><MinMaxField minLabel="Tổng thời gian Min" maxLabel="Tổng thời gian Max" min={generatorMinMinutes} max={generatorMaxMinutes} minimum={1} maximum={1440} unit="phút" onChange={(bound,value) => bound === 'min' ? setGeneratorMinMinutes(value) : setGeneratorMaxMinutes(value)} /></div><p className="settings-helper">Đang có {settings.scenarios.length}/50 kịch bản.{dirty ? ' Thao tác này cũng lưu các chỉnh sửa kịch bản hiện tại.' : ''}</p><footer className="settings-button-group"><button type="button" className="settings-button ghost" onClick={() => setGeneratorOpen(false)}>Hủy</button><button type="button" className="settings-button primary" onClick={generateRandomScenarios}>{saving ? 'Đang tạo...' : 'Tạo kịch bản'}</button></footer></fieldset></SettingsModal>}
+  </SettingsCard>;
+});
+export default InstagramNurtureSettings;

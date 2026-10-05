@@ -2,6 +2,7 @@ const { QueryTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const DeviceTaskCapability = require('../models/DeviceTaskCapability');
 const {
+  getInstagramJobSettings,
   getTaskDispatcherSettings,
   getFacebookWorkflowSettings,
   getInstagramFacebookRegSettings,
@@ -15,12 +16,13 @@ const numericMap = (rows) => new Map(rows.map((row) => [String(row.device_id), N
 const getDeviceTaskAvailability = async (owner, deviceIds = []) => {
   const ids = [...new Set(deviceIds.map((value) => String(value || '').trim()).filter(Boolean))];
   if (!ids.length) return new Map();
-  const [dispatcher, workflow, regIg, fbNurture, igNurture, capabilities] = await Promise.all([
+  const [dispatcher, workflow, regIg, fbNurture, igNurture, igJob, capabilities] = await Promise.all([
     getTaskDispatcherSettings(owner),
     getFacebookWorkflowSettings(owner),
     getInstagramFacebookRegSettings(owner),
     getFacebookNurtureSettings(owner),
     getInstagramNurtureSettings(owner),
+    getInstagramJobSettings(owner),
     DeviceTaskCapability.findAll({
       where: { owner_username: owner, device_id: ids },
       raw: true,
@@ -29,6 +31,8 @@ const getDeviceTaskAvailability = async (owner, deviceIds = []) => {
   const now = Date.now();
   const replacements = {
     owner,
+    igMinDays: igJob.min_login_days,
+    igJobAt: new Date(now - igJob.min_login_days * 86400000),
     deviceIds: ids,
     fbNurtureAt: new Date(now - workflow.nurture_reset_hours * 3600000),
     igNurtureAt: new Date(now - igNurture.cooldown_hours * 3600000),
@@ -93,6 +97,7 @@ const getDeviceTaskAvailability = async (owner, deviceIds = []) => {
       WHERE owner_username=:owner AND kind='job' AND trashed_at IS NULL AND device_id IN (:deviceIds)
         AND status='LOGIN_THANH_CONG' AND COALESCE(live_status,'unknown')<>'die'
         AND nurture_status<>'DANG_NUOI'
+        AND (:igMinDays = 0 OR login_at <= :igJobAt)
       GROUP BY device_id`),
   ]);
 

@@ -504,7 +504,16 @@ const saveTaskDispatcherSettings = async (owner_username = 'admin', data = {}) =
   await saveSetting(owner, TASK_DISPATCHER_KEY, normalized);
   return normalized;
 };
+const DEFAULT_INSTAGRAM_JOB = { min_login_days: 0, actions: { like: { enabled: true, min_delay_seconds: 0, max_delay_seconds: 0 }, follow: { enabled: true, min_delay_seconds: 0, max_delay_seconds: 0 } } };
+const normalizeInstagramJob = (data = {}) => ({
+  min_login_days: data.min_login_days ?? 0,
+  actions: Object.fromEntries(['like', 'follow'].map((key) => [key, { ...DEFAULT_INSTAGRAM_JOB.actions[key], ...(data.actions?.[key] || {}) }])),
+});
+const getInstagramJobSettings = async (owner) => normalizeInstagramJob(await getSetting(normalizeOwner(owner) || defaultOwner(), 'instagram_job') || {});
+const saveInstagramJobSettings = async (owner, data) => saveSetting(normalizeOwner(owner) || defaultOwner(), 'instagram_job', normalizeInstagramJob(data));
+
 module.exports = {
+  getInstagramJobSettings, saveInstagramJobSettings,
   DEFAULT_ELIGIBILITY,
   DEFAULT_CHROME_KHANG_DAILY_LIMIT,
   DEFAULT_FACEBOOK_LOGIN_MACHINE_LIMIT,

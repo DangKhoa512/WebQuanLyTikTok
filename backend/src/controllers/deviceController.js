@@ -3,6 +3,7 @@ const DeviceTaskRun = require('../models/DeviceTaskRun');
 const DeviceTaskCapability = require('../models/DeviceTaskCapability');
 const { success, error } = require('../utils/response');
 const { ownerFromRequest, ownerFromAdmin } = require('../utils/owner');
+const { getInstagramJobSettings } = require('../services/settingsService');
 const { getNextTask } = require('../services/taskDispatcherService');
 const { reportTask } = require('../services/taskReportService');
 const { TASK_TYPES } = require('../services/deviceTaskTypes');
@@ -80,6 +81,7 @@ const nextTask = async (req, res) => {
     if (!result.task) {
       return res.json({ success: true, code: 0, has_task: false, task: null, message: 'Khong co task phu hop' });
     }
+    if (result.task.type === 'INSTAGRAM_JOB') result.task.job_settings = await getInstagramJobSettings(owner);
     return res.json({ success: true, code: 1, has_task: true, task: result.task });
   } catch (err) {
     return res.status(err.statusCode || 500).json({ success: false, code: -1, message: err.message || 'Loi Task Dispatcher' });

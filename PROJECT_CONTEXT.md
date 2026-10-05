@@ -1,0 +1,237 @@
+# QUANLY_REG — bối cảnh tiếp nối cho AI
+
+Cập nhật 2026-10-05 (Asia/Saigon), từ mã nguồn tại C:\Users\KHOA\Desktop\QUANLY_REG. Không chứa thông tin đăng nhập hoặc dữ liệu database.
+
+## 1. Tổng quan
+
+Hệ thống web quản lý tài khoản và hoạt động máy/phone tự động. Bắt đầu từ TikTok Account Manager, hiện có TikTok app/Chrome, tài khoản chạy job, Facebook, Instagram, Hotmail/email OTP, thống kê ngày/máy, quản lý user và điều phối tác vụ thiết bị.
+
+Luồng chính: dashboard React → REST API Express → controller/service → Sequelize/MySQL. Phone/AutoTouch lấy tài khoản/tác vụ qua API rồi báo kết quả. Cron chuyển trạng thái, reset workflow và giải phóng task hết hạn.
+
+README.md và DEPLOY.md chủ yếu phản ánh phiên bản ban đầu. Ưu tiên code nếu mâu thuẫn với tài liệu. Bản tổng hợp giúp chọn file cần đọc, không thay thế kiểm tra code liên quan đến yêu cầu mới.
+
+## 2. Công nghệ và cấu trúc
+
+| Phần | Công nghệ / vị trí |
+| --- | --- |
+| Backend | Node.js, Express 4, CommonJS; backend/src |
+| Database | MySQL, Sequelize 6, mysql2; cần MySQL 8+ cho SKIP LOCKED |
+| Frontend | React 18, React Router 6, Vite 5, Axios, Recharts; frontend/src |
+| Check/login ngoài | Axios, proxy-chain, https-proxy-agent, selenium-webdriver |
+| Vận hành | Docker Compose (MySQL/backend/Nginx), cấu hình PM2 |
+| Gốc | package.json chạy concurrently cho backend/frontend |
+
+Backend chia routes, controllers, services, models, middleware, utils, cron. Frontend chia pages, components, services; services/api.js tập trung API wrapper, App.jsx khai báo route, index.css định dạng giao diện.
+
+## 3. Bản đồ file theo công việc
+
+Đường dẫn backend rút gọn dưới đây thuộc backend/src. Tên màn hình thuộc frontend/src/pages; component thuộc frontend/src/components.
+
+| Công việc | File bắt đầu |
+| --- | --- |
+| Startup/schema | server.js, models/index.js, model tương ứng |
+| Express/health/routes | app.js, routes/index.js |
+| Auth/user/owner | controllers/authController.js, controllers/userController.js, middleware/jwtAuth.js, middleware/apiKeyAuth.js, utils/owner.js |
+| TikTok app | controllers/accountController.js, services/accountService.js, models/Account.js, routes/accounts.js; AccountList.jsx, AccountDetail.jsx |
+| TikTok Chrome/kháng | controllers/chromeController.js, models/ChromeAccount.js, routes/chrome.js; ChromeAccountList.jsx, ChromeKhangStats.jsx |
+| TikTok job | controllers/jobController.js, models/JobAccount.js, services/jobDailyStatService.js, routes/jobs.js; JobAccounts.jsx |
+| Facebook reg/job/Page/nuôi | controllers/facebookController.js, services/facebookWorkflowService.js, services/facebookFriendSuggestionService.js, routes/facebook.js; FacebookAccounts.jsx, FacebookRegStats.jsx, FacebookNurture.jsx |
+| Instagram reg/job/cookie/nuôi | controllers/instagramController.js, utils/instagramLoginUtils.js, utils/instagramCheckLiveUtils.js, utils/instagramCookieCheckUtils.js, routes/instagram.js; InstagramAccounts.jsx |
+| Reg Instagram từ Facebook | controllers/instagramFacebookRegController.js, services/instagramFacebookLinkService.js; InstagramFacebookRegClaims.jsx, InstagramFacebookSources.jsx |
+| Dispatcher | controllers/deviceController.js, services/taskDispatcherService.js, services/taskReportService.js, services/taskEligibilityService.js, services/legacyTaskAdapter.js, services/deviceTaskTypes.js |
+| Dashboard/máy | controllers/dashboardController.js, services/dashboardService.js, controllers/machineStatusController.js; Dashboard.jsx |
+| API config theo máy | controllers/machineApiConfigController.js, models/MachineApiConfig.js; MachineApiConfigs.jsx |
+| Settings | controllers/settingsController.js, services/settingsService.js, models/AppSetting.js; ProxySettings.jsx, các component *Settings.jsx |
+| Email | controllers/hotmailController.js, controllers/emailOtpController.js, route/model tương ứng; HotmailAccounts.jsx, EmailOtpAccounts.jsx |
+| Stats | controllers/statsController.js, services/statsService.js, các service *JobStatService.js; Stats.jsx, FacebookJobStats.jsx, InstagramJobStats.jsx |
+| Import/export/bulk/group/history | controllers/importController.js, exportController.js, bulkController.js, accountGroupController.js, usedAccountController.js; services/usageHistoryService.js; ImportModal.jsx, AccountGroupPicker.jsx, UsedAccounts.jsx, Export.jsx |
+| Frontend API/navigation | frontend/src/services/api.js, frontend/src/App.jsx, frontend/src/components/Layout.jsx |
+
+## 4. Nghiệp vụ và model
+
+### TikTok
+
+Account quản lý app: đăng ký, lấy account upvideo, report upload, live check, đủ chỉ tiêu và kháng. Trạng thái cơ bản từ luồng ban đầu: REG_DA_LAM, UPVIDEO, UPVIDEO_FAIL, DAT_CHI_TIEU, DIE. Code hiện có thêm login/kháng; lấy danh sách chính xác từ model/controller.
+
+ChromeAccount là pool riêng cho login/kháng Chrome, có daily log và giới hạn. JobAccount cùng JobDailyStat/JobAccountDailyLog phục vụ chạy job; API stats có web, mặc định TDS. AccountGroup, UsedAccount và usageHistoryService phục vụ nhóm/lịch sử sử dụng.
+
+Lấy account có transaction/row lock/skipLocked để tránh cấp trùng. ACCOUNT_LOCK_TIMEOUT_MIN mặc định trong accountService là 40 phút, khác 10 phút của README.
+
+### Facebook và Instagram
+
+FacebookAccount/InstagramAccount phân loại kind reg/job; có owner, group, trạng thái login/job/live và khóa nghiệp vụ. Facebook có reg Page, kiểm tra Page/token, Page job, gợi ý kết bạn, nuôi, thùng rác/khôi phục, đồng bộ reg sang job. Instagram có lấy account login/job, báo job, kiểm tra live, browser login lấy cookie với proxy, nuôi, thùng rác và đồng bộ reg sang job. INSTAGRAM_LOCK_TIMEOUT_MIN mặc định 120 phút trong controller.
+
+Đăng ký Instagram bằng Facebook dùng InstagramFacebookRegClaim, InstagramFacebookRegResult, FacebookInstagramLink. Nuôi có FacebookNurtureAssignment/Log và InstagramNurtureAssignment/Log; trạng thái CHUA_NUOI, DANG_NUOI, DA_NUOI, NUOI_FAIL.
+
+Instagram UI được nhúng bằng chuyển nền tảng trong FacebookAccounts.jsx. Stats.jsx chuyển sang FacebookJobStats/InstagramJobStats; FacebookNurture.jsx hỗ trợ cả hai nền tảng. Không kết luận thiếu UI Instagram chỉ vì không có route trực tiếp trong App.jsx.
+
+### Thiết bị và dispatcher
+
+DashboardDevice lưu heartbeat/trạng thái; DeviceTaskCapability lưu khả năng; DeviceTaskRun lưu lượt chạy; MachineApiConfig lưu config theo owner + device + key.
+
+POST /api/device/heartbeat, /next-task, /task/report dùng API key; GET/PUT /api/device/capabilities/:device_id dùng JWT.
+
+Task mặc định theo ưu tiên: PAGE_JOB 100, INSTAGRAM_JOB 90, REG_PAGE 80, REG_INSTAGRAM 70, NUOI_FACEBOOK 60, NUOI_INSTAGRAM 50. Mặc định bật, timeout khóa 30 phút, max retry 3; giá trị settings lưu trong DB có thể khác.
+
+Dispatcher dùng transaction, kiểm tra capabilities/task đang chạy/ưu tiên/điều kiện nghiệp vụ; legacyTaskAdapter nối với API nghiệp vụ cũ. Report chuyển RUNNING → REPORTING → SUCCESS/FAILED; release có RELEASED. Báo task kết thúc lần nữa trả already_reported; phải đúng owner/device.
+
+Lỗi retry: TIMEOUT, NETWORK_ERROR, APP_OPEN_FAIL. Không retry: ACCOUNT_DIE, CHECKPOINT, INVALID_ACCOUNT. Đọc service để hiểu cách retry thực thi, không mặc định có queue riêng.
+
+Settings gồm điều kiện đủ chỉ tiêu, giới hạn kháng/login/job theo user, proxy/cookie check, workflow Facebook, reg Instagram bằng Facebook, nuôi, dispatcher.
+
+### Email/nhóm/thống kê
+
+Hotmail: POST /api/hotmails/get, /report-used; dashboard import/list/bulk. Email OTP: EmailOtpOrder, EmailOtpDeviceUse; POST /api/email-otps/report, /get, /report-done; dashboard quản lý trạng thái.
+
+AccountGroup có loại app, chrome, job, facebook_reg, facebook_job, instagram_reg, instagram_job. Stats/log tách theo TikTok job, Facebook job, Instagram job, kháng app/Chrome, Page reg và báo cáo máy theo nền tảng. Khi sửa report cần xem service thống kê tương ứng.
+
+## 5. API/auth/owner cần giữ đúng
+
+- API mount dưới /api. /health trả status/timestamp, không kiểm tra DB mỗi request.
+- Dashboard dùng Authorization: Bearer JWT. Frontend lưu localStorage key tiktok_admin_token, gắn header qua interceptor, trả response.data và chuyển /login khi 401.
+- apiKeyAuth hiện dùng **username của user đang active** làm header x-api-key, rồi gắn req.api_owner_username. Không so với secret API_KEY trong .env như DEPLOY cũ mô tả.
+- Một số API cũ accounts/jobs/Chrome không gắn apiKeyAuth riêng như API mới; kiểm tra route/controller từng endpoint trước khi sửa auth.
+- utils/owner.js chuẩn hóa trim/lowercase. Dashboard scope theo req.admin.username; phone đã auth dùng req.api_owner_username; luồng cũ có body/query/default admin fallback.
+- Giữ owner_username ở truy vấn, khóa, insert và unique index; accounts/Chrome dùng unique owner + username. Cẩn thận bulk/report/stats khi refactor.
+- Response thường { success, message, data }; xem utils/response.js và endpoint để giữ contract.
+- Route groups: auth, accounts, chrome-accounts, stats, dashboard, users, account-groups, used-accounts, settings, machine-api-configs, machine-status, device, jobs, facebook, instagram, hotmails, email-otps, export.
+- Contract/payload chính xác nằm trong routes/*, controllers/*, middleware/validator.js và frontend/src/services/api.js.
+
+## 6. Database và cron
+
+config/database.js dùng env DB_NAME/DB_USER/DB_PASS; DB_HOST mặc định localhost, DB_PORT 3306; utf8mb4; timezone +07:00; pool max 10.
+
+server.js authenticate, đăng ký models, sequelize.sync({ force: false, alter: false }), chạy nhiều runtime migration SQL rồi vận hành server. Sửa schema cần xem cả model và migration startup; chỉ sửa model không bảo đảm DB cũ được cập nhật. Migration thường bắt lỗi và log warning: cần phân biệt already exists với lỗi SQL thật.
+
+Cron chạy ngay khi startup và mỗi 5 phút: accountService.runStatusTransitions, runFacebookWorkflowResets, releaseExpiredTasks; trạng thái schedulerState. Khởi động backend có thể thay đổi schema/dữ liệu, không phải thao tác đọc thuần túy.
+
+**Không seed DB thật:** backend/seeds/seedData.js dùng Account.sync({ force: true }), xóa/tạo lại bảng accounts. Không dùng seed để tạo schema production.
+
+## 7. Chạy và vận hành
+
+Theo README cần Node >=18, MySQL >=8. backend/.env và backend/.env.example có sẵn trong workspace; chưa đọc/chép giá trị bí mật.
+
+Sau khi cấu hình DB và cài dependency:
+
+```powershell
+# Từ gốc
+npm run dev
+
+# Hoặc mỗi lệnh ở một terminal
+npm run dev --prefix backend
+npm run dev --prefix frontend
+
+# Build UI
+npm run build --prefix frontend
+```
+
+Nếu thiếu dependency, npm install tại gốc/backend/frontend. Backend mặc định localhost:3000, frontend localhost:5173. Vite host true, proxy /api sang localhost:3000, timeout 600 giây. VITE_API_BASE_URL nếu cấu hình sẽ được wrapper thêm /api.
+
+START.bat mở hai terminal và hardcode đường dẫn workspace Windows. Đọc SETUP.ps1 trước khi chạy vì có thể thay đổi môi trường.
+
+Env chính: DB_*, PORT, NODE_ENV, CORS_ORIGIN, LOG_LEVEL, JWT_SECRET, ADMIN_USER/ADMIN_PASS; timeout/limit nghiệp vụ ở service/controller. Không công bố giá trị bí mật.
+
+Docker: docker compose up -d --build. Compose lấy biến cho MySQL ở môi trường/gốc; backend dùng backend/.env và override DB_HOST=mysql. Compose hiện chỉ publish Nginx 80/443; không publish backend/MySQL trực tiếp 3000/3306 như README ghi. Có volume mysql_data, backend logs và mount /etc/letsencrypt.
+
+PM2: backend/ecosystem.config.js. Nginx: nginx/nginx.conf, nginx/Dockerfile; frontend có Dockerfile/nginx.conf riêng. Backup: scripts/backup-db.sh. DEPLOY chỉ là hướng dẫn mẫu, không xác nhận VPS/production hiện tại.
+
+## 8. Kiểm tra khi sửa code
+
+```powershell
+# Cú pháp file backend đã sửa
+node --check backend/src/controllers/instagramController.js
+
+# Mock check-live Instagram (từ gốc)
+npm run test:instagram-check-live-mock --prefix backend
+
+# Parser (chạy trong backend)
+node scripts/testFacebookImportParser.js
+
+# UI (từ gốc)
+npm run build --prefix frontend
+```
+
+backend/scripts/testTaskDispatcher.js và testFacebookFriendSuggestions.js dùng DB, tạo/xóa dữ liệu test; đọc cleanup và dùng DB phù hợp trước khi chạy. scripts/test-concurrent-get.js gọi API cấp account đồng thời, có thể khóa account thật. Không chạy vô tình trên dữ liệu đang dùng.
+
+Không có npm test tổng quát trong package backend/frontend; không khai báo framework test frontend. Chọn kiểm tra theo thay đổi.
+
+Lượt tổng hợp này chỉ đọc source/Git và ghi tài liệu; chưa chạy build/test/server, chưa xác minh MySQL/API đang chạy hay production.
+
+## 9. Trạng thái bàn giao
+
+- Branch main, HEAD 2473129: Expand Instagram cookie checks and fallback.
+- Commit trước đó: 3f04a55 sort cookie Instagram; 8e258d4 bỏ login khi đã có cookie; 6c9a2eb login cookie tuần tự; de0f9f6 sửa Facebook placeholder live detection. Đây là lịch sử Git, không phải kết quả kiểm thử hiện tại.
+- Working tree sạch trước khi thêm hai file tài liệu. Có node_modules ở gốc/backend và nhiều log test/runtime; log có thể chứa dữ liệu nhạy cảm, không dùng làm hướng dẫn.
+- Không tìm thấy AGENTS.md trước lượt này. Đã thêm AGENTS.md để hướng AI đọc tài liệu ngay khi vào repo.
+- Chưa commit/push; chưa sửa logic, DB hoặc cấu hình ứng dụng. Yêu cầu hiện tại chỉ là tổng hợp; không có bug/tính năng dang dở được giao trong cuộc trò chuyện này.
+- Tài liệu cũ khác code về phạm vi tính năng, auth API key, timeout khóa và port Docker. Ưu tiên code.
+
+## 10. Bắt đầu cuộc trò chuyện mới
+
+1. Đọc AGENTS.md và tài liệu này; kiểm tra git status --short/HEAD để biết thay đổi mới.
+2. Chọn file theo mục 3, đối chiếu route → controller/service → model/migration → API frontend/UI của yêu cầu.
+3. Giữ owner, concurrency, thống kê, report lặp và tương thích API cũ.
+4. Chạy kiểm tra phù hợp, ghi rõ kết quả/giới hạn; cập nhật tài liệu khi kiến trúc hoặc luồng thay đổi.
+
+Câu mở đầu gợi ý: “Đọc AGENTS.md và PROJECT_CONTEXT.md của QUANLY_REG rồi xử lý yêu cầu sau: …”. AI vẫn cần đọc code liên quan nhưng không cần dựng lại toàn bộ bối cảnh.
+
+## 11. Cập nhật cài đặt Instagram (2026-10-05)
+
+- User sửa limit IG của chính mình; admin xem/sửa bảng limit các user. API không cho user sửa owner khác.
+- Reg Instagram bằng Facebook bố trí các nhãn/input cùng hàng.
+- GET/PUT /api/settings/instagram-job lưu theo owner ở AppSetting key instagram_job: min_login_days và actions.like/follow (enabled, min_delay_seconds, max_delay_seconds). Delay tính bằng giây. Mặc định số ngày = 0, hai action bật và delay = 0 để giữ cách sử dụng API cũ.
+- API get-login-success-account lọc login_at đủ N*24 giờ khi N>0, kể cả account DANG_LAM trả lại; thiếu login_at không đủ điều kiện. Không chặn cấp account để login hoặc nuôi. Dashboard taskEligibilityService dùng cùng mốc cho INSTAGRAM_JOB.
+- API lấy account trả data.job_settings; device/next-task trả task.job_settings cho task.type = INSTAGRAM_JOB. Bot ngoài repo cần đọc cấu hình để thực thi Like/Follow và delay. Dispatcher tiếp tục task đang chạy theo cơ chế cũ.
+- Build frontend đạt (cảnh báo bundle lớn); kiểm tra cú pháp backend đạt. testInstagramJobSettingsMock.js kiểm tra quyền/owner, validation, mốc đủ ngày, thiếu login_at và cấu hình API/dispatcher bằng mock, không đổi DB thật.
+- Sửa lỗi Dashboard: Sequelize không nhận tham số :igMinDays khi viết sát dấu bằng. Truy vấn đã đổi sang (:igMinDays = 0 OR login_at <= :igJobAt). Test dùng injectReplacements thật của Sequelize cho cả 0 và 4 ngày, xác nhận SQL không còn tham số chưa thay thế. Test mock và kiểm tra cú pháp/diff đạt; chưa kiểm tra trực tiếp database đang chạy.
+
+## 12. Refactor UI trang Cài đặt (2026-10-05)
+
+- Chỉ sửa frontend và tài liệu trong lượt refactor này. Backend, route, schema và API contract giữ nguyên; các diff backend hiện có thuộc lượt sửa IG trước.
+- ProxySettings.jsx vẫn điều khiển các tab TikTok/Facebook/Cài đặt chung và các hàm lưu/reset hiện có. CSS mới ở frontend/src/styles/settings.css giới hạn trong .settings-page; không thay đổi Dashboard hay danh sách account.
+- InstagramSettingsPanel.jsx là UI Instagram riêng, dùng các endpoint thật đang có cho limit user, reg Facebook, job và cookie. Gọi onSaved để đồng bộ các giá trị cookie/reg được dùng bởi Save/Reset chung ở ProxySettings.
+- SettingsPrimitives.jsx cung cấp SettingsCard, NumberField có đơn vị, SettingsToggle, SettingsModal (native dialog, Escape/focus), SettingsSaveBar.
+- Instagram có điều hướng tới section, tổng quan cấu hình, bảng limit (user chỉ thấy chính mình, admin thấy các user), card Reg/Điều kiện, task Like/Follow với toggle và validation delay; không thêm task Comment vì backend chưa hỗ trợ.
+- Cookie mặc định collapse và che nội dung; giữ chỉnh sửa textarea, check theo batch, xóa cookie die; có Hiện/Ẩn, Copy, Check/Xóa từng cookie. Copy dùng clipboard.js hiện có. Không log dữ liệu cookie.
+- Editor Instagram nuôi chuyển full-width. Giữ cooldown, tạo/chọn/đổi tên/active/xóa kịch bản, generator ngẫu nhiên và field actions.newfeed/reels/story. Generator chuyển vào modal; tạo ngẫu nhiên và xóa vẫn lưu ngay như trước. Chỉnh sửa thông thường lưu qua thanh lưu chung.
+- Thanh lưu xuất hiện khi có nháp và có Hủy/Lưu thay đổi. Instagram rebase từng module thành công; module lỗi giữ nháp. Các tab cũ cũng có tracking nháp và gọi lại đúng hàm save từng module. FacebookNurtureSettings chỉ thêm snapshot/ref để tham gia thanh lưu, giữ các hoạt động và generator hiện có.
+- Các editor đã mở được giữ mounted khi đổi tab để không mất nháp; có beforeunload khi còn thay đổi. Reset hiện có vẫn còn, giữ phạm vi reset nhiều nền tảng của hàm cũ.
+- Kiểm tra đạt: npm run build --prefix frontend, git diff --check, Chrome headless dùng API local thật qua scripts/test-settings-ui.cjs. Đã kiểm tra layout desktop 1920/laptop 1366/mobile emulation 390, không tràn ngang nội dung trang, toggle disable, validation Min/Max, dirty/discard ở bốn tab và kịch bản, modal Escape. Không ghi setting vào DB khi chạy smoke test; chưa thử save thành công/generator submit/delete trên DB thật trong lượt này.
+- Build còn cảnh báo bundle >500 kB như trước; chưa thay đổi bundling. Console chức năng sạch; favicon.ico 404 không thuộc Settings được loại riêng trong smoke test.
+- Ảnh render: artifacts/settings-instagram-desktop.png, settings-instagram-laptop.png, settings-instagram-mobile.png, settings-instagram-tasks.png, settings-instagram-nurture.png. Cookie trong ảnh vẫn được che.
+- Smoke test cần backend/frontend local chạy ở 3000/5173, Chrome và chromedriver cache; dùng ADMIN_USER/ADMIN_PASS từ backend/.env để đăng nhập thật, không in credential/token. Chưa commit/push.
+
+
+## 13. Hoàn thiện Settings hai tầng tab thật (2026-10-05)
+
+Phần này thay thế mô tả UI/kiểm thử ở mục 12. Chỉ frontend, script kiểm thử và tài liệu được sửa trong lượt này; diff backend/API service còn lại thuộc lượt Instagram trước, không sửa thêm backend.
+
+- Bốn platform dùng PlatformTabs. Mỗi platform có SettingsSubTabs và SettingsTabPanel thực sự, chỉ một view hiển thị. Không dùng anchor, hash, scrollIntoView hay scrollTo để chuyển tab. View được giữ mounted để giữ nháp, scenario selection và trạng thái editor; đổi platform/sub-tab không cảnh báo mất nháp. Nút Chỉnh sửa trong Tổng quan chuyển view trực tiếp. Tổng quan chỉ chứa summary.
+- TikTok: Tổng quan, Account (Chrome kháng + Job), Điều kiện (min_age_days/min_videos), API máy (admin). API máy quản lý **tên cột key**, không phải giá trị secret; thêm/xóa vẫn lưu ngay. Chrome limit chỉ admin sửa; Job limit user được sửa của mình.
+- Facebook: Tổng quan, Account, Reg Page (wait/reset), Nuôi Facebook (reset), Page Job (reset), Kịch bản nuôi. Admin dùng bảng limit theo user; user xem limit của mình. Editor full-width dùng đúng actions newfeed/reels/like_newfeed/friend_request/accept_friend/join_groups/like_pages. Giữ generator_config, min/max số lượng, danh sách links và page_uids, quy tắc validate và thuật toán tạo ngẫu nhiên. Generator vào modal, setup và tạo/xóa vẫn dùng API hiện có.
+- Instagram: Tổng quan, Account, Reg IG, Nhiệm vụ, Điều kiện, Cookie, Kịch bản nuôi. Cookie ở tab riêng không cần collapse; mặc định che, giữ Hiện/Ẩn/Copy/Check/Xóa, check batch/xóa die và textarea chỉnh sửa. Job chỉ Like/Follow; không thêm Comment/task mới. Giữ reg, min_login_days, delay và cooldown/actions scenario.
+- Cài đặt chung: Tổng quan, Điều phối tác vụ, Proxy, Tham số check. Dispatcher giữ sáu task và field priority/enabled/lock_timeout_minutes/max_retry. Proxy che mặc định, có hiện/chỉnh sửa và copy. Concurrency lưu backend cùng proxy; delayMs/batchSize tiếp tục localStorage cl_settings, không thêm field backend.
+- Shared: SettingsPrimitives (Card/NumberField/Toggle/Modal/SaveBar), SettingsFields (MinMaxField/LimitSettings/TextField/SelectField/SecretTextEditor), SettingsSubTabs (tab/panel/summary), ScenarioSettings (ScenarioSelector/ScenarioActivity), PlatformTabs. Các boolean dùng switch; các khoảng Min/Max dùng một component, OFF disable input. Các platform dùng cùng CSS scope settings-page, trạng thái loading/error/empty và Toast hiện có.
+- SettingsDataProvider cache promise các GET trong phiên trang để tránh gọi trùng; invalidate sau mutation thành công vì workflow và nurture có tác động chéo. Không thêm hoặc đổi endpoint/payload/JSON contract. Trang parent chỉ đọc các resource cần thiết; Instagram lazy đọc resource riêng. Retry giữ GET thành công trong cache, thử lại request lỗi.
+- Nháp parent được chụp sau tải đầy đủ, trước khi cho chỉnh; lỗi load có nút retry. Thanh lưu và Hủy chỉ áp dụng platform đang mở; nháp platform khác giữ nguyên và có chấm báo trên tab. Instagram commit từng module, các platform còn lại rebase resource/row thành công. API save lỗi giữ nháp. Reset hiện có vẫn giữ phạm vi nhiều nền tảng, có confirm; không kiểm thử reset trên dữ liệu thật.
+- Kiểm thử đạt: npm --prefix frontend run build (còn cảnh báo bundle >500 kB đã có), git diff --check; node scripts/test-settings-tabs.cjs (test-settings-ui.cjs chuyển sang dùng bộ này). Chrome headless đăng nhập/API thật localhost 3000/5173, không mock API: Instagram limit, TikTok Chrome limit, Facebook workflow, Common dispatcher và local delay đều edit/save/reload/khôi phục giá trị ban đầu. Đã kiểm tra draft qua cả hai tầng tab, proxy che mặc định, lỗi save khi browser offline vẫn giữ nháp và retry thành công, mỗi GET settings một lần khi mở/chuyển/revisit tab, một view/sub-tab, modal Escape và draft scenario ở FB/IG.
+- Responsive đạt cho tất cả view ở 1920x1080, 1366x768 và mobile emulation 390x844, không overflow toàn trang. Không lỗi console chức năng; lỗi offline chủ động và favicon.ico được loại riêng. Ảnh hiện tại: artifacts/settings-{tiktok,facebook,instagram,common}-{1920,1366,390}.png; cookie/proxy vẫn được che. Các ảnh trước mục 12 là phiên UI cũ.
+- Script đọc ADMIN_USER/ADMIN_PASS từ backend/.env nhưng không in credential/token/cookie/proxy. Chỉ thử lưu cấu hình có thể khôi phục; không chạy seed, cấp account/device task hay đổi DB schema. Chưa thử submit generator/delete/check cookie live trên dịch vụ ngoài, chưa kiểm thử bằng phiên user thường riêng (không có thông tin đăng nhập được cung cấp). Không commit/push.
+
+
+## 14. Refactor Dashboard vận hành (2026-10-05)
+
+- Chỉ sửa frontend/src/pages/Dashboard.jsx, thêm frontend/src/styles/dashboard.css và scripts/test-dashboard-ui.cjs. Backend, services/api.js, database và JSON contract không thay đổi trong lượt này.
+- Nguồn duy nhất vẫn dashboardApi.getSummary() → GET /api/dashboard/summary; polling vẫn setInterval 15_000. Guard inFlight tránh request song song khi bấm Làm mới trong lúc polling. Chỉ lần tải đầu có loading; các refresh tiếp theo cập nhật snapshot, giữ search/filter/device detail. Khi lỗi, giữ snapshot thành công gần nhất và hiển thị trạng thái chưa cập nhật được; không tự thêm timeout connection mới.
+- Header Live/thời điểm cập nhật, compact health strip dùng summary.online/running/idle/offline và các task.errors/scheduler.last_error. Cảnh báo Offline lọc frontend và focus vùng thiết bị. Các cảnh báo task/scheduler và KPI/task giữ đường dẫn cũ (không giả định trang đích có filter lỗi).
+- Năm KPI có hierarchy số chính/nhãn/phụ, accent ở icon, cùng theme Settings. Error vẫn tổng task.errors của sáu luồng, không cộng account.errors/offline để tránh thay nghiệp vụ đếm. Workload giữ ready/running/errors chính xác và badge thống nhất; task có lỗi có chấm indicator.
+- Device monitor giữ Facebook/Instagram account count, current_task/current_uid, runtime chỉ Running, next_available và last_seen. Bỏ nhãn Last Task/Last Account lặp trong từng dòng. Lọc status/task và tìm tên/ID/account/task đều từ snapshot, không request mỗi ký tự; có clear/reset/empty state. Drawer chi tiết dùng SettingsModal native dialog với CSS drawer, Escape/focus, cập nhật theo device_id từ snapshot mới và không đóng khi refresh.
+- API devices.rows hiện giới hạn 100; UI ghi rõ khi summary.total lớn hơn số đã tải, filter/search chỉ trên snapshot này. next_available chỉ task_type/count, không có timestamp cooldown nên hiển thị Sẵn sàng + loại/số task, không tạo thời gian giả. Không thêm chart, API hoặc severity backend.
+- Kiểm thử Chrome/API thật read-only qua node scripts/test-dashboard-ui.cjs: số chính năm KPI và ready/running/errors sáu task khớp summary; device count/status, search/empty/clear, status và task filter, alert Offline, đường dẫn card cũ; polling 15 giây giữ search và drawer; manual refresh giữ filter; một summary request lúc tải ban đầu; console chức năng sạch. Không ghi DB/cấp task/heartbeat/seed. Snapshot local hiện chỉ có Offline nên không kiểm thử trực tiếp máy Running/Idle hay cooldown timestamp chưa tồn tại. Các formatter/runtime/current fields giữ từ implementation cũ.
+- Responsive đạt 1920/1366/390, toàn trang không overflow ngang; Device table có container cuộn ngang để giữ dữ liệu. Ảnh artifacts/dashboard-1920.png, dashboard-1366.png, dashboard-390.png. Build frontend đạt, vẫn cảnh báo bundle lớn từ trước; git diff --check đạt. Chưa commit/push.
+
+## 15. Bàn giao GitHub (2026-10-05)
+
+- Người dùng yêu cầu commit/push các thay đổi đã hoàn thiện ở các mục 11–14 lên origin/main.
+- Kiểm tra trước commit: frontend build và testInstagramJobSettingsMock.js đạt; git diff --check đạt. UI Settings/Dashboard đã kiểm thử API/Chrome thật ở các lượt trên.
+- artifacts/ được giữ local và ignore để không upload ảnh chứa snapshot dữ liệu vận hành. Code, tài liệu và script kiểm thử được đưa vào commit; không có .env, log hoặc build output.

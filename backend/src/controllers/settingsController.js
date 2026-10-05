@@ -183,17 +183,17 @@ const getInstagramLoginLimit = async (req, res, next) => {
     const targetOwner = isAdmin && req.query.owner_username ? normalizeOwner(req.query.owner_username) : ownerFromAdmin(req);
     const settings = await getInstagramLoginLimitSettings(targetOwner);
     settings.owner_username = targetOwner;
-    settings.editable = isAdmin;
+    settings.editable = true;
     return success(res, { settings }, 'Lay cai dat limit Instagram login thanh cong');
   } catch (err) { next(err); }
 };
 
 const updateInstagramLoginLimit = async (req, res, next) => {
   try {
-    if (req.admin?.role !== 'admin') return error(res, 'Chi admin duoc sua limit Instagram login', 403);
-    const owner = normalizeOwner(req.body.owner_username || ownerFromAdmin(req));
-    const limit = parseInt(req.body.limit, 10);
-    if (!Number.isInteger(limit) || limit <= 0) return error(res, 'Limit phai lon hon 0', 400);
+    const isAdmin = req.admin?.role === 'admin';
+    const owner = isAdmin ? normalizeOwner(req.body.owner_username || ownerFromAdmin(req)) : ownerFromAdmin(req);
+    const limit = Number(req.body.limit);
+    if (!Number.isInteger(limit) || limit <= 0) return error(res, 'Limit phai la so nguyen lon hon 0', 400);
     const settings = await saveInstagramLoginLimitSettings(owner, { limit });
     settings.owner_username = owner;
     settings.editable = true;
@@ -467,4 +467,20 @@ const updateTaskDispatcher = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getInstagramCheckCookies, updateInstagramCheckCookies, checkInstagramCheckCookies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookWorkflow, updateFacebookWorkflow, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture, getTaskDispatcher, updateTaskDispatcher };
+const { getInstagramJobSettings, saveInstagramJobSettings } = require('../services/settingsService');
+const getInstagramJob = async (req, res, next) => {
+  try { return success(res, { settings: await getInstagramJobSettings(ownerFromAdmin(req)) }, 'OK'); } catch (err) { next(err); }
+};
+const updateInstagramJob = async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    if (!Number.isInteger(data.min_login_days) || data.min_login_days < 0 || data.min_login_days > 3650) return error(res, 'So ngay phai la so nguyen tu 0 den 3650', 400);
+    for (const key of ['like', 'follow']) {
+      const action = data.actions?.[key];
+      if (!action || typeof action.enabled !== 'boolean' || !Number.isFinite(action.min_delay_seconds) || !Number.isFinite(action.max_delay_seconds) || action.min_delay_seconds < 0 || action.max_delay_seconds < action.min_delay_seconds || action.max_delay_seconds > 86400) return error(res, 'Delay ' + key + ' phai thoa 0 <= min <= max <= 86400 giay', 400);
+    }
+    return success(res, { settings: await saveInstagramJobSettings(ownerFromAdmin(req), data) }, 'Da luu cai dat Instagram Job');
+  } catch (err) { next(err); }
+};
+
+module.exports = { getInstagramJob, updateInstagramJob, getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getInstagramCheckCookies, updateInstagramCheckCookies, checkInstagramCheckCookies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookWorkflow, updateFacebookWorkflow, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture, getTaskDispatcher, updateTaskDispatcher };
