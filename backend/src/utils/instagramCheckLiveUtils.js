@@ -417,9 +417,10 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
   const shouldTryCookieFallback = (stats) => {
     if (stats?.live === true || stats?.live === false) return false;
     const reason = String(stats?.reason || '');
-    // Cookies cannot repair a dead/overloaded proxy or an Instagram rate
-    // limit. Retrying cookies in those cases only multiplies batch duration.
-    return !/rate_limited|forbidden|server_error|ECONN|ETIMEDOUT|ENOTFOUND|request_failed|timeout/i.test(reason);
+    // Every inconclusive result must reach the authenticated fallback. A
+    // different proxy plus a valid settings cookie can still turn a public
+    // 403/429/login-wall/timeout into a definitive live or die result.
+    return !/missing_username/i.test(reason);
   };
 
   for (let index = 0; index < accounts.length; index += workerCount) {
@@ -443,7 +444,7 @@ const batchCheckInstagram = async (accounts, rawProxies = [], concurrency = 20, 
 
       if (shouldTryCookieFallback(stats) && configuredCookies.length) {
         const triedCookies = new Set(account.cookies ? [String(account.cookies).trim()] : []);
-        const maxCookieAttempts = Math.min(2, configuredCookies.length);
+        const maxCookieAttempts = Math.min(3, configuredCookies.length);
         for (let cookieAttempt = 0; cookieAttempt < maxCookieAttempts; cookieAttempt += 1) {
           const fallbackCookie = nextFallbackCookie(triedCookies);
           if (!fallbackCookie) break;

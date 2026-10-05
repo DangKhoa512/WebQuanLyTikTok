@@ -100,7 +100,7 @@ const normalizeInstagramCheckCookies = (data = {}) => {
   for (const value of source) {
     const cookie = String(value || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 6000);
     if (!cookie || cookies.includes(cookie)) continue;
-    if (cookies.length >= 30 || totalLength + cookie.length > 60000) break;
+    if (cookies.length >= 200 || totalLength + cookie.length > 1200000) break;
     cookies.push(cookie);
     totalLength += cookie.length;
   }

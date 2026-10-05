@@ -15,7 +15,7 @@ const AppSetting = sequelize.define(
       allowNull: false,
     },
     setting_value: {
-      type: DataTypes.TEXT,
+      type: DataTypes.TEXT('long'),
       allowNull: false,
     },
   },

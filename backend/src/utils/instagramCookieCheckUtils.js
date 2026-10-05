@@ -178,7 +178,7 @@ const checkInstagramCookie = async (rawCookie, upstreamProxy = null) => {
 };
 
 const checkInstagramCookies = async (rawCookies = [], rawProxies = [], concurrency = 2) => {
-  const cookies = [...new Set(rawCookies.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, 30);
+  const cookies = [...new Set(rawCookies.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, 200);
   const configuredProxies = rawProxies.map((item) => String(item || '').trim()).filter(Boolean);
   const proxies = configuredProxies.map(parseProxy).filter(Boolean);
   if (configuredProxies.length && !proxies.length) throw new Error('Cau hinh proxy Instagram khong hop le');

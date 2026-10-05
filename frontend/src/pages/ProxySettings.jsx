@@ -80,7 +80,7 @@ export default function ProxySettings() {
   const isAdminUser = authService.getRole() === 'admin';
 
   const proxyList = proxies.split('\n').map((l) => l.trim()).filter(Boolean);
-  const instagramCookieList = instagramCheckCookies.split('\n').map((line) => line.trim()).filter(Boolean);
+  const instagramCookieList = [...new Set(instagramCheckCookies.split('\n').map((line) => line.trim()).filter(Boolean))].slice(0, 200);
   const facebookWorkflowRows = [
     {
       key: 'reg_page_reset_hours',
@@ -254,11 +254,25 @@ export default function ProxySettings() {
     }
     setCheckingInstagramCookies(true);
     setInstagramCheckCookies(cookies.join(String.fromCharCode(10)));
+    setInstagramCookieCheckResults([]);
     try {
-      const res = await settingsApi.checkInstagramCheckCookies(cookies);
-      const data = res.data || {};
-      setInstagramCookieCheckResults(data.results || []);
-      toast.success('Cookie IG: ' + (data.live || 0) + ' live - ' + (data.die || 0) + ' die - ' + (data.unknown || 0) + ' unknown');
+      const results = [];
+      const batchSize = 20;
+      for (let offset = 0; offset < cookies.length; offset += batchSize) {
+        const batch = cookies.slice(offset, offset + batchSize);
+        try {
+          const res = await settingsApi.checkInstagramCheckCookies(batch);
+          const rows = (res.data?.results || []).map((item) => ({ ...item, index: offset + Number(item.index || 0) }));
+          results.push(...rows);
+        } catch (err) {
+          results.push(...batch.map((_, index) => ({ index: offset + index, status: 'unknown', reason: err.message || 'batch_check_failed' })));
+        }
+        setInstagramCookieCheckResults([...results]);
+      }
+      const live = results.filter((item) => item.status === 'live').length;
+      const die = results.filter((item) => item.status === 'die').length;
+      const unknown = results.length - live - die;
+      toast.success('Cookie IG: ' + live + ' live - ' + die + ' die - ' + unknown + ' unknown');
     } catch (err) {
       toast.error(err.message || 'Khong kiem tra duoc cookie Instagram');
     } finally {
@@ -1068,7 +1082,7 @@ export default function ProxySettings() {
           />
           <div style={{ display: 'flex', gap: '.55rem', flexWrap: 'wrap', marginTop: '.7rem' }}>
             <button type="button" onClick={handleCheckInstagramCookies} disabled={checkingInstagramCookies || !instagramCookieList.length} style={{ background: checkingInstagramCookies ? '#475569' : '#ec4899', border: 0, color: '#fff', borderRadius: 7, padding: '.48rem .8rem', cursor: checkingInstagramCookies ? 'not-allowed' : 'pointer', fontWeight: 800 }}>
-              {checkingInstagramCookies ? 'Dang check...' : 'Check cookie'}
+              {checkingInstagramCookies ? 'Dang check ' + instagramCookieCheckResults.length + '/' + instagramCookieList.length : 'Check cookie'}
             </button>
             <button type="button" onClick={removeDeadInstagramCookies} disabled={!instagramCookieCheckResults.some((item) => item.status === 'die')} style={{ background: '#7f1d1d', border: 0, color: '#fecaca', borderRadius: 7, padding: '.48rem .8rem', cursor: 'pointer', fontWeight: 800, opacity: instagramCookieCheckResults.some((item) => item.status === 'die') ? 1 : .45 }}>
               Xoa cookie die
@@ -1090,7 +1104,7 @@ export default function ProxySettings() {
             })}
           </div>}
           <div style={{ fontSize: '.72rem', color: '#64748b', marginTop: '.4rem' }}>
-            Tối đa 30 cookie. Cookie được lưu riêng theo tài khoản đăng nhập trên web.
+            Tối đa 200 cookie. Cookie được lưu riêng theo tài khoản đăng nhập trên web.
           </div>
         </div>
 

@@ -124,7 +124,7 @@ const testCookieFallback = async () => {
   );
 };
 
-const testRateLimitSkipsCookieFallback = async () => {
+const testRateLimitUsesCookieFallbackToConfirmDie = async () => {
   let requestCount = 0;
   const account = {
     id: 2,
@@ -139,8 +139,11 @@ const testRateLimitSkipsCookieFallback = async () => {
   };
 
   await withMockGet(
-    async (url) => {
+    async (url, config) => {
       requestCount += 1;
+      if (String(config?.headers?.Cookie || '').includes('confirmed-die-session')) {
+        return mockResponse(url, 200, '<script>{"pageID":"httpErrorPage","require":[["PolarisErrorRoot.entrypoint"]]}</script>');
+      }
       return mockResponse(url, 429, { message: 'Please wait a few minutes' });
     },
     async () => {
@@ -149,13 +152,16 @@ const testRateLimitSkipsCookieFallback = async () => {
         [],
         20,
         0,
-        ['sessionid=should-not-be-used']
+        ['sessionid=confirmed-die-session; csrftoken=confirmed-die-csrf']
       );
       const result = checked.results[0];
-      assert.strictEqual(result.result, 'unknown');
-      assert.strictEqual(result.cookie_fallback_used, false);
-      assert.strictEqual(result.cookie_attempts, 0);
-      assert.strictEqual(requestCount, 3);
+      assert.strictEqual(result.result, 'die');
+      assert.strictEqual(result.reason, 'authenticated_profile_missing_confirmed');
+      assert.strictEqual(result.cookie_fallback_used, true);
+      assert.strictEqual(result.cookie_attempts, 1);
+      assert.strictEqual(account.live_status, 'die');
+      assert.strictEqual(account.status, 'ACCOUNT_DIE');
+      assert.strictEqual(requestCount, 5);
     }
   );
 };
@@ -196,7 +202,7 @@ const main = async () => {
   await testUnknownProfile();
   await testPostFallback();
   await testCookieFallback();
-  await testRateLimitSkipsCookieFallback();
+  await testRateLimitUsesCookieFallbackToConfirmDie();
   await testConcurrencyFollowsProxyPool();
   console.log(JSON.stringify({
     ok: true,
@@ -206,7 +212,7 @@ const main = async () => {
       'unknown_rate_limited',
       'post_count_fallback',
       'settings_cookie_fallback',
-      'rate_limit_skips_cookie_retry',
+      'rate_limit_cookie_fallback_confirms_die',
       'concurrency_follows_proxy_pool',
     ],
   }, null, 2));

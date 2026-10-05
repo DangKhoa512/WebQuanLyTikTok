@@ -26,6 +26,13 @@ const startServer = async () => {
 
     // 3a. Runtime migrations (idempotent — safe to run every boot)
     try {
+      await sequelize.query('ALTER TABLE app_settings MODIFY COLUMN setting_value LONGTEXT NOT NULL');
+      logger.info('app_settings setting_value LONGTEXT ready');
+    } catch (e) {
+      logger.warn('Migration app_settings setting_value LONGTEXT skipped:', e.message);
+    }
+
+    try {
       await sequelize.query(`
         ALTER TABLE accounts
         ADD COLUMN owner_username VARCHAR(100) NOT NULL DEFAULT '${adminOwner()}'

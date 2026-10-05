@@ -331,7 +331,7 @@ const checkInstagramCheckCookies = async (req, res, next) => {
     const requestedCookies = req.body.cookies === undefined
       ? cookieSettings.cookies
       : Array.isArray(req.body.cookies) ? req.body.cookies : String(req.body.cookies || '').split(String.fromCharCode(10));
-    const cookies = [...new Set(requestedCookies.map((item) => String(item || '').split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(13)).join(' ').trim()).filter(Boolean))].slice(0, 30);
+    const cookies = [...new Set(requestedCookies.map((item) => String(item || '').split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(13)).join(' ').trim()).filter(Boolean))].slice(0, 200);
     if (!cookies.length) return error(res, 'Chua co cookie Instagram de kiem tra', 400);
     const checked = await checkInstagramCookies(cookies, proxySettings.proxies || [], Math.min(proxySettings.concurrency || 5, 10));
     const live = checked.results.filter((item) => item.status === 'live').length;
