@@ -115,15 +115,26 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
   };
   const handleLoginCookies=async()=>{
     if(!ids.length)return toast.warn('Chọn account Instagram trước');
-    if(ids.length>10)return toast.warn('Mỗi lần chỉ login tối đa 10 account');
     if(!confirm('Request sẽ login '+ids.length+' account qua proxy và lưu cookie mới. Tiếp tục?'))return;
     setLoggingCookies(true);setLoginCookieResults([]);
     try{
-      const response=await instagramApi.loginCookies(ids);
-      const data=response.data||{};
-      setLoginCookieResults(data.results||[]);
-      if((data.failed||0)>0)toast.warn('Login cookie: '+(data.success||0)+' thành công, '+data.failed+' thất bại');
-      else toast.success(response.message||'Đã login và lưu cookie Instagram');
+      const results=[];
+      let successCount=0;
+      for(let index=0;index<ids.length;index+=1){
+        const id=ids[index];
+        try{
+          const response=await instagramApi.loginCookies([id],index);
+          const rows=response.data?.results||[];
+          results.push(...rows);
+          successCount+=rows.filter((item)=>item.status==='success').length;
+        }catch(error){
+          results.push({id,uid:'ID '+id,status:'failed',reason:error.message||'Login request failed',cookie_saved:false});
+        }
+        setLoginCookieResults([...results]);
+      }
+      const failedCount=results.length-successCount;
+      if(failedCount>0)toast.warn('Login cookie: '+successCount+' thành công, '+failedCount+' thất bại');
+      else toast.success('Đã login và lưu cookie Instagram: '+successCount+'/'+results.length);
       reset();await load();
     }catch(error){toast.error(error.message||'Login lấy cookie Instagram thất bại');}
     finally{setLoggingCookies(false);}
@@ -229,7 +240,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
           {!trash && <button className="btn btn-sm" style={{background:'#0ea5e9',color:'#fff'}} disabled={checking||loading||!rows.length} onClick={handleCheckLive}>{checking?`Đang check ${checkProgress?.done||0}/${checkProgress?.total||0}`:(ids.length?'Check live đã chọn':'Check live trang này')}</button>}
           {ids.length>0 && <span style={{background:'#ec4899',borderRadius:20,color:'#fff',padding:'.25rem .75rem',fontWeight:800,fontSize:'.82rem'}}>{ids.length} đã chọn</span>}
           {!trash && ids.length>0 && <>
-            {!isReg && <button className="btn btn-sm" style={{background:'#ec4899',color:'#fff'}} disabled={loggingCookies} onClick={handleLoginCookies}>{loggingCookies?'Đang login...':'Login lấy cookie'}</button>}            {isReg && <button className="btn btn-sm" style={{background:'#8b5cf6',color:'#fff'}} onClick={()=>action(()=>instagramApi.bulkSyncToJob(ids),'Chuyển sang Instagram Job?')}>Chuyển sang Instagram Job</button>}
+            {!isReg && <button className="btn btn-sm" style={{background:'#ec4899',color:'#fff'}} disabled={loggingCookies} onClick={handleLoginCookies}>{loggingCookies?'Đang login '+loginCookieResults.length+'/'+ids.length:'Login lấy cookie'}</button>}            {isReg && <button className="btn btn-sm" style={{background:'#8b5cf6',color:'#fff'}} onClick={()=>action(()=>instagramApi.bulkSyncToJob(ids),'Chuyển sang Instagram Job?')}>Chuyển sang Instagram Job</button>}
             <select className="ig-toolbar-select" value={bulkGroup} onChange={(e)=>{const value=e.target.value;setBulkGroup(value);if(value)action(()=>instagramApi.bulkMoveGroup(ids,value,kind)).finally(()=>setBulkGroup(''));}}><option value="">Chuyển nhóm...</option>{groups.map((g)=><option key={g.id} value={g.id}>{g.name}</option>)}</select>
             <select className="ig-toolbar-select" value={bulkStatus} onChange={(e)=>{const value=e.target.value;setBulkStatus(value);if(value)action(()=>instagramApi.bulkAction(ids,'set_status',{status:value})).finally(()=>setBulkStatus(''));}}><option value="">Đổi trạng thái...</option>{tabs.filter((t)=>t.value).map((t)=><option key={t.value} value={t.value}>{t.label}</option>)}</select>
             <button className="btn btn-primary btn-sm" onClick={()=>action(async()=>{const r=await instagramApi.bulkGet(ids);await copyText(r.data?.text||'');return r;})}>Copy</button>

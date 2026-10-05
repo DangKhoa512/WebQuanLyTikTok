@@ -580,7 +580,6 @@ const loginCookies = async (req, res, next) => {
   try {
     const ids = idsFrom(req);
     if (!ids.length) return error(res, 'Can chon account Instagram can login lay cookie', 400);
-    if (ids.length > 10) return error(res, 'Moi lan chi login toi da 10 account de bao ve VPS va han che checkpoint', 400);
     const owner_username = ownerFromAdmin(req);
     const accounts = await InstagramAccount.findAll({
       where: { id: { [Op.in]: ids }, owner_username, kind: 'job' },
@@ -591,7 +590,8 @@ const loginCookies = async (req, res, next) => {
     const proxies = Array.isArray(proxySettings?.proxies) ? proxySettings.proxies : [];
     if (!proxies.length) return error(res, 'Chua cau hinh proxy. Hay them proxy trong Cai dat truoc khi login Instagram', 400);
 
-    const checked = await loginInstagramAccounts(accounts, proxies);
+    const proxyOffset = Math.max(parseInt(req.body.proxy_offset, 10) || 0, 0);
+    const checked = await loginInstagramAccounts(accounts, proxies, { proxyOffset });
     const accountMap = new Map(accounts.map((account) => [Number(account.id), account]));
     const safeResults = [];
     for (const result of checked.results) {

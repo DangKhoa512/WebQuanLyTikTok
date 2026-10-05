@@ -276,7 +276,7 @@ const loginInstagramAccount = async ({ username, password, two_fa, proxy }) => {
   }
 };
 
-const loginInstagramAccounts = async (accounts, rawProxies) => {
+const loginInstagramAccounts = async (accounts, rawProxies, { proxyOffset = 0 } = {}) => {
   const proxies = rawProxies.map((item) => clean(item)).filter((item) => parseProxy(item));
   if (!proxies.length) throw new Error('instagram_login_proxy_required');
   const results = new Array(accounts.length);
@@ -287,7 +287,7 @@ const loginInstagramAccounts = async (accounts, rawProxies) => {
       const index = cursor++;
       if (index >= accounts.length) return;
       const account = accounts[index];
-      const firstProxyIndex = index % proxies.length;
+      const firstProxyIndex = (Math.max(parseInt(proxyOffset, 10) || 0, 0) + index) % proxies.length;
       const maxAttempts = Math.min(3, proxies.length);
       let result = null;
       let proxyIndex = firstProxyIndex;
@@ -318,7 +318,9 @@ const loginInstagramAccounts = async (accounts, rawProxies) => {
     }
   };
 
-  const workerCount = Math.min(accounts.length, proxies.length, 3);
+  // Cookie logins are intentionally serialized so large selections do not
+  // overload the VPS/proxy pool or create concurrent Instagram checkpoints.
+  const workerCount = Math.min(accounts.length, 1);
   await Promise.all(Array.from({ length: workerCount }, worker));
   return { results, proxy_count: proxies.length, engine: 'request' };
 };
