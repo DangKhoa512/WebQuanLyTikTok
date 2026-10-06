@@ -462,6 +462,8 @@ const getTaskDispatcher = async (req, res, next) => {
 
 const updateTaskDispatcher = async (req, res, next) => {
   try {
+    const registry=require('../services/taskRegistryService').createRegistryService(require('../config/database'));
+    if(await registry.activated() && (await registry.identity(ownerFromAdmin(req)))==null) return error(res,'Phiên người dùng không hợp lệ',401);
     const settings = await saveTaskDispatcherSettings(ownerFromAdmin(req), req.body || {});
     return success(res, { settings }, 'Da luu cau hinh Task Dispatcher');
   } catch (err) { next(err); }

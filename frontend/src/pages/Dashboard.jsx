@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { dashboardTasksFromRegistry } from '../services/dashboardTaskRegistry';
 import { dashboardApi } from '../services/api';
 import { SettingsModal } from '../components/SettingsPrimitives';
 import '../styles/settings.css';
@@ -28,14 +29,8 @@ const runtime = (startedAt) => {
 
 const STATUS_COLOR = { RUNNING: '#7c3aed', IDLE: '#0284c7', OFFLINE: '#64748b', ONLINE: '#059669' };
 
-const TASKS = [
-  { key: 'nurture_facebook', title: 'Nuôi Facebook', to: '/facebook-nurture' },
-  { key: 'nurture_instagram', title: 'Nuôi Instagram', to: '/facebook-nurture?platform=instagram' },
-  { key: 'reg_page', title: 'Reg Page', to: '/facebook-jobs' },
-  { key: 'page_job', title: 'Page Job', to: '/facebook-jobs' },
-  { key: 'reg_instagram', title: 'Reg Instagram', to: '/facebook-reg' },
-  { key: 'instagram_job', title: 'Instagram Job', to: '/facebook-jobs?platform=instagram' },
-];
+function TaskLink({to,children,...props}) {return to ? <Link to={to} {...props}>{children}</Link> : <span {...props}>{children}</span>;}
+const deviceKey=row=>`${row.owner_username || ''}:${row.device_id}`;
 
 function SummaryCard({ title, value, rows, color, icon, to, subtitle }) {
   return <Link className="dashboard-summary-card" style={{ '--summary-color': color }} to={to || '#'}>
@@ -98,20 +93,22 @@ export default function Dashboard() {
   const ig = accounts.instagram || {};
   const pages = accounts.pages || {};
   const tasks = data?.tasks || {};
+  const TASKS = dashboardTasksFromRegistry(data);
   const deviceSummary = data?.devices?.summary || {};
-  const nurtureErrors = number(tasks.nurture_facebook?.errors) + number(tasks.nurture_instagram?.errors);
-  const pageErrors = number(tasks.reg_page?.errors) + number(tasks.page_job?.errors);
-  const instagramErrors = number(tasks.reg_instagram?.errors) + number(tasks.instagram_job?.errors);
-  const taskErrors = nurtureErrors + pageErrors + instagramErrors;
+  const sumErrors = predicate => TASKS.filter(predicate).reduce((total,task)=>total+number(tasks[task.key]?.errors),0);
+  const nurtureErrors = sumErrors(task=>task.taskKey.startsWith('NUOI_'));
+  const pageErrors = sumErrors(task=>task.platform==='FACEBOOK' && !task.taskKey.startsWith('NUOI_'));
+  const instagramErrors = sumErrors(task=>task.platform==='INSTAGRAM' && !task.taskKey.startsWith('NUOI_'));
+  const taskErrors = sumErrors(()=>true);
   const alerts = [
     number(deviceSummary.offline) > 0 && { label: `${fmtNumber(deviceSummary.offline)} thiết bị Offline`, status:'OFFLINE' },
-    ...TASKS.filter((task) => number(tasks[task.key]?.errors) > 0).map((task) => ({ label: `${fmtNumber(tasks[task.key].errors)} ${task.title} Error`, to: task.to })),
+    ...TASKS.filter((task) => number(tasks[task.key]?.errors) > 0).map((task) => ({ label: `${fmtNumber(tasks[task.key].errors)} ${task.title} Error`, to: task.to || '#tasks' })),
     data?.scheduler?.last_error && { label: 'Scheduler đang có lỗi', to: '#tasks' },
   ].filter(Boolean);
 
   return <div className="page dashboard-monitor-page">
     <div className="page-header dashboard-monitor-header">
-      <div><h1>Dashboard hệ thống</h1><p>Theo dõi realtime hoạt động account, task và thiết bị.</p></div>
+      <div><h1>Dashboard hệ thống</h1><p>Theo dõi realtime hoạt động account, task và thiết bị.{data?.scope === 'system' ? ' · Toàn hệ thống' : ''}</p></div>
       <div className="dashboard-header-actions"><div className="dashboard-last-sync" title={fmtDate(data?.generated_at)}><span className={`dashboard-live-dot${error ? ' warning' : ''}`} /><strong>{error ? 'Chưa cập nhật được' : refreshing ? 'Đang cập nhật...' : data ? 'Live' : 'Chưa có dữ liệu'}</strong><small>Cập nhật {fmtTime(data?.generated_at)} · mỗi 15 giây</small></div><button className="settings-button secondary small" disabled={refreshing} onClick={load}>↻ Làm mới</button></div>
     </div>
     {error && <div className="dashboard-fetch-error" role="alert">{error}{data && <span>Đang hiển thị dữ liệu từ lần cập nhật thành công gần nhất.</span>}</div>}
@@ -140,13 +137,14 @@ export default function Dashboard() {
     </section>
 
     <section id="tasks" tabIndex={-1} className="card dashboard-task-section">
-      <div className="card-header"><div><h3>Công việc realtime</h3><small>Trạng thái hàng đợi và tác vụ đang chạy</small></div></div>
-      <div className="table-container"><table className="dashboard-task-table"><thead><tr><th>Công việc</th><th>READY</th><th>RUNNING</th><th>ERROR</th></tr></thead>
-        <tbody>{TASKS.map((task) => <tr key={task.key} className={number(tasks[task.key]?.errors) > 0 ? 'has-errors' : ''}>
-          <td><Link to={task.to}>{number(tasks[task.key]?.errors) > 0 && <span className="dashboard-problem-dot" aria-label="Có lỗi" />}{task.title}</Link></td>
-          <td><Link className="dashboard-task-value is-ready" to={task.to}>{fmtNumber(tasks[task.key]?.ready)}</Link></td>
-          <td><Link className="dashboard-task-value is-running" to={task.to}>{fmtNumber(tasks[task.key]?.running)}</Link></td>
-          <td><Link className="dashboard-task-value is-error" to={task.to}>{fmtNumber(tasks[task.key]?.errors)}</Link></td>
+      <div className="card-header"><div><h3>Công việc realtime</h3><small>Trạng thái bật/tắt của bạn · Số liệu hàng đợi và tác vụ đang chạy</small></div></div>
+      <div className="table-container"><table className="dashboard-task-table"><thead><tr><th>Tác vụ</th><th>Trạng thái</th><th>READY</th><th>RUNNING</th><th>ERROR</th></tr></thead>
+        <tbody>{TASKS.map((task) => <tr key={task.key} className={`${number(tasks[task.key]?.errors) > 0 ? 'has-errors' : ''} ${!task.enabled ? 'is-disabled' : ''}`} data-task-key={task.taskKey}>
+          <td><TaskLink to={task.to}>{number(tasks[task.key]?.errors) > 0 && <span className="dashboard-problem-dot" aria-label="Có lỗi" />}{task.title}</TaskLink></td>
+          <td className="dashboard-task-status-cell"><span className={`dashboard-task-status ${task.enabled?'is-enabled':'is-disabled'}`} title={task.enabled ? (task.systemEnabled?'Cấu hình Dispatcher của bạn đang bật tác vụ này.':'Cấu hình của bạn đang bật; loại tác vụ hiện bị tắt toàn hệ thống.') : 'Tác vụ này hiện đang tắt trong cấu hình Dispatcher của bạn.'}><span aria-hidden="true">●</span> {task.enabled?'Đang bật':'Đang tắt'}</span></td>
+          <td><TaskLink className="dashboard-task-value is-ready" to={task.to}>{fmtNumber(tasks[task.key]?.ready)}</TaskLink></td>
+          <td><TaskLink className="dashboard-task-value is-running" to={task.to}>{fmtNumber(tasks[task.key]?.running)}</TaskLink></td>
+          <td><TaskLink className="dashboard-task-value is-error" to={task.to}>{fmtNumber(tasks[task.key]?.errors)}</TaskLink></td>
         </tr>)}</tbody>
       </table></div>
     </section>
@@ -158,22 +156,22 @@ export default function Dashboard() {
         <tbody>{!devices.length ? <tr><td colSpan={11} className="empty-cell">{(data?.devices?.rows || []).length ? <>Không tìm thấy thiết bị phù hợp.<button className="settings-button secondary small" onClick={resetFilters}>Xóa bộ lọc</button></> : 'Chưa có dữ liệu thiết bị'}</td></tr> : devices.map((row, index) => {
           const offline = row.status === 'OFFLINE';
           const running = row.status === 'RUNNING';
-          return <tr key={row.device_id} className={`dashboard-device-row is-${String(row.status || '').toLowerCase()}`}>
-            <td>{index + 1}</td><td><strong>{row.device_name || row.device_id}</strong>{row.device_name !== row.device_id && <small className="dashboard-device-id">{row.device_id}</small>}</td><td className="dashboard-account-count">{fmtNumber(row.facebook_accounts)}</td><td className="dashboard-account-count">{fmtNumber(row.instagram_accounts)}</td>
+          return <tr key={deviceKey(row)} className={`dashboard-device-row is-${String(row.status || '').toLowerCase()}`}>
+            <td>{index + 1}</td><td><strong>{row.device_name || row.device_id}</strong>{data?.scope==='system' && <small className="dashboard-device-id">{row.owner_username}</small>}{row.device_name !== row.device_id && <small className="dashboard-device-id">{row.device_id}</small>}</td><td className="dashboard-account-count">{fmtNumber(row.facebook_accounts)}</td><td className="dashboard-account-count">{fmtNumber(row.instagram_accounts)}</td>
             <td><StatusBadge status={row.status} />{row.status === 'IDLE' && <small className={row.next_available ? 'dashboard-idle-ready' : 'dashboard-idle-empty'}>{row.next_available ? 'CÓ VIỆC' : 'Không có việc'}</small>}</td>
             <td className={offline ? 'dashboard-last-value' : ''}>{row.current_task || '-'}</td>
             <td className={offline ? 'dashboard-last-value' : ''}>{row.current_uid || '-'}</td>
-            <td>{running ? runtime(row.started_at) : '-'}</td><td>{row.status === 'IDLE' && row.next_available ? <span className="dashboard-next-task"><b>Sẵn sàng</b><small>{row.next_available.task_type}</small><small>{fmtNumber(row.next_available.count)} task</small></span> : '-'}</td><td title={fmtDate(row.last_seen)}>{relativeTime(row.last_seen)}</td><td><button className="settings-button ghost small" aria-label={`Chi tiết ${row.device_name || row.device_id}`} onClick={() => setSelectedDevice(row.device_id)}>Chi tiết</button></td>
+            <td>{running ? runtime(row.started_at) : '-'}</td><td>{row.status === 'IDLE' && row.next_available ? <span className="dashboard-next-task"><b>Sẵn sàng</b><small>{row.next_available.task_type}</small><small>{fmtNumber(row.next_available.count)} task</small></span> : '-'}</td><td title={fmtDate(row.last_seen)}>{relativeTime(row.last_seen)}</td><td><button className="settings-button ghost small" aria-label={`Chi tiết ${row.device_name || row.device_id}`} onClick={() => setSelectedDevice(deviceKey(row))}>Chi tiết</button></td>
           </tr>;
         })}</tbody>
       </table></div>
     </section>
-    {selectedDevice && <DeviceDetail row={(data?.devices?.rows || []).find((row) => row.device_id === selectedDevice)} onClose={() => setSelectedDevice(null)} />}
+    {selectedDevice && <DeviceDetail row={(data?.devices?.rows || []).find((row) => deviceKey(row) === selectedDevice)} onClose={() => setSelectedDevice(null)} />}
   </div>;
 }
 
 function DeviceDetail({ row, onClose }) {
-  return <SettingsModal title={row?.device_name || row?.device_id || 'Thiết bị'} onClose={onClose}>{row ? <><p className="settings-helper">{row.device_id}</p><dl className="dashboard-device-detail">{[
+  return <SettingsModal title={row?.device_name || row?.device_id || 'Thiết bị'} onClose={onClose}>{row ? <><p className="settings-helper">{row.device_id}{row.owner_username ? ` · ${row.owner_username}` : ''}</p><dl className="dashboard-device-detail">{[
     ['Trạng thái',<StatusBadge status={row.status} />],['Last seen',relativeTime(row.last_seen)],['Facebook',fmtNumber(row.facebook_accounts)+' account'],['Instagram',fmtNumber(row.instagram_accounts)+' account'],['Task hiện tại / gần nhất',row.current_task || '—'],['Account',row.current_uid || '—'],['Runtime',row.status === 'RUNNING' ? runtime(row.started_at) : '—'],['Next available',row.next_available ? `${row.next_available.task_type} · ${fmtNumber(row.next_available.count)} task sẵn sàng` : '—'],['Lỗi gần nhất',row.last_error || 'Không có lỗi được báo cáo']
   ].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></> : <p className="settings-helper">Thiết bị không còn trong snapshot hiện tại.</p>}</SettingsModal>;
 }

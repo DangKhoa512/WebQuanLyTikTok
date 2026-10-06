@@ -1,0 +1,15 @@
+const assert = require('assert');
+const { BUILTIN_TASKS, effectiveTasks, migrateLegacyGrant, validateTask } = require('../src/services/taskRegistryPolicy');
+const registry=BUILTIN_TASKS.map((task,i)=>({...task,id:i+1,enabled:true,default_priority:task.priority}));
+const legacy={tasks:{PAGE_JOB:{enabled:false,priority:731},REG_PAGE:{enabled:true,priority:-20}}};
+const grants=registry.map(task=>migrateLegacyGrant(task,legacy));
+assert.equal(grants[0].enabled,false); assert.equal(grants[0].priority,731); assert.equal(grants[2].priority,-20);
+assert.deepEqual(effectiveTasks(registry,[]).PAGE_JOB,{enabled:false,priority:100});
+assert.equal(effectiveTasks(registry,grants).PAGE_JOB.enabled,false);
+assert.equal(effectiveTasks(registry.map(task=>({...task,enabled:false})),grants).REG_PAGE.enabled,false);
+assert.deepEqual(effectiveTasks(registry,grants.filter(grant=>grant.task_id!==3)).REG_PAGE,{enabled:false,priority:80});
+assert.equal(effectiveTasks(registry.map(task=>({...task,archived_at:new Date()})),grants).REG_PAGE,undefined);
+assert.equal(validateTask({task_key:' instagram_like ',name:'Like',platform:'INSTAGRAM',enabled:true}).task_key,'INSTAGRAM_LIKE');
+assert.throws(()=>validateTask({task_key:'invalid key',name:'Task',platform:'INSTAGRAM',enabled:true}));
+assert.equal(migrateLegacyGrant({id:7,task_key:'NEW_TASK'},legacy),null);
+console.log('TASK_REGISTRY_POLICY_OK: default OFF with registry priority, system/user enabled intersection, archived tasks, preserved legacy priority and enabled, new task validation');

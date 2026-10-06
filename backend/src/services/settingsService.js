@@ -495,14 +495,18 @@ const saveInstagramNurtureSettings = async (owner_username = 'admin', data = {})
 const getTaskDispatcherSettings = async (owner_username = 'admin') => {
   const owner = normalizeOwner(owner_username) || defaultOwner();
   const stored = await getSetting(owner, TASK_DISPATCHER_KEY);
-  return normalizeTaskDispatcher(stored || DEFAULT_TASK_DISPATCHER);
+  const settings=normalizeTaskDispatcher(stored || DEFAULT_TASK_DISPATCHER);
+  const grants=await require('./taskRegistryService').createRegistryService(AppSetting.sequelize).effective(owner);
+  return {...settings,tasks:grants===null ? settings.tasks : grants};
 };
 
 const saveTaskDispatcherSettings = async (owner_username = 'admin', data = {}) => {
-  const owner = normalizeOwner(owner_username) || defaultOwner();
-  const normalized = normalizeTaskDispatcher(data);
-  await saveSetting(owner, TASK_DISPATCHER_KEY, normalized);
-  return normalized;
+  const owner=normalizeOwner(owner_username) || defaultOwner();
+  const registry=require('./taskRegistryService').createRegistryService(AppSetting.sequelize);
+  const stored=await getSetting(owner,TASK_DISPATCHER_KEY);
+  const source=await registry.activated() ? {...(stored || DEFAULT_TASK_DISPATCHER),lock_timeout_minutes:data.lock_timeout_minutes,max_retry:data.max_retry} : data;
+  await saveSetting(owner,TASK_DISPATCHER_KEY,normalizeTaskDispatcher(source));
+  return getTaskDispatcherSettings(owner);
 };
 const DEFAULT_INSTAGRAM_JOB = { min_login_days: 0, actions: { like: { enabled: true, min_delay_seconds: 0, max_delay_seconds: 0 }, follow: { enabled: true, min_delay_seconds: 0, max_delay_seconds: 0 } } };
 const normalizeInstagramJob = (data = {}) => ({

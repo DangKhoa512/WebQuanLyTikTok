@@ -130,6 +130,8 @@ const reportDeviceTask = async (req, res) => {
 const getCapabilities = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
+    const registry=require('../services/taskRegistryService').createRegistryService(require('../config/database'));
+    const supportedTasks=await registry.activated() ? (await registry.list(owner_username)).map(task=>task.task_key) : TASK_TYPES;
     const device_id = text(req.params.device_id);
     if (!device_id) return error(res, 'device_id khong hop le', 400);
     const rows = await DeviceTaskCapability.findAll({
@@ -140,7 +142,7 @@ const getCapabilities = async (req, res, next) => {
     const configured = new Map(rows.map((row) => [row.task_type, row.enabled === true || row.enabled === 1]));
     return success(res, {
       device_id,
-      capabilities: TASK_TYPES.map((task_type) => ({
+      capabilities: supportedTasks.map((task_type) => ({
         task_type,
         enabled: configured.has(task_type) ? configured.get(task_type) : true,
         configured: configured.has(task_type),
@@ -152,16 +154,18 @@ const getCapabilities = async (req, res, next) => {
 const updateCapabilities = async (req, res, next) => {
   try {
     const owner_username = ownerFromAdmin(req);
+    const registry=require('../services/taskRegistryService').createRegistryService(require('../config/database'));
+    const supportedTasks=await registry.activated() ? (await registry.list(owner_username)).map(task=>task.task_key) : TASK_TYPES;
     const device_id = text(req.params.device_id);
     if (!device_id) return error(res, 'device_id khong hop le', 400);
     const source = Array.isArray(req.body.capabilities) ? req.body.capabilities : [];
     const enabledSet = new Set(source.map((item) => {
       if (typeof item === 'string') return item.trim().toUpperCase();
       return item?.enabled === false ? null : String(item?.task_type || '').trim().toUpperCase();
-    }).filter((type) => TASK_TYPES.includes(type)));
+    }).filter((type) => supportedTasks.includes(type)));
     await DeviceTaskCapability.sequelize.transaction(async (transaction) => {
       await DeviceTaskCapability.destroy({ where: { owner_username, device_id }, transaction });
-      await DeviceTaskCapability.bulkCreate(TASK_TYPES.map((task_type) => ({
+      await DeviceTaskCapability.bulkCreate(supportedTasks.map((task_type) => ({
         owner_username,
         device_id,
         task_type,
@@ -170,7 +174,7 @@ const updateCapabilities = async (req, res, next) => {
     });
     return success(res, {
       device_id,
-      capabilities: TASK_TYPES.map((task_type) => ({ task_type, enabled: enabledSet.has(task_type) })),
+      capabilities: supportedTasks.map((task_type) => ({ task_type, enabled: enabledSet.has(task_type) })),
     }, 'Da luu capability cua device');
   } catch (err) { next(err); }
 };

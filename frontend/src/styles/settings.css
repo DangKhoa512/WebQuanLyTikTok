@@ -195,3 +195,6 @@
 
 
 .main-content:has(.settings-page) { background:#f8fafc; }
+
+.task-registry-settings .task-registry-key { display:block; margin-top:4px; }
+.task-registry-settings .settings-limit-table td { vertical-align:middle; }

@@ -20,6 +20,7 @@ router.use('/dashboard', apiLimiter, jwtAuth, require('./dashboard'));
 router.use('/users',    apiLimiter, jwtAuth, require('./users'));
 router.use('/account-groups', apiLimiter, jwtAuth, require('./accountGroups'));
 router.use('/used-accounts', apiLimiter, jwtAuth, require('./usedAccounts'));
+router.use('/task-registry',apiLimiter,jwtAuth,require('./taskRegistry'));
 router.use('/settings', apiLimiter, jwtAuth, require('./settings'));
 router.use('/machine-api-configs', apiLimiter, require('./machineApiConfigs'));
 router.use('/machine-status', apiLimiter, require('./machineStatus'));

@@ -1,6 +1,6 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
-Cập nhật 2026-10-05 (Asia/Saigon), từ mã nguồn tại C:\Users\KHOA\Desktop\QUANLY_REG. Không chứa thông tin đăng nhập hoặc dữ liệu database.
+Cập nhật 2026-10-06 (Asia/Saigon), từ mã nguồn tại C:\Users\KHOA\Desktop\QUANLY_REG. Không chứa thông tin đăng nhập hoặc dữ liệu database.
 
 ## 1. Tổng quan
 
@@ -235,3 +235,27 @@ Phần này thay thế mô tả UI/kiểm thử ở mục 12. Chỉ frontend, sc
 - Người dùng yêu cầu commit/push các thay đổi đã hoàn thiện ở các mục 11–14 lên origin/main.
 - Kiểm tra trước commit: frontend build và testInstagramJobSettingsMock.js đạt; git diff --check đạt. UI Settings/Dashboard đã kiểm thử API/Chrome thật ở các lượt trên.
 - artifacts/ được giữ local và ignore để không upload ảnh chứa snapshot dữ liệu vận hành. Code, tài liệu và script kiểm thử được đưa vào commit; không có .env, log hoặc build output.
+
+
+## Task Management hiện hành — 2026-10-06 (v2)
+
+Yêu cầu mới **bỏ mô hình admin phân task cho user**. Phần này và [TASK_REGISTRY.md](TASK_REGISTRY.md) thay thế hướng dẫn Task Registry v1 trước đó.
+
+- Registry global: `task_registry`, thêm default_priority. Cấu hình cá nhân: `user_task_settings` (enabled/priority theo user). Mọi account thấy mọi task active, thiếu row mặc định OFF/default_priority; task mới default 50, không tạo hàng loạt row cho user.
+- Admin chỉ quản lý loại task tồn tại/metadata/System Enabled/archive. Admin cũng tự chỉnh dispatcher của mình như user. Không user selector, phân quyền, assign/revoke, sửa priority/Enabled của người khác.
+- User và admin đều tự ON/OFF và chỉnh priority; API PUT `/task-registry/mine` lấy owner từ JWT, ignore user_id/target_user_id body. Registry CRUD chỉ admin, kiểm tra role/active DB. API `/task-registry/users` và `/users/:id/tasks` đã loại bỏ (404).
+- Timeout/retry vốn theo owner trong AppSetting, giữ scope và cho current user sửa. Enabled/Priority runtime từ user_task_settings, JSON task_dispatcher cũ giữ làm legacy/config backup.
+- File chính: services/taskRegistryService.js, taskRegistryPolicy.js, controllers/taskRegistryController.js, routes/taskRegistry.js, middleware/taskAcquirePermission.js; frontend TaskRegistrySettings.jsx, taskRegistryApi.js, dashboardTaskRegistry.js, CommonSettingsPanel.jsx.
+- Dispatcher dùng Registry + cấu hình cá nhân + System/User Enabled + capabilities/handler, priority DESC. Giữ transaction/shared lock, chống cấp trùng, retry/cooldown/account conditions. Sáu API cấp task legacy cũng chặn OFF. Report/release lượt đã chạy còn xử lý sau OFF/archive.
+- Dashboard dùng Registry chung; user theo owner, admin tổng quan hệ thống. Task OFF vẫn có dòng statistics; task mới chưa có job zero. Không hard-code thêm row frontend. Không tự sinh executor: muốn chạy loại mới cần handler/device/statistics thật.
+- Migration `backend/scripts/migrateTaskRegistry.js --apply` đã áp dụng v2 thành công trên DB local: backup gitignored artifacts/task-settings-backup-*.json, copy nguyên Enabled/Priority từ user_tasks cũ nếu có; cấu hình/users/history được đối chiếu giữ nguyên. Marker `task_settings_v2=complete`. Bảng user_tasks cũ chỉ giữ để chuyển đổi/đối chiếu, không dùng runtime; môi trường mới không tạo bảng permission. Không seed/drop/DDL startup.
+- Kiểm tra đạt: build + syntax + policy + Instagram mock; integration fresh và `--ui --legacy` (upgrade/configs/global OFF/self priority/owner spoof/removed endpoints/one SaveBar/mobile); device cùng id hai owner đúng account/priority; priority giữa Page/Instagram READY; dispatcher race/retry/timeout/preview/OFF/report/archive/history; Dashboard và tất cả Settings tabs qua API thật (responsive/offline/nháp/save-restore).
+- Chỉ fixture DB tạm có task thử. Không chạy standalone testTaskDispatcher.js trên DB đang dùng. Môi trường khác phải chạy migration chủ động theo TASK_REGISTRY.md. Phần này được đưa vào lượt bàn giao GitHub cùng Dashboard status theo yêu cầu người dùng.
+
+## Đồng bộ Dashboard status — 2026-10-06
+
+- Công việc realtime thêm cột Trạng thái dạng pill Đang bật/Đang tắt, nguồn `task_registry.user_enabled` của user đang đăng nhập; task chưa cấu hình OFF. Dashboard admin lấy `registry.list(owner)` cho metadata/status nhưng READY/RUNNING/ERROR giữ thống kê toàn hệ thống.
+- Dashboard là monitor, không toggle; OFF vẫn hiện row/số liệu, chỉ metadata mờ nhẹ. Status không phụ thuộc ERROR; giữ chỉ báo lỗi cạnh tên. Tooltip phân biệt personal ON với System OFF.
+- Giữ Registry order, không thêm priority column, không sửa thống kê hoặc schema/API endpoint. Polling 15s cập nhật state mới, giữ search/detail và không reload.
+- File liên quan: backend services/dashboardService.js; frontend pages/Dashboard.jsx, services/dashboardTaskRegistry.js, styles/dashboard.css. Test cập nhật testTaskRegistryIntegration.js và test-dashboard-ui.cjs.
+- Đã đạt build/syntax/diff và Chrome + API thật trên DB tạm đủ sáu ca yêu cầu: ON/OFF, OFF+READY26, ON+ERROR6, task mới OFF/zero rồi user ON sau refresh; polling giữ search/window marker, một bảng read-only, responsive. Không sửa DB đang dùng trong lượt này.

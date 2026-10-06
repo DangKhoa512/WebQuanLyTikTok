@@ -745,3 +745,7 @@ const deleteTrash=async(req,res,next)=>{
 };
 
 module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFacebookInstagramSources,getFacebookInstagramAccounts,importApi,reportRegOnly,getAccount,checkDeviceAccountCount,listDeviceAccounts,getLoginSuccess,report,addInstagramJobCount,getNurtureAccount,reportNurtureAccount,listNurtureAccounts,listNurtureLogs,resetNurtureAccounts,getCheckCookies,checkLive,loginCookies,bulkGet,bulkSync,bulkMove,bulkAction,bulkDelete,listTrash,restore,deleteTrash};
+
+const taskAcquirePermission=require('../middleware/taskAcquirePermission');
+module.exports.getLoginSuccess=taskAcquirePermission('INSTAGRAM_JOB',module.exports.getLoginSuccess);
+module.exports.getNurtureAccount=taskAcquirePermission('NUOI_INSTAGRAM',module.exports.getNurtureAccount);

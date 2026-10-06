@@ -64,9 +64,9 @@ const getCapabilities = async ({ owner, deviceId, requested }) => {
   });
   if (stored.length) return new Set(stored.filter((row) => row.enabled).map((row) => row.task_type));
   const requestedTypes = Array.isArray(requested)
-    ? requested.map((value) => String(value || '').trim().toUpperCase()).filter((value) => TASK_TYPES.includes(value))
+    ? requested.map((value) => String(value || '').trim().toUpperCase()).filter(Boolean)
     : [];
-  return new Set(requestedTypes.length ? requestedTypes : TASK_TYPES);
+  return new Set(Array.isArray(requested) && requested.length ? requestedTypes : TASK_TYPES);
 };
 
 const markDevice = async ({ owner, deviceId, task = null, transaction }) => {
@@ -194,19 +194,23 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
+    const taskSettingsService=require('./taskRegistryService').createRegistryService(sequelize);
+    const currentSettings=await taskSettingsService.effective(owner,transaction);
+    if(currentSettings!==null)settings.tasks=currentSettings;
     const active = await DeviceTaskRun.findOne({
       where: { owner_username: owner, device_id: deviceId, status: { [Op.in]: ['RUNNING', 'REPORTING'] } },
       order: [['id', 'DESC']],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
+    if(active && !settings.tasks[active.task_type]?.enabled) return {task:null,resumed:false};
     if (active) {
       await markDevice({ owner, deviceId, task: active, transaction });
       return { task: serializeTask(active, true), resumed: true };
     }
 
-    const ordered = TASK_TYPES
-      .filter((type) => capabilities.has(type) && settings.tasks[type]?.enabled)
+    const ordered = Object.keys(settings.tasks)
+      .filter((type) => TASK_TYPES.includes(type) && capabilities.has(type) && settings.tasks[type]?.enabled)
       .sort((a, b) => settings.tasks[b].priority - settings.tasks[a].priority);
 
     for (const taskType of ordered) {

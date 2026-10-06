@@ -856,3 +856,6 @@ const listClaims = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 module.exports = { getAccount, reportInstagram, finish, report, release, deviceStatus, resetEligibility, listMachines, listClaims };
+
+const taskAcquirePermission=require('../middleware/taskAcquirePermission');
+module.exports.getAccount=taskAcquirePermission('REG_INSTAGRAM',module.exports.getAccount);

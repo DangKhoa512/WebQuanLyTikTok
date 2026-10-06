@@ -2853,3 +2853,8 @@ module.exports = {
   deleteTrash,
   parseFacebookLine,
 };
+
+const taskAcquirePermission=require('../middleware/taskAcquirePermission');
+module.exports.getLoginSuccessJobForPhone=taskAcquirePermission('PAGE_JOB',module.exports.getLoginSuccessJobForPhone);
+module.exports.getRegPageAccount=taskAcquirePermission('REG_PAGE',module.exports.getRegPageAccount);
+module.exports.getNurtureAccount=taskAcquirePermission('NUOI_FACEBOOK',module.exports.getNurtureAccount);

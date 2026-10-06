@@ -6,7 +6,7 @@ const InstagramNurtureLog = require('../models/InstagramNurtureLog');
 const FacebookRegPageReport = require('../models/FacebookRegPageReport');
 const FacebookPageJob = require('../models/FacebookPageJob');
 const InstagramFacebookRegClaim = require('../models/InstagramFacebookRegClaim');
-const { getFacebookWorkflowSettings, getInstagramNurtureSettings } = require('./settingsService');
+const { getFacebookWorkflowSettings, getInstagramNurtureSettings, getTaskDispatcherSettings } = require('./settingsService');
 const { getSchedulerState } = require('./schedulerState');
 const { getDeviceTaskAvailability } = require('./taskEligibilityService');
 
@@ -159,11 +159,16 @@ const getActivity = async (owner) => {
   ].filter((row) => row.at).sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 30);
 };
 
-const getDashboardSummary = async (owner) => {
+const getOwnerDashboardSummary = async (owner, system=false) => {
   const [facebookWorkflow, instagramNurture] = await Promise.all([getFacebookWorkflowSettings(owner), getInstagramNurtureSettings(owner)]);
   const [accounts, tasks, devices, activity] = await Promise.all([
     getAccountSummary(owner), getTaskSummary(owner, facebookWorkflow, instagramNurture), getDevices(owner), getActivity(owner),
   ]);
+  const registry=require('./taskRegistryService').createRegistryService(sequelize);
+  const registryActive=await registry.activated();
+  const legacyDispatcher=registryActive ? null : await getTaskDispatcherSettings(owner);
+  const task_registry=registryActive ? await registry.list(system ? null : owner) : require('./taskRegistryPolicy').BUILTIN_TASKS.map(task=>({...task,user_enabled:!!legacyDispatcher.tasks[task.task_key]?.enabled,priority:legacyDispatcher.tasks[task.task_key]?.priority ?? task.priority}));
+  const visibleTasks=Object.fromEntries(task_registry.map(task=>[task.stats_key,tasks[task.stats_key] || {ready:0,running:0,errors:0}]));
   const scheduler = getSchedulerState();
   if (scheduler.last_run_at) {
     activity.unshift({
@@ -175,7 +180,28 @@ const getDashboardSummary = async (owner) => {
       at: scheduler.last_run_at,
     });
   }
-  return { accounts, tasks, devices, scheduler, activity: activity.slice(0, 30), generated_at: new Date().toISOString() };
+  const visibleActivityTypes=new Set(task_registry.map(task=>task.activity_key || task.task_key));
+  const visibleActivity=registryActive && !system ? activity.filter(row=>visibleActivityTypes.has(row.type)) : activity;
+  return { accounts, tasks:visibleTasks, task_registry, devices, scheduler, activity: visibleActivity.slice(0, 30), generated_at: new Date().toISOString() };
 };
 
+const getDashboardSummary=async(owner,system=false)=>{
+  const registry=require('./taskRegistryService').createRegistryService(sequelize);
+  if(!system || !await registry.activated())return getOwnerDashboardSummary(owner,system);
+  const users=await registry.users();
+  const result={accounts:{facebook:{},instagram:{},pages:{}},tasks:{},task_registry:await registry.list(owner),devices:{summary:{},rows:[]},activity:[],scheduler:getSchedulerState(),generated_at:new Date().toISOString(),scope:'system'};
+  const add=(to,from)=>Object.entries(from).forEach(([key,value])=>{to[key]=number(to[key])+number(value);});
+  // Preserve pool capacity for device claims rather than fanning out every owner concurrently.
+  for(const user of users){const data=await getOwnerDashboardSummary(user.username,true);
+    for(const platform of ['facebook','instagram','pages'])add(result.accounts[platform],data.accounts[platform]);
+    for(const [key,task] of Object.entries(data.tasks)){result.tasks[key] ||= {};add(result.tasks[key],task);}
+    add(result.devices.summary,data.devices.summary);
+    result.devices.rows.push(...data.devices.rows.map(row=>({...row,owner_username:user.username})));
+    result.activity.push(...data.activity.filter(row=>row.type!=='CRON').map(row=>({...row,owner_username:user.username})));
+  }
+  result.devices.rows.sort((a,b)=>new Date(b.last_seen||0)-new Date(a.last_seen||0));result.devices.rows=result.devices.rows.slice(0,100);
+  if(result.scheduler.last_run_at)result.activity.push({type:'CRON',status:result.scheduler.status==='WARNING'?'WARNING':'SUCCESS',device_id:'SYSTEM',uid:null,message:`Reset Nuôi ${number(result.scheduler.last_result?.nurture_reset)}, Page ${number(result.scheduler.last_result?.page_job_reset)}, Account ${number(result.scheduler.last_result?.account_reset)}`,at:result.scheduler.last_run_at});
+  result.activity.sort((a,b)=>new Date(b.at)-new Date(a.at));result.activity=result.activity.slice(0,30);
+  return result;
+};
 module.exports = { getDashboardSummary };

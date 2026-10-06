@@ -17,18 +17,7 @@ const SETTINGS_TABS = [
   { key: 'instagram', label: 'Instagram' },
   { key: 'common', label: 'Cài đặt chung' },
 ];
-const DEFAULT_TASK_DISPATCHER = {
-  lock_timeout_minutes: 30,
-  max_retry: 3,
-  tasks: {
-    PAGE_JOB: { priority: 100, enabled: true },
-    INSTAGRAM_JOB: { priority: 90, enabled: true },
-    REG_PAGE: { priority: 80, enabled: true },
-    REG_INSTAGRAM: { priority: 70, enabled: true },
-    NUOI_FACEBOOK: { priority: 60, enabled: true },
-    NUOI_INSTAGRAM: { priority: 50, enabled: true },
-  },
-};
+const DEFAULT_TASK_DISPATCHER = {lock_timeout_minutes:30,max_retry:3,tasks:{}};
 function ProxySettings() {
   const { loadSettings, saveSettings } = useSettingsData();
   const init = loadCheckLiveSettings();
@@ -75,6 +64,9 @@ function ProxySettings() {
   const [savingLegacy, setSavingLegacy] = useState(false);
   const [facebookDraftState, setFacebookDraftState] = useState({ dirty: false, saving: false });
   const facebookNurtureRef = useRef(null);
+  const registryRef=useRef(null);
+  const [registryState,setRegistryState]=useState({dirty:false,saving:false});
+  const reportRegistry=useCallback(state=>setRegistryState(state),[]);
   const reportFacebookDraft = useCallback((state) => setFacebookDraftState(state), []);
   const legacyValues = { proxies, concurrency, delayMs, batchSize, minVideos, minAgeDays, userKhangLimits, facebookLoginLimit, userFacebookLoginLimits, jobAccountDailyLimit, userJobAccountDailyLimits, facebookRegPageWaitHours, facebookRegPageResetHours, facebookNurtureResetHours, facebookPageJobResetHours, taskDispatcher };
   const legacySetters = { proxies: setProxies, concurrency: setConcurrency, delayMs: setDelayMs, batchSize: setBatchSize, minVideos: setMinVideos, minAgeDays: setMinAgeDays, userKhangLimits: setUserKhangLimits, facebookLoginLimit: setFacebookLoginLimit, userFacebookLoginLimits: setUserFacebookLoginLimits, jobAccountDailyLimit: setJobAccountDailyLimit, userJobAccountDailyLimits: setUserJobAccountDailyLimits, facebookRegPageWaitHours: setFacebookRegPageWaitHours, facebookRegPageResetHours: setFacebookRegPageResetHours, facebookNurtureResetHours: setFacebookNurtureResetHours, facebookPageJobResetHours: setFacebookPageJobResetHours, taskDispatcher: setTaskDispatcher };
@@ -93,13 +85,14 @@ function ProxySettings() {
   const discardLegacy = () => {
     if (legacyBaseline) (platformKeys[settingsTab] || []).forEach((key) => legacySetters[key]?.(JSON.parse(JSON.stringify(legacyBaseline[key]))));
     if (settingsTab === 'facebook') facebookNurtureRef.current?.discard();
+    if (settingsTab === 'common') registryRef.current?.discard();
   };
   useEffect(() => {
-    if (!legacyDirty && !facebookDraftState.dirty) return;
+    if (!legacyDirty && !facebookDraftState.dirty && !registryState.dirty) return;
     const warn = (event) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [legacyDirty, facebookDraftState.dirty]);
+  }, [legacyDirty, facebookDraftState.dirty,registryState.dirty]);
 
   useEffect(() => {
     let mounted = true;
@@ -467,6 +460,7 @@ function ProxySettings() {
       if (settingsTab === 'facebook' && isAdminUser && legacyChanged('facebookLoginLimit') && !await handleSaveOwnFacebookLimit()) return;
       if (settingsTab === 'tiktok' && !isAdminUser && legacyChanged('jobAccountDailyLimit') && !await handleSaveOwnJobLimit()) return;
       if (settingsTab === 'common' && legacyChanged('taskDispatcher') && !await handleSaveTaskDispatcher()) return;
+      if (settingsTab === 'common' && registryState.dirty && !await registryRef.current?.save()) return;
       if (settingsTab === 'facebook' && facebookDraftState.dirty && !await facebookNurtureRef.current?.save()) return;
     } finally { setSavingLegacy(false); }
   };
@@ -482,7 +476,7 @@ function ProxySettings() {
         </div>
       </div>
 
-      <PlatformTabs tabs={SETTINGS_TABS} activeTab={settingsTab} dirty={{tiktok:platformKeys.tiktok.some(legacyChanged),facebook:platformKeys.facebook.some(legacyChanged) || facebookDraftState.dirty,instagram:instagramDraftState.dirty,common:platformKeys.common.some(legacyChanged)}} onChange={(key) => { if (key === 'instagram') setInstagramVisited(true); if (key === 'facebook') setFacebookVisited(true); setSettingsTab(key); }} />
+      <PlatformTabs tabs={SETTINGS_TABS} activeTab={settingsTab} dirty={{tiktok:platformKeys.tiktok.some(legacyChanged),facebook:platformKeys.facebook.some(legacyChanged) || facebookDraftState.dirty,instagram:instagramDraftState.dirty,common:platformKeys.common.some(legacyChanged) || registryState.dirty}} onChange={(key) => { if (key === 'instagram') setInstagramVisited(true); if (key === 'facebook') setFacebookVisited(true); setSettingsTab(key); }} />
 
       {!dataReady && <div className="settings-loading" aria-busy="true">Đang tải cài đặt...</div>}
       {dataError && <div className="settings-error" role="alert">Không tải đầy đủ cài đặt. Vui lòng thử lại.<button className="settings-button secondary" onClick={() => setReload((old) => old + 1)}>Thử lại</button></div>}
@@ -493,13 +487,13 @@ function ProxySettings() {
         <div role="tabpanel" id="platform-panel-tiktok" aria-labelledby="platform-tab-tiktok" hidden={settingsTab !== 'tiktok'}><TikTokSettingsPanel isAdmin={isAdminUser} saved={legacyBaseline} busy={savingLegacy || saving || !!savingLimitUser || !!savingJobLimitUser || savingOwnJobLimit || savingMachineApiKeys} model={{minAgeDays,minVideos,khangDailyLimit,jobAccountDailyLimit,userKhangLimits,userJobAccountDailyLimits,machineApiKeys,newMachineApiKey,savingLimitUser,savingJobLimitUser,savingMachineApiKeys}} setters={{minAgeDays:setMinAgeDays,minVideos:setMinVideos,userKhangLimits:setUserKhangLimits,userJobAccountDailyLimits:setUserJobAccountDailyLimits,jobAccountDailyLimit:setJobAccountDailyLimit,newMachineApiKey:setNewMachineApiKey}} actions={{saveChromeLimit:handleSaveUserLimit,saveJobLimit:handleSaveJobUserLimit,addKey:handleAddMachineApiKey,removeKey:handleRemoveMachineApiKey}} /></div>
         <div role="tabpanel" id="platform-panel-facebook" aria-labelledby="platform-tab-facebook" hidden={settingsTab !== 'facebook'}>{facebookVisited && <FacebookSettingsPanel isAdmin={isAdminUser} saved={legacyBaseline} busy={savingLegacy || !!savingFacebookLimitUser || !!savingFacebookWorkflow || facebookDraftState.saving} nurtureRef={facebookNurtureRef} onNurtureState={reportFacebookDraft} activeScenario={facebookDraftState.activeName} model={{facebookLoginLimit,userFacebookLoginLimits,savingFacebookLimitUser,facebookRegPageWaitHours,facebookRegPageResetHours,facebookNurtureResetHours,facebookPageJobResetHours}} setters={{userFacebookLoginLimits:setUserFacebookLoginLimits,facebookRegPageWaitHours:setFacebookRegPageWaitHours,facebookRegPageResetHours:setFacebookRegPageResetHours,facebookNurtureResetHours:setFacebookNurtureResetHours,facebookPageJobResetHours:setFacebookPageJobResetHours}} actions={{saveLimit:handleSaveFacebookUserLimit}} />}</div>
 
-        <div role="tabpanel" id="platform-panel-common" aria-labelledby="platform-tab-common" hidden={settingsTab !== 'common'}><CommonSettingsPanel busy={savingLegacy || saving || savingTaskDispatcher} model={{proxies,concurrency,delayMs,batchSize,taskDispatcher}} setters={{proxies:setProxies,concurrency:setConcurrency,delayMs:setDelayMs,batchSize:setBatchSize,taskDispatcher:setTaskDispatcher}} /></div>
+        <div role="tabpanel" id="platform-panel-common" aria-labelledby="platform-tab-common" hidden={settingsTab !== 'common'}><CommonSettingsPanel registryRef={registryRef} onRegistryState={reportRegistry} visible={settingsTab==='common'} busy={savingLegacy || saving || savingTaskDispatcher} model={{proxies,concurrency,delayMs,batchSize,taskDispatcher}} setters={{proxies:setProxies,concurrency:setConcurrency,delayMs:setDelayMs,batchSize:setBatchSize,taskDispatcher:setTaskDispatcher}} /></div>
         <div className="settings-footer-note"><span>Các thay đổi được lưu riêng theo nền tảng.</span><button className="settings-button ghost small" disabled={savingLegacy || saving} onClick={() => { if (confirm('Reset cấu hình chung, điều kiện TikTok, workflow Facebook, cookie và Reg Instagram về mặc định?')) handleReset().catch(() => {}); }}>Reset cài đặt mặc định</button></div>
         </div>
 
 
       </div>
-      {settingsTab !== 'instagram' && <SettingsSaveBar dirty={activeDirty || (settingsTab === 'facebook' && facebookDraftState.dirty)} saving={savingLegacy || saving || savingTaskDispatcher || facebookDraftState.saving} onDiscard={discardLegacy} onSave={saveLegacyChanges} />}
+      {settingsTab !== 'instagram' && <SettingsSaveBar dirty={activeDirty || (settingsTab==='common' && registryState.dirty) || (settingsTab === 'facebook' && facebookDraftState.dirty)} saving={savingLegacy || saving || savingTaskDispatcher || facebookDraftState.saving || registryState.saving} onDiscard={discardLegacy} onSave={saveLegacyChanges} />}
     </div>
   );
 }

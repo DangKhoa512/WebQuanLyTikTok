@@ -114,12 +114,12 @@ const getDeviceTaskAvailability = async (owner, deviceIds = []) => {
     if (!capabilityMap.has(row.device_id)) capabilityMap.set(row.device_id, new Map());
     capabilityMap.get(row.device_id).set(row.task_type, row.enabled === true || row.enabled === 1);
   });
-  const ordered = TASK_TYPES
+  const ordered = Object.keys(dispatcher.tasks)
     .filter((type) => dispatcher.tasks[type]?.enabled)
     .sort((a, b) => dispatcher.tasks[b].priority - dispatcher.tasks[a].priority);
   return new Map(ids.map((deviceId) => {
     const configured = capabilityMap.get(deviceId);
-    const taskType = ordered.find((type) => (!configured || configured.get(type) !== false) && (counts[type].get(deviceId) || 0) > 0);
+    const taskType = ordered.find((type) => (!configured || configured.get(type) !== false) && (counts[type]?.get(deviceId) || 0) > 0);
     return [deviceId, taskType ? {
       task_type: taskType,
       count: counts[taskType].get(deviceId) || 0,
