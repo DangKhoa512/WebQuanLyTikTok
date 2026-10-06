@@ -4,6 +4,11 @@ const facebookRegController = require('../controllers/instagramFacebookRegContro
 const jwtAuth = require('../middleware/jwtAuth');
 const apiKeyAuth = require('../middleware/apiKeyAuth');
 const router = express.Router();
+const crossTargets = require('../controllers/crossTargetController');
+const guardCross = require('../middleware/taskAcquirePermission');
+router.post('/nurture/targets', apiKeyAuth, guardCross('NUOI_INSTAGRAM', crossTargets.getTargets('INSTAGRAM')));
+router.post('/nurture/targets/report', apiKeyAuth, crossTargets.reportTargets('INSTAGRAM'));
+
 
 router.post('/import-api', apiKeyAuth, controller.importApi);
 router.post('/reg/report', apiKeyAuth, controller.reportRegOnly);

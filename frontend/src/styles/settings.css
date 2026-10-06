@@ -198,3 +198,7 @@
 
 .task-registry-settings .task-registry-key { display:block; margin-top:4px; }
 .task-registry-settings .settings-limit-table td { vertical-align:middle; }
+
+/* The username list needs the full Instagram scenario editor width. */
+#ig-nurture .settings-activity-cross-follow { grid-column: 1 / -1; }
+#ig-nurture .settings-activity-cross-follow textarea { min-height: 144px; }

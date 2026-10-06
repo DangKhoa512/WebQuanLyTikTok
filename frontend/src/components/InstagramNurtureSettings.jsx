@@ -1,11 +1,13 @@
+import { emptyCrossFollow, normalizeUsernameList, crossFollowError, serializeCrossFollowSettings } from './crossFollowConfig';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useSettingsData } from './SettingsData';
-import { ScenarioActivity, ScenarioSelector } from './ScenarioSettings';
+import { ScenarioActivity, ScenarioSelector, ScenarioTargetActivity } from './ScenarioSettings';
 import { toast } from './Toast';
 import { MinMaxField } from './SettingsFields';
 import { SettingsCard, NumberField, SettingsModal } from './SettingsPrimitives';
 
 const emptyActions = () => ({
+  cross_follow: emptyCrossFollow(),
   newfeed: { enabled: false, min: 30, max: 60 },
   reels: { enabled: false, min: 20, max: 40 },
   story: { enabled: false, min: 15, max: 30 },
@@ -76,6 +78,7 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
   };
 
   const generateRandomScenarios = async () => {
+    if (!validate()) return;
     const count = parseInt(generatorCount, 10);
     const minMinutes = parseInt(generatorMinMinutes, 10);
     const maxMinutes = parseInt(generatorMaxMinutes, 10);
@@ -124,6 +127,7 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
         min: minTimes[key] || 0,
         max: Math.max(maxTimes[key] || 0, minTimes[key] || 0),
       }]));
+      actions.cross_follow = emptyCrossFollow();
       return {
         id: `auto-${generatedAt}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
         name: `Kịch bản ${minMinutes}-${maxMinutes} phút #${settings.scenarios.length + index + 1}`,
@@ -138,7 +142,7 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
 
     setSaving(true);
     try {
-      const res = await saveSettings('updateInstagramNurture', nextSettings);
+      const res = await saveSettings('updateInstagramNurture', serializeCrossFollowSettings(nextSettings));
       const saved = res.data?.settings || nextSettings;
       setSettings(saved);
       setSavedSettings(JSON.parse(JSON.stringify(saved)));
@@ -166,7 +170,7 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
       ...scenario,
       actions: {
         ...scenario.actions,
-        [actionKey]: { ...scenario.actions[actionKey], [field]: value },
+        [actionKey]: { ...(actionKey === 'cross_follow' ? emptyCrossFollow() : {}), ...scenario.actions[actionKey], [field]: value },
       },
     }));
   };
@@ -183,7 +187,7 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
     };
     setSaving(true);
     try {
-      const res = await saveSettings('updateInstagramNurture', nextSettings);
+      const res = await saveSettings('updateInstagramNurture', serializeCrossFollowSettings(nextSettings));
       const saved = res.data?.settings || nextSettings;
       setSettings(saved);
       setSavedSettings(JSON.parse(JSON.stringify(saved)));
@@ -203,7 +207,10 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
         toast.error('Tên kịch bản không được để trống');
         return false;
       }
-      for (const action of Object.values(scenario.actions)) {
+      const followError = crossFollowError(scenario.actions.cross_follow);
+      if (followError) { toast.error(`${scenario.name}: ${followError}`); setSelectedId(scenario.id); return false; }
+      for (const key of ['newfeed', 'reels', 'story']) {
+        const action = scenario.actions[key];
         const min = parseInt(action.min, 10);
         const max = parseInt(action.max, 10);
         if (!Number.isInteger(min) || !Number.isInteger(max) || min < 0 || max < min) {
@@ -218,7 +225,7 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
     if (!validate()) return false;
     setSaving(true);
     try {
-      const res = await saveSettings('updateInstagramNurture', settings);
+      const res = await saveSettings('updateInstagramNurture', serializeCrossFollowSettings(settings));
       const saved = res.data?.settings || settings;
       setSettings(saved);
       setSavedSettings(JSON.parse(JSON.stringify(saved)));
@@ -261,11 +268,13 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
       {!selected && <div className="settings-empty">Chưa có kịch bản. Tạo kịch bản mới hoặc dùng trình tạo nhanh để bắt đầu.</div>}
       {selected && <>
         <div className="settings-scenario-heading"><label className="settings-field"><span>Tên kịch bản</span><input value={selected.name} maxLength={100} aria-label="Tên kịch bản" placeholder="Tên kịch bản" onChange={(e) => updateScenario((scenario) => ({ ...scenario, name: e.target.value }))} /></label>{settings.active_scenario_id === selected.id ? <span className="settings-badge success">● Đang sử dụng</span> : <button type="button" className="settings-button secondary" onClick={() => setSettings((old) => ({ ...old, active_scenario_id: selected.id }))}>Sử dụng kịch bản</button>}</div>
-        <div className="settings-duration">Tổng thời gian <strong>{(selectedDuration.min / 60).toFixed(1)} – {(selectedDuration.max / 60).toFixed(1)} phút</strong><span>Newfeed + Reels + Story</span></div>
+        <div className="settings-duration" title="Tổng thời gian chỉ tính hoạt động theo thời gian; theo dõi chéo tính theo số lượng.">Tổng thời gian <strong>{(selectedDuration.min / 60).toFixed(1)} – {(selectedDuration.max / 60).toFixed(1)} phút</strong><span>{[...actionRows, { key: 'cross_follow', label: 'Theo dõi chéo' }].filter(row => selected.actions[row.key]?.enabled).map(row => row.label).join(' + ') || 'Chưa bật hoạt động'}</span></div>
         <div className="settings-activities">{actionRows.map((row) => {
           const action = selected.actions[row.key];
           return <ScenarioActivity key={row.key} label={row.label} enabled={action.enabled} onToggle={(value) => updateAction(row.key,'enabled',value)}><MinMaxField minLabel="Thời gian tối thiểu" maxLabel="Thời gian tối đa" min={action.min} max={action.max} unit={row.unit} disabled={!action.enabled} onChange={(bound,value) => updateAction(row.key,bound,value)} /></ScenarioActivity>;
-        })}</div>
+        })}
+          <ScenarioTargetActivity className="settings-activity-cross-follow" label="Theo dõi chéo Username" action={selected.actions.cross_follow || emptyCrossFollow()} onToggle={(value) => updateAction('cross_follow', 'enabled', value)} onRangeChange={(bound, value) => updateAction('cross_follow', bound, value)} listLabel="Danh sách Username (mỗi dòng 1 username)" placeholder={'username1\nusername2\nusername3'} value={(selected.actions.cross_follow?.usernames || []).join('\n')} onTextChange={(value) => updateAction('cross_follow', 'usernames', value.split(/\r?\n/))} count={normalizeUsernameList(selected.actions.cross_follow?.usernames).filter(value => value.length <= 255 && /^[a-zA-Z0-9._]+$/.test(value)).length} error={crossFollowError(selected.actions.cross_follow)} />
+        </div>
         <div className="settings-nurture-footer"><span className={dirty ? 'settings-unsaved' : 'settings-helper'}>{dirty ? 'Kịch bản có thay đổi chưa lưu' : 'Đã đồng bộ kịch bản'}</span><button type="button" className="settings-button danger" onClick={removeScenario}>Xóa kịch bản</button></div>
       </>}
     </fieldset>

@@ -7,7 +7,7 @@ const FacebookAccount = require('../models/FacebookAccount');
 const InstagramAccount = require('../models/InstagramAccount');
 const FacebookPageJob = require('../models/FacebookPageJob');
 const InstagramFacebookRegClaim = require('../models/InstagramFacebookRegClaim');
-const { getTaskDispatcherSettings } = require('./settingsService');
+const { getTaskDispatcherSettings, getInstagramNurtureSettings, getFacebookNurtureSettings } = require('./settingsService');
 const { TASK_TYPES } = require('./deviceTaskTypes');
 const { acquireLegacyTask } = require('./legacyTaskAdapter');
 
@@ -205,6 +205,26 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
     });
     if(active && !settings.tasks[active.task_type]?.enabled) return {task:null,resumed:false};
     if (active) {
+      // Resume the same locked task, but use the owner's latest Instagram scenario.
+      if (active.task_type === 'NUOI_INSTAGRAM' && active.payload?.scenario?.id) {
+        const nurtureSettings = await getInstagramNurtureSettings(owner);
+        const scenario = nurtureSettings.scenarios.find(item => item.id === active.payload.scenario.id);
+        if (scenario) {
+          const { allocateInstagramTargets } = require('./instagramCrossTargetService');
+          const crossFollow = await allocateInstagramTargets({ owner, sourceAccountId: Number(active.account_id), scenario, requestId: req.body.request_id ?? active.payload.run_id, requestedCount: req.body.count, transaction });
+          await active.update({ payload: { ...active.payload, scenario: { ...scenario, actions: { ...scenario.actions, cross_follow: crossFollow } } } }, { transaction });
+        }
+      }
+      if (active.task_type === 'NUOI_FACEBOOK' && active.payload?.scenario?.id) {
+        const nurtureSettings = await getFacebookNurtureSettings(owner);
+        const scenario = nurtureSettings.scenarios.find(item => item.id === active.payload.scenario.id);
+        if (scenario) {
+          const { allocateFriendSuggestions } = require('./facebookFriendSuggestionService');
+          const batch = await allocateFriendSuggestions({ owner, sourceAccount: { id: active.account_id }, runId: req.body.request_id ?? active.payload.run_id, action: scenario.actions.friend_request, transaction });
+          const friend_request = { ...scenario.actions.friend_request, request_id: batch.request_id, cycle_id: batch.cycle_id, requested_count: batch.requested_count, returned_count: batch.uids.length, uids: batch.uids };
+          await active.update({ payload: { ...active.payload, friend_request, friend_candidates: batch.uids, friend_candidate_count: batch.uids.length, scenario: { ...scenario, actions: { ...scenario.actions, friend_request } } } }, { transaction });
+        }
+      }
       await markDevice({ owner, deviceId, task: active, transaction });
       return { task: serializeTask(active, true), resumed: true };
     }

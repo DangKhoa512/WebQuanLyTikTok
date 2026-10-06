@@ -7,6 +7,9 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node seeds/seedData.js",
+    "test:cross-target-engine": "node scripts/testCrossTargetEngineIntegration.js",
+    "migrate:cross-targets": "node scripts/migrateCrossTargets.js --apply",
+    "test:instagram-cross-follow": "node scripts/testInstagramCrossFollowIntegration.js --ui",
     "test:instagram-check-live-mock": "node scripts/testInstagramCheckLiveMock.js"
   },
   "dependencies": {

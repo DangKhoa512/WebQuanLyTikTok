@@ -1,3 +1,4 @@
+const { normalizeNurtureCount, normalizeNurtureTargets, normalizeCrossFollow } = require('../utils/nurtureActionUtils');
 const AppSetting = require('../models/AppSetting');
 const { defaultOwner, normalizeOwner } = require('../utils/owner');
 const { TASK_TYPES, DEFAULT_TASK_DISPATCHER } = require('./deviceTaskTypes');
@@ -170,23 +171,6 @@ const normalizeTaskDispatcher = (data = {}) => {
   };
 };
 
-const normalizeNurtureCount = (data = {}, maxLimit = 100) => {
-  const parsedMin = parseInt(data.min, 10);
-  const parsedMax = parseInt(data.max, 10);
-  const min = Number.isInteger(parsedMin) ? Math.min(Math.max(parsedMin, 0), maxLimit) : 0;
-  const maxValue = Number.isInteger(parsedMax) ? Math.min(Math.max(parsedMax, 0), maxLimit) : min;
-  return { enabled: data.enabled === true, min, max: Math.max(min, maxValue) };
-};
-
-const normalizeNurtureTargets = (data = {}, field) => {
-  const raw = Array.isArray(data[field]) ? data[field] : String(data[field] || '').split(/\r?\n|,/);
-  const targets = [...new Set(raw.map((value) => String(value || '').trim()).filter(Boolean))]
-    .slice(0, 200)
-    .map((value) => value.slice(0, 500));
-  const count = normalizeNurtureCount(data, targets.length || 200);
-  return { ...count, enabled: count.enabled && targets.length > 0, [field]: targets };
-};
-
 const normalizeFacebookNurtureGenerator = (data = {}) => ({
   actions: {
     newfeed: { enabled: data?.actions?.newfeed?.enabled !== false },
@@ -267,13 +251,14 @@ const normalizeInstagramNurture = (data = {}) => {
       newfeed: normalizeNurtureRange(scenario?.actions?.newfeed),
       reels: normalizeNurtureRange(scenario?.actions?.reels),
       story: normalizeNurtureRange(scenario?.actions?.story || scenario?.actions?.str),
+      cross_follow: normalizeCrossFollow(scenario?.actions?.cross_follow),
     };
     return {
       id,
       name: String(scenario?.name || `Kich ban ${index + 1}`).trim().slice(0, 100) || `Kich ban ${index + 1}`,
       total_duration_seconds: {
-        min: Object.values(actions).reduce((sum, action) => sum + (action.enabled ? action.min : 0), 0),
-        max: Object.values(actions).reduce((sum, action) => sum + (action.enabled ? action.max : 0), 0),
+        min: ['newfeed', 'reels', 'story'].map(key => actions[key]).reduce((sum, action) => sum + (action.enabled ? action.min : 0), 0),
+        max: ['newfeed', 'reels', 'story'].map(key => actions[key]).reduce((sum, action) => sum + (action.enabled ? action.max : 0), 0),
       },
       actions,
     };

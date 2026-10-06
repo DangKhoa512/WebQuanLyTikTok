@@ -352,12 +352,14 @@ const getRandomNurtureScenario = async (req, res, next) => {
       ? await allocateFriendSuggestions({
         owner: owner_username,
         sourceAccount: activeAccount,
-        runId: activeAccount.nurture_run_id,
+        runId: req.body.request_id ?? req.query.request_id ?? activeAccount.nurture_run_id,
         action: friendAction,
       })
       : { requested_count: 0, uids: [] };
     const friend_request = {
       ...friendAction,
+      request_id: friendSuggestion.request_id || null,
+      cycle_id: friendSuggestion.cycle_id || null,
       requested_count: friendSuggestion.requested_count,
       returned_count: friendSuggestion.uids.length,
       source_uid: activeAccount?.uid || null,

@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'r
 import { useSettingsData } from './SettingsData';
 import { SettingsCard, SettingsModal, NumberField } from './SettingsPrimitives';
 import { MinMaxField, TextField } from './SettingsFields';
-import { ScenarioActivity, ScenarioSelector } from './ScenarioSettings';
+import { ScenarioActivity, ScenarioSelector, ScenarioTargetActivity } from './ScenarioSettings';
 import { toast } from './Toast';
 
 const emptyActions = () => ({
@@ -347,9 +347,9 @@ const FacebookNurtureSettings = forwardRef(function FacebookNurtureSettings({ on
     const action = actions[row.key] || emptyActions()[row.key];
     const timeOnly = generator && ['newfeed','reels'].includes(row.key);
     const targets = row.field ? (action[row.field] || []) : null;
+    if (targets) return <ScenarioTargetActivity key={row.key} label={row.label} action={action} onToggle={(value) => update(row.key,'enabled',value)} onRangeChange={(bound,value) => update(row.key,bound,value)} value={targets.join('\n')} onTextChange={(value) => update(row.key,row.field,value.split(/\r?\n/).map(item => item.trim()).filter(Boolean))} listLabel={`Danh sách ${row.itemLabel} (${targets.length})`} placeholder={row.placeholder} count={targets.length} unit="mục" showCount={false} rows={4} />;
     return <ScenarioActivity key={row.key} label={row.label} enabled={action.enabled} onToggle={(value) => update(row.key,'enabled',value)}>
-      {timeOnly ? <p className="settings-helper">Chia theo tổng thời gian phiên.</p> : <MinMaxField min={action.min} max={action.max} unit={row.unit || 'mục'} maximum={targets ? targets.length : undefined} disabled={!action.enabled} onChange={(bound,value) => update(row.key,bound,value)} />}
-      {targets && <TextField label={`Danh sách ${row.itemLabel} (${targets.length})`} multiline rows={4} disabled={!action.enabled} value={targets.join('\n')} placeholder={row.placeholder} onChange={(e) => update(row.key,row.field,e.target.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean))} />}
+      {timeOnly ? <p className="settings-helper">Chia theo tổng thời gian phiên.</p> : <MinMaxField min={action.min} max={action.max} unit={row.unit || 'mục'} disabled={!action.enabled} onChange={(bound,value) => update(row.key,bound,value)} />}
     </ScenarioActivity>;
   });
   if (loading) return <div className="settings-loading" aria-busy="true">Đang tải kịch bản nuôi Facebook...</div>;

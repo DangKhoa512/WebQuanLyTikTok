@@ -1251,12 +1251,14 @@ const getNurtureAccount = async (req, res, next) => {
     const friendSuggestion = await allocateFriendSuggestions({
       owner: owner_username,
       sourceAccount: claimed.account,
-      runId: claimed.account.nurture_run_id,
+      runId: req.body.request_id ?? claimed.account.nurture_run_id,
       action: friendAction,
     });
     const friend_candidates = friendSuggestion.uids;
     const friend_request = {
       ...friendAction,
+      request_id: friendSuggestion.request_id || null,
+      cycle_id: friendSuggestion.cycle_id || null,
       requested_count: friendSuggestion.requested_count,
       returned_count: friend_candidates.length,
       uids: friend_candidates,

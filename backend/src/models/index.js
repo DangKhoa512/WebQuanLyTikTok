@@ -1,3 +1,6 @@
+require('./CrossTargetCycle');
+require('./CrossTargetBatch');
+require('./CrossTargetHistory');
 // Central model registry
 const Account       = require('./Account');
 const ChromeAccount = require('./ChromeAccount');
