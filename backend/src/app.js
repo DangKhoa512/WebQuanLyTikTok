@@ -24,6 +24,9 @@ app.use(
   })
 );
 
+// Stateless TOTP has isolated parsing/errors to keep secrets out of request/error logs.
+app.use('/api/totp', require('./routes/totp'));
+
 // ── Body parsing ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
