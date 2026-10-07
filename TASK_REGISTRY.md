@@ -84,3 +84,5 @@ Status không suy ra từ errors hoặc job availability, không lấy trạng t
 Giữ thứ tự Registry sort_order/id, không thêm cột priority, không sửa công thức statistics. Polling 15 giây và nút refresh lấy status mới từ summary; không cache enabled riêng và không reload trang. Không thêm endpoint/schema/migration.
 
 Kiểm tra đạt: frontend build, backend syntax/diff; integration `--ui --legacy` qua API/Chrome thật trên DB tạm đủ sáu ca (ON, OFF, OFF+READY26, ON+ERROR6, task mới OFF/0, self ON rồi refresh), giữ search khi polling và không reload, không toggle, mobile không overflow; admin status riêng/statistics toàn hệ thống. `scripts/test-dashboard-ui.cjs` đã cập nhật selector số liệu cho cột Status và thêm assert badge/read-only.
+
+Contract task completion mới: xem TASK_REPORT_API.md. POST /api/device/task/report chỉ cần {task_id}, mặc định SUCCESS và chỉ ghi trạng thái task/thiết bị; data nghiệp vụ gửi qua API cũ. Task report không còn gọi lại handler nghiệp vụ hoặc lưu result.

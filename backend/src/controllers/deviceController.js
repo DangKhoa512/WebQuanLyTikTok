@@ -92,10 +92,10 @@ const reportDeviceTask = async (req, res) => {
   try {
     const owner = ownerFromRequest(req);
     const deviceId = text(req.body.device_id || req.body.device || req.body.phone || req.body.may);
-    const taskId = parseInt(req.body.task_id || req.body.id, 10);
-    const status = String(req.body.status || '').trim().toUpperCase();
-    if (!deviceId) return res.status(400).json({ success: false, code: -1, message: 'Can truyen device_id' });
-    if (!Number.isInteger(taskId) || taskId <= 0) return res.status(400).json({ success: false, code: -1, message: 'task_id khong hop le' });
+    const rawTaskId = req.body.task_id ?? req.body.id;
+    const taskId = typeof rawTaskId === 'number' || typeof rawTaskId === 'string' && /^\d+$/.test(rawTaskId) ? Number(rawTaskId) : NaN;
+    const status = req.body.status === undefined ? 'SUCCESS' : String(req.body.status || '').trim().toUpperCase();
+    if (!Number.isSafeInteger(taskId) || taskId <= 0) return res.status(400).json({ success: false, code: -1, message: 'task_id khong hop le' });
     if (!['SUCCESS', 'FAILED', 'DONE', 'DA_XONG'].includes(status)) {
       return res.status(400).json({ success: false, code: -1, message: 'status chi nhan SUCCESS hoac FAILED' });
     }
@@ -104,7 +104,6 @@ const reportDeviceTask = async (req, res) => {
       deviceId,
       taskId,
       status,
-      result: req.body.result,
       errorCode: req.body.error_code,
       message: text(req.body.message, 1000),
       req,

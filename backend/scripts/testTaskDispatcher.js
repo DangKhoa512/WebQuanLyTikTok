@@ -10,6 +10,7 @@ const {
 } = require('../src/models');
 const { getNextTask, releaseExpiredTasks } = require('../src/services/taskDispatcherService');
 const { reportTask } = require('../src/services/taskReportService');
+const { reportLegacyTask } = require('../src/services/legacyTaskAdapter');
 const { getDeviceTaskAvailability } = require('../src/services/taskEligibilityService');
 
 const owner = '__dispatcher_test__';
@@ -66,6 +67,8 @@ const main = async () => {
   const empty = await getNextTask({ owner, deviceId: emptyDevice, requestedCapabilities: ['INSTAGRAM_JOB'], req: request });
   assert(empty.task === null, 'device khong co account phai tra no task');
 
+  const businessSuccess = await reportLegacyTask('INSTAGRAM_JOB', request, {uid: raceA.task.uid, device_id: device, status: 'DA_CHAY_XONG'});
+  assert(businessSuccess.payload.success, 'legacy API reports account data before task completion');
   const success = await reportTask({
     owner,
     deviceId: device,
@@ -91,12 +94,18 @@ const main = async () => {
   assert(Number(crossTaskA.task.account_id) === Number(crossAccountA.id), 'device A phai nhan account cua device A');
   assert(Number(crossTaskB.task.account_id) === Number(crossAccountB.id), 'device B phai nhan account cua device B');
   await Promise.all([
+    reportLegacyTask('INSTAGRAM_JOB', request, {uid: crossTaskA.task.uid, device_id: device, status: 'DA_CHAY_XONG'}),
+    reportLegacyTask('INSTAGRAM_JOB', request, {uid: crossTaskB.task.uid, device_id: emptyDevice, status: 'DA_CHAY_XONG'}),
+  ]);
+  await Promise.all([
     reportTask({ owner, deviceId: device, taskId: crossTaskA.task.id, status: 'SUCCESS', result: { job_done: 1 }, req: request }),
     reportTask({ owner, deviceId: emptyDevice, taskId: crossTaskB.task.id, status: 'SUCCESS', result: { job_done: 1 }, req: request }),
   ]);
 
   const second = await seedInstagram('dispatcher_ig_02');
   const retryTask = await getNextTask({ owner, deviceId: device, requestedCapabilities: ['INSTAGRAM_JOB'], req: request });
+  const businessFailure = await reportLegacyTask('INSTAGRAM_JOB', request, {uid: retryTask.task.uid, device_id: device, status: 'LOGIN_THANH_CONG'});
+  assert(businessFailure.payload.success, 'legacy API prepares retry independently');
   const failed = await reportTask({
     owner,
     deviceId: device,
