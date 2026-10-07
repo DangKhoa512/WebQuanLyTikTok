@@ -23,4 +23,10 @@ const ensureDevice=async(owner,deviceId,defaults={})=>{
  return Device.create({owner_username:owner,device_id:deviceId,device_name:deviceId,last_seen:new Date(),...defaults},{transaction});
 });
 };
-module.exports={ensureDevice};
+const hasOwnedDevice=async(owner,deviceId)=>{
+ if(await Device.findOne({where:{owner_username:owner,device_id:deviceId},attributes:['id']}))return true;
+ for(const model of [require('../models/FacebookAccount'),require('../models/InstagramAccount')])
+  if(await model.findOne({where:{owner_username:owner,device_id:deviceId,kind:'job',trashed_at:null},attributes:['id']}))return true;
+ return false;
+};
+module.exports={ensureDevice,hasOwnedDevice};

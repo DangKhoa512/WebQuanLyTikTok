@@ -55,9 +55,9 @@ let db,server,browser,created=false;
  const found=await api(a,'/api/dashboard/summary?device_search=Find%20across%20pages');assert.equal(found.data.data.devices.filtered_total,1);assert.equal(found.data.data.devices.rows[0].device_id,'LOAD_0995');
  const running=await api(a,'/api/dashboard/summary?device_status=RUNNING&page_size=100');assert.equal(running.data.data.devices.filtered_total,data.summary.running);assert(running.data.data.devices.rows.every(row=>row.status==='RUNNING'));
  const task=await api(a,'/api/dashboard/summary?device_task=PAGE_JOB');assert.equal(task.data.data.devices.filtered_total,data.summary.running);
- // Per-user capacity and owner isolation; system dashboard is aggregated then paginated once.
+ // Per-user capacity and owner isolation; admin dashboard is also scoped to its own devices.
  assert.equal((await api(b,'/api/device/heartbeat',{device_id:'OTHER_OWNER'})).status,200);
- const system=await api(b,'/api/dashboard/summary');assert.equal(system.data.data.devices.summary.total,1002);assert.equal(system.data.data.devices.rows.length,50);
+ const system=await api(b,'/api/dashboard/summary');assert.equal(system.data.data.devices.summary.total,2);assert.equal(system.data.data.devices.rows.length,2);
  assert((await api(a,'/api/dashboard/summary?device_search=OTHER_OWNER')).data.data.devices.filtered_total===0);
  assert.equal(paginateDevices([{status:'IDLE'}],{page:999}).page,1);
  if(process.argv.includes('--ui')){
@@ -105,7 +105,7 @@ let db,server,browser,created=false;
   const errors=await browser.manage().logs().get(logging.Type.BROWSER);assert.equal(errors.length,0,'Unexpected browser error');
   console.log('DEVICE_UI_OK: real backend pagination/search/filter/polling, login/sidebar/mobile branding, supplied DK logo/favicon, no export link, no page overflow');
  }
- console.log('DEVICE_DASHBOARD_OK: status/timeout/transitions, real HTTP stats/filter/search/pages, 1000/1001/race, legacy inventory, owner isolation/system aggregation');
+ console.log('DEVICE_DASHBOARD_OK: status/timeout/transitions, real HTTP stats/filter/search/pages, 1000/1001/race, legacy inventory, owner isolation/admin own scope');
 })().catch(err=>{console.error(err.stack);process.exitCode=1;}).finally(async()=>{
  if(browser)await browser.quit();if(server)await new Promise(resolve=>server.close(resolve));if(db)await db.close();if(created&&/^quanly_device_test_\d+_[a-f0-9]+$/.test(name)&&name!==original)await manager.query('DROP DATABASE `'+name+'`');await manager.close();
 });

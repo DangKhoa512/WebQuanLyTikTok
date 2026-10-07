@@ -178,17 +178,17 @@ let db,server,created=false;
  await require('../src/models/InstagramAccount').create({owner_username:admin.username,kind:'job',uid:'isolated_admin_account',raw_data:'isolated',device_id:'ADMIN_SCOPE',status:'LOGIN_THANH_CONG'});
  await require('../src/models/FacebookNurtureLog').create({owner_username:user.username,facebook_account_id:1,uid:'isolated_activity',device_id:'ACTIVITY_SCOPE',run_id:'unassigned_activity',status:'DA_NUOI',completed_at:new Date()});
  const adminSummary=await dashboard.getDashboardSummary(admin.username,true);
- assert.equal(adminSummary.scope,'system');assert.deepEqual(adminSummary.task_registry.map(task=>[task.task_key,task.user_enabled,task.priority]),(await registry.list(admin.username)).map(task=>[task.task_key,task.user_enabled,task.priority]));assert.equal(adminSummary.task_registry.length,(await registry.list()).length);
+ assert.equal(adminSummary.scope,'user');assert.deepEqual(adminSummary.task_registry.map(task=>[task.task_key,task.user_enabled,task.priority]),(await registry.list(admin.username)).map(task=>[task.task_key,task.user_enabled,task.priority]));assert.equal(adminSummary.task_registry.length,(await registry.list()).length);
  assert.deepEqual(adminSummary.tasks.DASHBOARD_ZERO_TASK,{ready:0,running:0,errors:0});
  assert.equal(new Set(adminSummary.task_registry.map(task=>task.task_key)).size,adminSummary.task_registry.length);
- assert(adminSummary.accounts.instagram.total>=1);assert(adminSummary.activity.some(row=>row.owner_username===user.username && row.type==='NUOI_FB'));
+ assert(adminSummary.accounts.instagram.total>=1);assert(adminSummary.activity.every(row=>row.uid!=='isolated_activity'));assert.equal(adminSummary.accounts.instagram.total,await require('../src/models/InstagramAccount').count({where:{owner_username:admin.username,trashed_at:null}}));
  const userSummary=await dashboard.getDashboardSummary(user.username,false);
  assert.deepEqual(userSummary.task_registry.map(task=>task.task_key),(await registry.list(user.username)).map(task=>task.task_key));
  assert.equal(adminSummary.task_registry.find(task=>task.task_key==='PAGE_JOB').user_enabled,true,'Admin status must use own ON setting');
  assert.equal(userSummary.task_registry.find(task=>task.task_key==='PAGE_JOB').user_enabled,false,'User status must use own OFF setting');
- if(process.argv.includes('--ui')){assert.equal(adminSummary.tasks.page_job.ready,26);assert.equal(userSummary.tasks.page_job.ready,26);}
+ if(process.argv.includes('--ui')){assert.equal(adminSummary.tasks.page_job.ready,0);assert.equal(userSummary.tasks.page_job.ready,26);}
  assert.equal(userSummary.accounts.instagram.total,await require('../src/models/InstagramAccount').count({where:{owner_username:user.username,trashed_at:null}}));assert.equal(userSummary.activity.length,1);assert(userSummary.activity.every(row=>row.uid==='isolated_activity'),'Activity must remain owner scoped');
- console.log('TASK_REGISTRY_DASHBOARD_SCOPE_OK: system counts/history, user owner/task/activity isolation, new task zero stats, no duplicate rows');
+ console.log('TASK_REGISTRY_DASHBOARD_SCOPE_OK: admin/user own counts/history, user owner/task/activity isolation, new task zero stats, no duplicate rows');
  const igTask=builtinRegistry.find(task=>task.task_key==='INSTAGRAM_JOB');
  const pageTask=builtinRegistry.find(task=>task.task_key==='PAGE_JOB');
  const priorityDevice='MULTI_PRIORITY_TEST';

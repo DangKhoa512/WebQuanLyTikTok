@@ -72,3 +72,7 @@ Frontend: index.html; src/App.jsx; components/Layout.jsx; pages/Dashboard.jsx, L
 - node backend/scripts/testTaskReportOnly.js: contract report, no domain writes, owner/lock/race và chuyển status đạt.
 - Frontend production build đạt; cảnh báo chunk >500KB hiện hữu. Không có lint/typecheck script trong package frontend/backend, không tự thêm workflow ngoài yêu cầu. Syntax và git diff --check kiểm tra cuối.
 - Các fixture chỉ trong DB tạm có kiểm tra tên và tự cleanup; không seed hoặc sửa DB thật. Không deploy/migration/commit/push lượt này.
+
+## Dashboard per-user — thay đổi contract 2026-10-07
+
+Yêu cầu mới thay thế mô tả admin toàn hệ thống phía trên: cả admin và user Dashboard đều chỉ có data/Device/task stats/settings/activity của mình. Nhánh service aggregate users đã xóa. Capacity 1000/user và pagination giữ nguyên. JWT resolve identity active trong DB; query spoof owner bỏ qua. Scheduler global không trả trên Dashboard (scheduler=null), capabilities get/put cần owned device. Xem DASHBOARD_ISOLATION.md cho audit/schema/API/IDOR/test.

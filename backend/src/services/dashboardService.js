@@ -9,7 +9,7 @@ const FacebookRegPageReport = require('../models/FacebookRegPageReport');
 const FacebookPageJob = require('../models/FacebookPageJob');
 const InstagramFacebookRegClaim = require('../models/InstagramFacebookRegClaim');
 const { getFacebookWorkflowSettings, getInstagramNurtureSettings, getTaskDispatcherSettings } = require('./settingsService');
-const { getSchedulerState } = require('./schedulerState');
+const {normalizeOwner}=require('../utils/owner');
 const { getDeviceTaskAvailability } = require('./taskEligibilityService');
 
 const number = (value) => Number(value) || 0;
@@ -159,7 +159,7 @@ const getActivity = async (owner) => {
   ].filter((row) => row.at).sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 30);
 };
 
-const getOwnerDashboardSummary = async (owner, system=false) => {
+const getOwnerDashboardSummary = async (owner) => {
   const [facebookWorkflow, instagramNurture] = await Promise.all([getFacebookWorkflowSettings(owner), getInstagramNurtureSettings(owner)]);
   const [accounts, tasks, devices, activity] = await Promise.all([
     getAccountSummary(owner), getTaskSummary(owner, facebookWorkflow, instagramNurture), getDevices(owner), getActivity(owner),
@@ -167,49 +167,27 @@ const getOwnerDashboardSummary = async (owner, system=false) => {
   const registry=require('./taskRegistryService').createRegistryService(sequelize);
   const registryActive=await registry.activated();
   const legacyDispatcher=registryActive ? null : await getTaskDispatcherSettings(owner);
-  const task_registry=registryActive ? await registry.list(system ? null : owner) : require('./taskRegistryPolicy').BUILTIN_TASKS.map(task=>({...task,user_enabled:!!legacyDispatcher.tasks[task.task_key]?.enabled,priority:legacyDispatcher.tasks[task.task_key]?.priority ?? task.priority}));
+  const task_registry=registryActive ? await registry.list(owner) : require('./taskRegistryPolicy').BUILTIN_TASKS.map(task=>({...task,user_enabled:!!legacyDispatcher.tasks[task.task_key]?.enabled,priority:legacyDispatcher.tasks[task.task_key]?.priority ?? task.priority}));
   const visibleTasks=Object.fromEntries(task_registry.map(task=>[task.stats_key,tasks[task.stats_key] || {ready:0,running:0,errors:0}]));
-  const scheduler = getSchedulerState();
-  if (scheduler.last_run_at) {
-    activity.unshift({
-      type: 'CRON',
-      status: scheduler.status === 'WARNING' ? 'WARNING' : 'SUCCESS',
-      device_id: 'SYSTEM',
-      uid: null,
-      message: `Reset Nuôi ${number(scheduler.last_result?.nurture_reset)}, Page ${number(scheduler.last_result?.page_job_reset)}, Account ${number(scheduler.last_result?.account_reset)}`,
-      at: scheduler.last_run_at,
-    });
-  }
+  // Scheduler totals/errors are global and cannot be attributed to this owner.
+  const scheduler = null;
   const visibleActivityTypes=new Set(task_registry.map(task=>task.activity_key || task.task_key));
-  const visibleActivity=registryActive && !system ? activity.filter(row=>visibleActivityTypes.has(row.type)) : activity;
+  const visibleActivity=registryActive ? activity.filter(row=>visibleActivityTypes.has(row.type)) : activity;
   return { accounts, tasks:visibleTasks, task_registry, devices, scheduler, activity: visibleActivity.slice(0, 30), generated_at: new Date().toISOString() };
 };
 
-const collectDashboardSummary=async(owner,system=false)=>{
-  const registry=require('./taskRegistryService').createRegistryService(sequelize);
-  if(!system || !await registry.activated())return getOwnerDashboardSummary(owner,system);
-  const users=await registry.users();
-  const result={accounts:{facebook:{},instagram:{},pages:{}},tasks:{},task_registry:await registry.list(owner),devices:{summary:{},rows:[]},activity:[],scheduler:getSchedulerState(),generated_at:new Date().toISOString(),scope:'system'};
-  const add=(to,from)=>Object.entries(from).forEach(([key,value])=>{to[key]=number(to[key])+number(value);});
-  // Preserve pool capacity for device claims rather than fanning out every owner concurrently.
-  for(const user of users){const data=await getOwnerDashboardSummary(user.username,true);
-    for(const platform of ['facebook','instagram','pages'])add(result.accounts[platform],data.accounts[platform]);
-    for(const [key,task] of Object.entries(data.tasks)){result.tasks[key] ||= {};add(result.tasks[key],task);}
-    add(result.devices.summary,data.devices.summary);
-    result.devices.rows.push(...data.devices.rows.map(row=>({...row,owner_username:user.username})));
-    result.activity.push(...data.activity.filter(row=>row.type!=='CRON').map(row=>({...row,owner_username:user.username})));
-  }
-  result.devices.rows.sort((a,b)=>new Date(b.last_seen||0)-new Date(a.last_seen||0));
-  if(result.scheduler.last_run_at)result.activity.push({type:'CRON',status:result.scheduler.status==='WARNING'?'WARNING':'SUCCESS',device_id:'SYSTEM',uid:null,message:`Reset Nuôi ${number(result.scheduler.last_result?.nurture_reset)}, Page ${number(result.scheduler.last_result?.page_job_reset)}, Account ${number(result.scheduler.last_result?.account_reset)}`,at:result.scheduler.last_run_at});
-  result.activity.sort((a,b)=>new Date(b.at)-new Date(a.at));result.activity=result.activity.slice(0,30);
-  return result;
-};
-const getDashboardSummary=async(owner,system=false,query={})=>{
- const result=await collectDashboardSummary(owner,system);
+const getDashboardSummary=async(owner,query={},legacyQuery)=>{
+ // Legacy callers may pass a boolean; it no longer enables global aggregation.
+ if(typeof query==='boolean')query=legacyQuery||{};
+ owner=normalizeOwner(owner);
+ const registry=require('./taskRegistryService').createRegistryService(sequelize);
+ if(!owner||!await registry.identity(owner))throw Object.assign(new Error('Invalid dashboard owner'),{statusCode:401});
+ const result=await getOwnerDashboardSummary(owner);
+ result.scope='user';
  result.devices={summary:result.devices.summary,...paginateDevices(result.devices.rows,query)};
- const groups=new Map();
- for(const row of result.devices.rows.filter(row=>row.status==='IDLE')){const key=row.owner_username||owner;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row.device_id);}
- for(const [key,ids] of groups){const available=await getDeviceTaskAvailability(key,ids);for(const row of result.devices.rows)if((row.owner_username||owner)===key)row.next_available=row.status==='IDLE'?available.get(row.device_id)||null:null;}
+ const idle=result.devices.rows.filter(row=>row.status==='IDLE');
+ const available=await getDeviceTaskAvailability(owner,idle.map(row=>row.device_id));
+ for(const row of result.devices.rows)row.next_available=row.status==='IDLE'?available.get(row.device_id)||null:null;
  return result;
 };
 module.exports = { getDashboardSummary,getDevices };

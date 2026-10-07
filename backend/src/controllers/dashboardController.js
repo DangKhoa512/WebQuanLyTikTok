@@ -1,13 +1,14 @@
 const { success } = require('../utils/response');
-const { ownerFromAdmin } = require('../utils/owner');
+const {normalizeOwner}=require('../utils/owner');
 const { getDashboardSummary } = require('../services/dashboardService');
 
 const summary = async (req, res, next) => {
   try {
-    const registry=require('../services/taskRegistryService').createRegistryService(require('../config/database'));
-    const owner=ownerFromAdmin(req),current=await registry.identity(owner);
-    if(!current)return res.status(401).json({success:false,message:'Phiên người dùng không hợp lệ'});
-    return success(res, await getDashboardSummary(owner,current.role==='admin',req.query), 'Lay Dashboard thanh cong');
+    // Ownership comes from the authenticated database identity, never request query/body/role.
+    const current=req.authenticatedUser;
+    if(!current)return res.status(401).json({success:false,message:'Invalid authenticated user'});
+    res.set('Cache-Control','private, no-store');
+    return success(res,await getDashboardSummary(normalizeOwner(current.username),req.query),'Lay Dashboard thanh cong');
   } catch (err) {
     next(err);
   }

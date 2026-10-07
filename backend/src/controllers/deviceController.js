@@ -1,5 +1,5 @@
 const DashboardDevice = require('../models/DashboardDevice');
-const {ensureDevice}=require('../services/deviceRegistrationService');
+const {ensureDevice,hasOwnedDevice}=require('../services/deviceRegistrationService');
 const DeviceTaskRun = require('../models/DeviceTaskRun');
 const DeviceTaskCapability = require('../models/DeviceTaskCapability');
 const { success, error } = require('../utils/response');
@@ -131,6 +131,7 @@ const getCapabilities = async (req, res, next) => {
     const supportedTasks=await registry.activated() ? (await registry.list(owner_username)).map(task=>task.task_key) : TASK_TYPES;
     const device_id = text(req.params.device_id);
     if (!device_id) return error(res, 'device_id khong hop le', 400);
+    if(!await hasOwnedDevice(owner_username,device_id))return error(res,'Device not found',404);
     const rows = await DeviceTaskCapability.findAll({
       where: { owner_username, device_id },
       order: [['task_type', 'ASC']],
@@ -155,6 +156,7 @@ const updateCapabilities = async (req, res, next) => {
     const supportedTasks=await registry.activated() ? (await registry.list(owner_username)).map(task=>task.task_key) : TASK_TYPES;
     const device_id = text(req.params.device_id);
     if (!device_id) return error(res, 'device_id khong hop le', 400);
+    if(!await hasOwnedDevice(owner_username,device_id))return error(res,'Device not found',404);
     const source = Array.isArray(req.body.capabilities) ? req.body.capabilities : [];
     const enabledSet = new Set(source.map((item) => {
       if (typeof item === 'string') return item.trim().toUpperCase();
