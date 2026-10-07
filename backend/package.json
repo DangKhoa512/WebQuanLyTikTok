@@ -1,7 +1,7 @@
 {
   "name": "tiktok-acc-manager-backend",
   "version": "1.0.0",
-  "description": "TikTok Account Manager Backend API",
+  "description": "MMO Manager Backend API",
   "main": "src/server.js",
   "scripts": {
     "migrate:round-robin": "node scripts/migrateRoundRobin.js --apply",
@@ -17,7 +17,8 @@
     "test:instagram-cross-follow": "node scripts/testInstagramCrossFollowIntegration.js --ui",
     "test:instagram-check-live-mock": "node scripts/testInstagramCheckLiveMock.js",
     "test:mail": "node scripts/testMail.js && node scripts/testMailIntegration.js",
-    "migrate:ghostinbox": "node scripts/migrateGhostInbox.js --apply"
+    "migrate:ghostinbox": "node scripts/migrateGhostInbox.js --apply",
+    "test:device-dashboard": "node scripts/testDeviceDashboardIntegration.js --ui"
   },
   "dependencies": {
     "axios": "^1.16.1",

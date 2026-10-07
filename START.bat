@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo    TikTok Manager - Khoi dong he thong
+echo    MMO Manager - Khoi dong he thong
 echo ========================================
 
 echo [1/2] Khoi dong Backend...

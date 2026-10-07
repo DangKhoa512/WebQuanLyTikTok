@@ -7,7 +7,6 @@ import Dashboard       from './pages/Dashboard';
 import AccountList     from './pages/AccountList';
 import AccountDetail   from './pages/AccountDetail';
 import Stats           from './pages/Stats';
-import Export          from './pages/Export';
 import ProxySettings      from './pages/ProxySettings';
 import ChromeAccountList from './pages/ChromeAccountList';
 import Users             from './pages/Users';
@@ -44,7 +43,6 @@ export default function App() {
             <Route path="accounts"     element={<AccountList />} />
             <Route path="accounts/:id" element={<AccountDetail />} />
             <Route path="stats"          element={<Stats />} />
-            <Route path="export"         element={<Export />} />
             <Route path="proxy-settings"   element={<ProxySettings />} />
             <Route path="chrome-accounts"  element={<ChromeAccountList />} />
             <Route path="chrome-khang-stats" element={<ChromeKhangStats />} />

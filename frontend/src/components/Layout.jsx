@@ -26,7 +26,6 @@ const NAV = [
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
   { to: '/chrome-khang-stats', icon: '📊', label: 'Trạng Thái Máy' },
   { to: '/machine-api-configs', icon: '\uD83D\uDD0C', label: 'API M\u00e1y' },
-  { to: '/export',          icon: '📥', label: 'Xuất file'  },
   { to: '/proxy-settings',  icon: '⚙️', label: 'Cài đặt'    },
   { to: '/users',           icon: '👤', label: 'Cấp user', adminOnly: true },
 ];
@@ -58,8 +57,8 @@ export default function Layout() {
       {/* ── Sidebar ── */}
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <h2>🎵 TikTok Manager</h2>
-          <small>Account Management System</small>
+          <img className="brand-logo" src="/assets/dk-logo-c3f2afce.png" alt="DK" width="40" height="40" /><div><h2>MMO Manager</h2>
+          <small>Quản lý tài nguyên MMO</small></div>
         </div>
 
         <nav className="sidebar-nav">
@@ -141,6 +140,7 @@ export default function Layout() {
       </button>
 
       <main className="main-content">
+        <div className="mobile-brand"><img src="/assets/dk-logo-c3f2afce.png" alt="DK" width="36" height="36" /><div><strong>MMO Manager</strong><small>Quản lý tài nguyên MMO</small></div></div>
         <Outlet />
       </main>
     </div>

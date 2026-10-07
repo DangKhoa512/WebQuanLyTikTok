@@ -1,6 +1,8 @@
 const { QueryTypes, Op } = require('sequelize');
 const sequelize = require('../config/database');
 const DashboardDevice = require('../models/DashboardDevice');
+const DeviceTaskRun=require('../models/DeviceTaskRun');
+const {classifyDevice,paginateDevices}=require('./deviceStatusService');
 const FacebookNurtureLog = require('../models/FacebookNurtureLog');
 const InstagramNurtureLog = require('../models/InstagramNurtureLog');
 const FacebookRegPageReport = require('../models/FacebookRegPageReport');
@@ -115,31 +117,29 @@ const getDevices = async (owner) => {
         FROM instagram_accounts WHERE owner_username=:owner AND kind='job' AND trashed_at IS NULL AND device_id IS NOT NULL AND device_id<>'' GROUP BY device_id
       ) source GROUP BY device_id`, { replacements: { owner }, type: QueryTypes.SELECT }),
   ]);
+  const active=await DeviceTaskRun.findAll({where:{owner_username:owner,status:{[Op.in]:['RUNNING','REPORTING']}},attributes:['device_id','task_type','uid','username','locked_at'],raw:true});
+  const activeMap=new Map(active.map(run=>[run.device_id,run]));
   const map = new Map(aggregates.map((row) => [row.device_id, {
     device_id: row.device_id, device_name: row.device_id,
     facebook_accounts: number(row.facebook_accounts), instagram_accounts: number(row.instagram_accounts), ready_count: number(row.ready_count),
     current_task: row.inferred_task || null, current_uid: row.inferred_uid || null,
-    started_at: null, last_seen: row.last_activity_at, last_error: null,
+    started_at: null, last_seen: null, last_activity_at: row.last_activity_at, last_error: null,
   }]));
   heartbeats.forEach((row) => {
     const current = map.get(row.device_id) || { device_id: row.device_id, facebook_accounts: 0, instagram_accounts: 0, ready_count: 0 };
-    map.set(row.device_id, { ...current, device_name: row.device_name || row.device_id, current_task: row.current_task, current_uid: row.current_uid, started_at: row.started_at, last_seen: row.last_seen, last_error: row.last_error });
+    map.set(row.device_id, { ...current, device_name: row.device_name || row.device_id, current_task: row.current_task, current_uid: row.current_uid, started_at: row.started_at, reported_status: row.reported_status, last_seen: row.last_seen, last_error: row.last_error });
   });
   const now = Date.now();
   const devices = [...map.values()].map((device) => {
-    const age = device.last_seen ? now - new Date(device.last_seen).getTime() : Infinity;
-    const online = age <= 5 * 60 * 1000;
-    const status = !online ? 'OFFLINE' : device.current_task || device.current_uid ? 'RUNNING' : 'IDLE';
+    const run=activeMap.get(device.device_id);
+    if(run)Object.assign(device,{active_task:true,current_task:run.task_type,current_uid:run.uid||run.username,started_at:run.locked_at});
+    const status=classifyDevice(device,now);
     return { ...device, status, idle_with_work: status === 'IDLE' && device.ready_count > 0 };
   }).sort((a, b) => new Date(b.last_seen || 0) - new Date(a.last_seen || 0));
-  const availability = await getDeviceTaskAvailability(owner, devices.map((device) => device.device_id));
-  const enrichedDevices = devices.map((device) => ({
-    ...device,
-    next_available: device.status === 'IDLE' ? availability.get(device.device_id) || null : null,
-  }));
+  const enrichedDevices=devices;
   const summary = enrichedDevices.reduce((out, device) => ({ ...out, total: out.total + 1, [device.status.toLowerCase()]: out[device.status.toLowerCase()] + 1 }), { total: 0, running: 0, idle: 0, offline: 0 });
   summary.online = summary.running + summary.idle;
-  return { summary, rows: enrichedDevices.slice(0, 100) };
+  return { summary, rows: enrichedDevices };
 };
 
 const getActivity = async (owner) => {
@@ -185,7 +185,7 @@ const getOwnerDashboardSummary = async (owner, system=false) => {
   return { accounts, tasks:visibleTasks, task_registry, devices, scheduler, activity: visibleActivity.slice(0, 30), generated_at: new Date().toISOString() };
 };
 
-const getDashboardSummary=async(owner,system=false)=>{
+const collectDashboardSummary=async(owner,system=false)=>{
   const registry=require('./taskRegistryService').createRegistryService(sequelize);
   if(!system || !await registry.activated())return getOwnerDashboardSummary(owner,system);
   const users=await registry.users();
@@ -199,9 +199,17 @@ const getDashboardSummary=async(owner,system=false)=>{
     result.devices.rows.push(...data.devices.rows.map(row=>({...row,owner_username:user.username})));
     result.activity.push(...data.activity.filter(row=>row.type!=='CRON').map(row=>({...row,owner_username:user.username})));
   }
-  result.devices.rows.sort((a,b)=>new Date(b.last_seen||0)-new Date(a.last_seen||0));result.devices.rows=result.devices.rows.slice(0,100);
+  result.devices.rows.sort((a,b)=>new Date(b.last_seen||0)-new Date(a.last_seen||0));
   if(result.scheduler.last_run_at)result.activity.push({type:'CRON',status:result.scheduler.status==='WARNING'?'WARNING':'SUCCESS',device_id:'SYSTEM',uid:null,message:`Reset Nuôi ${number(result.scheduler.last_result?.nurture_reset)}, Page ${number(result.scheduler.last_result?.page_job_reset)}, Account ${number(result.scheduler.last_result?.account_reset)}`,at:result.scheduler.last_run_at});
   result.activity.sort((a,b)=>new Date(b.at)-new Date(a.at));result.activity=result.activity.slice(0,30);
   return result;
 };
-module.exports = { getDashboardSummary };
+const getDashboardSummary=async(owner,system=false,query={})=>{
+ const result=await collectDashboardSummary(owner,system);
+ result.devices={summary:result.devices.summary,...paginateDevices(result.devices.rows,query)};
+ const groups=new Map();
+ for(const row of result.devices.rows.filter(row=>row.status==='IDLE')){const key=row.owner_username||owner;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row.device_id);}
+ for(const [key,ids] of groups){const available=await getDeviceTaskAvailability(key,ids);for(const row of result.devices.rows)if((row.owner_username||owner)===key)row.next_available=row.status==='IDLE'?available.get(row.device_id)||null:null;}
+ return result;
+};
+module.exports = { getDashboardSummary,getDevices };

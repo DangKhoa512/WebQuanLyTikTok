@@ -22,12 +22,12 @@ const chrome=require('../backend/node_modules/selenium-webdriver/chrome');
   const workloads=await browser.executeScript('return [...document.querySelectorAll(".dashboard-task-table tbody tr")].map(tr=>[...tr.querySelectorAll("td:nth-child(n+3)")].map(td=>Number(td.textContent.replaceAll(".",""))))');
   d.task_registry.map(task=>task.stats_key || task.task_key).forEach((key,i)=>assert.deepEqual(workloads[i],[d.tasks[key].ready,d.tasks[key].running,d.tasks[key].errors]));
   assert.equal((await browser.findElements(By.css('.dashboard-device-row'))).length,d.devices.rows.length);
-  const search=await browser.findElement(By.css('.dashboard-search input'));await search.sendKeys('no-device-match-qa');
+  const search=await browser.findElement(By.css('.dashboard-search input'));await search.sendKeys('no-device-match-qa');await wait('return document.querySelectorAll(".dashboard-device-row").length===0');
   assert.equal((await browser.findElements(By.css('.dashboard-device-row'))).length,0);
   assert((await browser.findElement(By.css('.empty-cell')).getText()).includes('Không tìm thấy') || !d.devices.rows.length);
   await browser.findElement(By.css('.dashboard-search button')).click();
   if(d.devices.rows.length) {
-   const row=d.devices.rows[0];await search.sendKeys(row.device_id);assert((await browser.findElements(By.css('.dashboard-device-row'))).length>=1);
+   const row=d.devices.rows[0];await search.sendKeys(row.device_id);await wait('return document.querySelectorAll(".dashboard-device-row").length>=1');assert((await browser.findElements(By.css('.dashboard-device-row'))).length>=1);
    await browser.findElement(By.css('.dashboard-device-row button')).click();assert(await browser.executeScript('return document.querySelector("dialog").open'));
    const initial=await browser.executeScript('return performance.getEntriesByType("resource").filter(e=>e.name.includes("/dashboard/summary")).length');
    await browser.wait(async()=>await browser.executeScript('return performance.getEntriesByType("resource").filter(e=>e.name.includes("/dashboard/summary")).length')>initial,20000);
@@ -43,6 +43,7 @@ const chrome=require('../backend/node_modules/selenium-webdriver/chrome');
    await browser.findElement(By.css('.dashboard-filter-inputs .settings-button')).click();
   }
   await browser.findElement(By.css('.dashboard-status-filters button:last-child')).click();
+  await wait('return [...document.querySelectorAll(".dashboard-device-row .dashboard-status")].every(e=>e.textContent==="OFFLINE")');
   const statuses=await browser.executeScript('return [...document.querySelectorAll(".dashboard-device-row .dashboard-status")].map(e=>e.textContent)');assert(statuses.every(s=>s==='OFFLINE'));
   const beforeRefresh=await browser.executeScript('return performance.getEntriesByType("resource").filter(e=>e.name.includes("/dashboard/summary")).length');
   await browser.findElement(By.css('.dashboard-header-actions button')).click();

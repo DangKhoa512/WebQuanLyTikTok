@@ -1,4 +1,5 @@
 const DashboardDevice = require('../models/DashboardDevice');
+const {ensureDevice}=require('../services/deviceRegistrationService');
 const DeviceTaskRun = require('../models/DeviceTaskRun');
 const DeviceTaskCapability = require('../models/DeviceTaskCapability');
 const { success, error } = require('../utils/response');
@@ -30,14 +31,14 @@ const heartbeat = async (req, res, next) => {
           status: { [Op.in]: ['RUNNING', 'REPORTING'] },
         },
       })
-      : null;
+      : await DeviceTaskRun.findOne({where:{owner_username,device_id,status:{[Op.in]:['RUNNING','REPORTING']}},order:[['id','DESC']]});
     if (Number.isInteger(taskId) && !activeTask) return error(res, 'task_id khong thuoc device hoac da ket thuc', 409);
     const current_task = activeTask?.task_type || text(req.body.current_task || req.body.task, 100);
     const current_uid = activeTask?.uid || activeTask?.username || text(req.body.current_uid || req.body.uid || req.body.username);
     const requestedStatus = String(req.body.status || '').trim().toUpperCase();
-    const reported_status = current_task || current_uid || requestedStatus === 'RUNNING'
-      ? 'RUNNING'
-      : requestedStatus === 'ONLINE' ? 'ONLINE' : 'IDLE';
+    const reported_status = activeTask ? 'RUNNING'
+      : ['IDLE','ONLINE'].includes(requestedStatus) ? requestedStatus
+      : current_task || current_uid || requestedStatus === 'RUNNING' ? 'RUNNING' : 'IDLE';
     const now = new Date();
     const existing = await DashboardDevice.findOne({ where: { owner_username, device_id } });
     const started_at = activeTask?.locked_at || (reported_status === 'RUNNING'
@@ -56,11 +57,8 @@ const heartbeat = async (req, res, next) => {
       last_seen: now,
       last_error: text(req.body.error || req.body.last_error, 1000),
     };
-    const [row, created] = await DashboardDevice.findOrCreate({
-      where: { owner_username, device_id },
-      defaults: payload,
-    });
-    if (!created) await row.update(payload);
+    const row = await ensureDevice(owner_username,device_id,payload);
+    await row.update(payload);
     return success(res, { device: row.toJSON() }, 'Da cap nhat heartbeat');
   } catch (err) {
     next(err);

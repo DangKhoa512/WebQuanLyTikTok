@@ -38,9 +38,9 @@ export default function Login() {
       <div style={styles.card}>
         {/* Logo */}
         <div style={styles.logo}>
-          <div style={styles.logoIcon}>🎵</div>
-          <h1 style={styles.logoTitle}>TikTok Manager</h1>
-          <p style={styles.logoSub}>Hệ thống quản lý tài khoản</p>
+          <img src="/assets/dk-logo-c3f2afce.png" alt="DK" width="56" height="56" style={{objectFit:'contain',borderRadius:10,marginBottom:8}} />
+          <h1 style={styles.logoTitle}>MMO Manager</h1>
+          <p style={styles.logoSub}>Quản lý tài nguyên MMO</p>
         </div>
 
         {/* Error */}

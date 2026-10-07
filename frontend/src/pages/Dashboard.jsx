@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboardTasksFromRegistry } from '../services/dashboardTaskRegistry';
 import { dashboardApi } from '../services/api';
@@ -56,25 +56,37 @@ export default function Dashboard() {
   const [deviceSearch, setDeviceSearch] = useState('');
   const [deviceStatus,setDeviceStatus] = useState('ALL');
   const [deviceTask,setDeviceTask] = useState('ALL');
+  const [devicePage,setDevicePage]=useState(1);
+  const [pageSize,setPageSize]=useState(50);
+  const [searchQuery,setSearchQuery]=useState('');
+  useEffect(()=>{const timer=setTimeout(()=>{setSearchQuery(deviceSearch);setDevicePage(1);},300);return ()=>clearTimeout(timer);},[deviceSearch]);
+  useEffect(()=>setDevicePage(1),[deviceStatus,deviceTask,pageSize]);
   const [selectedDevice,setSelectedDevice] = useState(null);
   const [refreshing,setRefreshing] = useState(false);
   const inFlight = useRef(false);
+  const pending=useRef(false),loadRef=useRef(null);
+  const requestKey=JSON.stringify({device_status:deviceStatus,device_task:deviceTask,device_search:searchQuery,page:devicePage,page_size:pageSize});
+  const currentKey=useRef(requestKey);currentKey.current=requestKey;
   const resetFilters = () => { setDeviceSearch(''); setDeviceStatus('ALL'); setDeviceTask('ALL'); };
 
 
   const load = useCallback(async () => {
-    if (inFlight.current) return;
+    if (inFlight.current) {pending.current=true;return;}
     inFlight.current = true; setRefreshing(true);
     try {
-      const response = await dashboardApi.getSummary();
+      const response = await dashboardApi.getSummary(JSON.parse(requestKey));
+      if(currentKey.current!==requestKey)return;
       setData(response.data || {});
       setError('');
     } catch (err) {
+      if(currentKey.current!==requestKey)return;
       setError(err.message || 'Không tải được Dashboard');
     } finally {
       setLoading(false); setRefreshing(false); inFlight.current = false;
+      if(pending.current){pending.current=false;queueMicrotask(()=>loadRef.current?.());}
     }
-  }, []);
+  }, [requestKey]);
+  loadRef.current=load;
 
   useEffect(() => {
     load();
@@ -82,10 +94,7 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, [load]);
 
-  const devices = useMemo(() => {
-    const search = deviceSearch.trim().toLowerCase();
-    return (data?.devices?.rows || []).filter((row) => (deviceStatus === 'ALL' || row.status === deviceStatus) && (deviceTask === 'ALL' || row.current_task === deviceTask) && (!search || `${row.device_name || ''} ${row.device_id || ''} ${row.current_uid || ''} ${row.current_task || ''}`.toLowerCase().includes(search)));
-  }, [data, deviceSearch, deviceStatus, deviceTask]);
+  const devices=data?.devices?.rows || [];
 
   if (loading) return <div className="loading-wrap"><div className="spinner" />Đang tải Dashboard...</div>;
   const accounts = data?.accounts || {};
@@ -150,14 +159,14 @@ export default function Dashboard() {
     </section>
 
     <section id="devices" tabIndex={-1} className="card dashboard-device-card">
-      <div className="card-header"><div><h3>Thiết bị</h3><small>Theo dõi máy và account đang hoạt động</small></div><span className="dashboard-device-scope">{devices.length} / {(data?.devices?.rows || []).length} máy trong dữ liệu đã tải{number(deviceSummary.total) > (data?.devices?.rows || []).length && ' · API giới hạn 100 máy'}</span></div>
-      <div className="dashboard-device-filters"><div className="dashboard-status-filters">{[['ALL','Tất cả',deviceSummary.total],['RUNNING','Running',deviceSummary.running],['IDLE','Idle',deviceSummary.idle],['OFFLINE','Offline',deviceSummary.offline]].map(([value,label,count]) => <button key={value} aria-pressed={deviceStatus === value} onClick={() => setDeviceStatus(value)}>{label}<span>{fmtNumber(count)}</span></button>)}</div><div className="dashboard-filter-inputs"><label className="dashboard-search"><span className="sr-only">Tìm máy, account hoặc task</span><input value={deviceSearch} onChange={(event) => setDeviceSearch(event.target.value)} placeholder="Tìm máy hoặc account..." />{deviceSearch && <button aria-label="Xóa tìm kiếm" onClick={() => setDeviceSearch('')}>×</button>}</label><label><span className="sr-only">Lọc task thiết bị</span><select aria-label="Lọc task thiết bị" value={deviceTask} onChange={(e) => setDeviceTask(e.target.value)}><option value="ALL">Tất cả task</option>{[...new Set((data?.devices?.rows || []).map((row) => row.current_task).filter(Boolean))].sort().map((task) => <option key={task} value={task}>{task}</option>)}</select></label>{(deviceSearch || deviceStatus !== 'ALL' || deviceTask !== 'ALL') && <button className="settings-button ghost small" onClick={resetFilters}>Xóa bộ lọc</button>}</div></div>
+      <div className="card-header"><div><h3>Thiết bị</h3><small>Theo dõi máy và account đang hoạt động</small></div><span className="dashboard-device-scope">{fmtNumber(deviceSummary.total)}{data?.scope==='system' ? ' máy toàn hệ thống' : ` / ${fmtNumber(data?.devices?.capacity)} máy`} · Giới hạn {fmtNumber(data?.devices?.capacity)} máy/user</span></div>
+      <div className="dashboard-device-filters"><div className="dashboard-status-filters">{[['ALL','Tất cả',deviceSummary.total],['RUNNING','Running',deviceSummary.running],['IDLE','Idle',deviceSummary.idle],['OFFLINE','Offline',deviceSummary.offline]].map(([value,label,count]) => <button key={value} aria-pressed={deviceStatus === value} onClick={() => setDeviceStatus(value)}>{label}<span>{fmtNumber(count)}</span></button>)}</div><div className="dashboard-filter-inputs"><label className="dashboard-search"><span className="sr-only">Tìm máy, account hoặc task</span><input value={deviceSearch} onChange={(event) => setDeviceSearch(event.target.value)} placeholder="Tìm máy hoặc account..." />{deviceSearch && <button aria-label="Xóa tìm kiếm" onClick={() => setDeviceSearch('')}>×</button>}</label><label><span className="sr-only">Lọc task thiết bị</span><select aria-label="Lọc task thiết bị" value={deviceTask} onChange={(e) => setDeviceTask(e.target.value)}><option value="ALL">Tất cả task</option>{(data?.devices?.task_options || []).map((task) => <option key={task} value={task}>{task}</option>)}</select></label>{(deviceSearch || deviceStatus !== 'ALL' || deviceTask !== 'ALL') && <button className="settings-button ghost small" onClick={resetFilters}>Xóa bộ lọc</button>}</div></div>
       <div className="table-container"><table className="dashboard-device-table"><thead><tr><th>STT</th><th>Thiết bị</th><th>Facebook</th><th>Instagram</th><th>Trạng thái</th><th>Task hiện tại / gần nhất</th><th>Account</th><th>Runtime</th><th>Next available</th><th>Last Seen</th><th><span className="sr-only">Thao tác</span></th></tr></thead>
-        <tbody>{!devices.length ? <tr><td colSpan={11} className="empty-cell">{(data?.devices?.rows || []).length ? <>Không tìm thấy thiết bị phù hợp.<button className="settings-button secondary small" onClick={resetFilters}>Xóa bộ lọc</button></> : 'Chưa có dữ liệu thiết bị'}</td></tr> : devices.map((row, index) => {
+        <tbody>{!devices.length ? <tr><td colSpan={11} className="empty-cell">{number(deviceSummary.total)>0 ? <>Không tìm thấy thiết bị phù hợp.<button className="settings-button secondary small" onClick={resetFilters}>Xóa bộ lọc</button></> : 'Chưa có dữ liệu thiết bị'}</td></tr> : devices.map((row, index) => {
           const offline = row.status === 'OFFLINE';
           const running = row.status === 'RUNNING';
           return <tr key={deviceKey(row)} className={`dashboard-device-row is-${String(row.status || '').toLowerCase()}`}>
-            <td>{index + 1}</td><td><strong>{row.device_name || row.device_id}</strong>{data?.scope==='system' && <small className="dashboard-device-id">{row.owner_username}</small>}{row.device_name !== row.device_id && <small className="dashboard-device-id">{row.device_id}</small>}</td><td className="dashboard-account-count">{fmtNumber(row.facebook_accounts)}</td><td className="dashboard-account-count">{fmtNumber(row.instagram_accounts)}</td>
+            <td>{(number(data?.devices?.page)-1)*number(data?.devices?.page_size)+index+1}</td><td><strong>{row.device_name || row.device_id}</strong>{data?.scope==='system' && <small className="dashboard-device-id">{row.owner_username}</small>}{row.device_name !== row.device_id && <small className="dashboard-device-id">{row.device_id}</small>}</td><td className="dashboard-account-count">{fmtNumber(row.facebook_accounts)}</td><td className="dashboard-account-count">{fmtNumber(row.instagram_accounts)}</td>
             <td><StatusBadge status={row.status} />{row.status === 'IDLE' && <small className={row.next_available ? 'dashboard-idle-ready' : 'dashboard-idle-empty'}>{row.next_available ? 'CÓ VIỆC' : 'Không có việc'}</small>}</td>
             <td className={offline ? 'dashboard-last-value' : ''}>{row.current_task || '-'}</td>
             <td className={offline ? 'dashboard-last-value' : ''}>{row.current_uid || '-'}</td>
@@ -165,6 +174,7 @@ export default function Dashboard() {
           </tr>;
         })}</tbody>
       </table></div>
+      <div className="dashboard-pagination"><span>{fmtNumber(data?.devices?.filtered_total)} máy phù hợp · Trang {data?.devices?.page || 1}/{data?.devices?.page_count || 1}</span><label>Số dòng <select aria-label="Số dòng mỗi trang" value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}>{[20,50,100].map(size=><option key={size}>{size}</option>)}</select></label><button className="settings-button secondary small" disabled={refreshing || number(data?.devices?.page)<=1} onClick={()=>setDevicePage(number(data?.devices?.page)-1)}>Trước</button><button className="settings-button secondary small" disabled={refreshing || number(data?.devices?.page)>=number(data?.devices?.page_count)} onClick={()=>setDevicePage(number(data?.devices?.page)+1)}>Sau</button></div>
     </section>
     {selectedDevice && <DeviceDetail row={(data?.devices?.rows || []).find((row) => deviceKey(row) === selectedDevice)} onClose={() => setSelectedDevice(null)} />}
   </div>;

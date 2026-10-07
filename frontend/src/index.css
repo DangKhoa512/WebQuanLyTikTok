@@ -1341,3 +1341,7 @@ a.dashboard-summary-card:hover { transform: translateY(-1px); box-shadow: 0 7px 
 .dispatcher-settings > button { margin-top: .8rem; padding: .52rem .9rem; color: #fff; background: #10b981; border: 0; border-radius: 8px; font-weight: 800; cursor: pointer; }
 .dispatcher-settings > button:disabled { background: #334155; cursor: not-allowed; }
 @media (max-width: 650px) { .dispatcher-settings-summary { grid-template-columns: 1fr; } .dispatcher-settings-task { grid-template-columns: minmax(110px,1fr) 70px 80px; } }
+
+.sidebar-logo{display:flex;align-items:center;gap:10px}.sidebar-logo .brand-logo{flex:none;width:40px;height:40px;object-fit:contain;border-radius:8px}.sidebar-logo>div{min-width:0}.sidebar-logo h2{font-size:1.1rem}.sidebar-logo small{font-size:.7rem}
+
+.sidebar-logo{padding:1.1rem .8rem}.mobile-brand{display:none}@media(max-width:768px){.mobile-brand{display:flex;gap:9px;align-items:center;padding:0 90px 16px 0}.mobile-brand img{object-fit:contain;border-radius:7px;flex:none}.mobile-brand strong{font-size:1rem}.mobile-brand small{display:block;font-size:.7rem;color:var(--text-muted,#64748b)}}

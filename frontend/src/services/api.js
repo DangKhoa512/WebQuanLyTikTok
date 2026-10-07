@@ -105,7 +105,7 @@ export const statsApi = {
 };
 
 export const dashboardApi = {
-  getSummary: () => api.get('/dashboard/summary', { timeout: 60_000 }),
+  getSummary: (params = {}) => api.get('/dashboard/summary', { params, timeout: 60_000 }),
 };
 
 export const deviceApi = {

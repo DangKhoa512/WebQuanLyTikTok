@@ -9,6 +9,7 @@ const FacebookPageJob = require('../models/FacebookPageJob');
 const InstagramFacebookRegClaim = require('../models/InstagramFacebookRegClaim');
 const { getTaskDispatcherSettings, getInstagramNurtureSettings, getFacebookNurtureSettings } = require('./settingsService');
 const logger=require('../config/logger');
+const {ensureDevice}=require('./deviceRegistrationService');
 const roundRobin=require('./roundRobinService').createRoundRobinService(sequelize);
 const { acquireLegacyTask, supportsTask, releaseUnassignedReservation } = require('./legacyTaskAdapter');
 const { withTaskTransaction } = require('./taskTransactionContext');
@@ -188,10 +189,7 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
     getTaskDispatcherSettings(owner),
     getCapabilities({ owner, deviceId, requested: requestedCapabilities }),
   ]);
-  await DashboardDevice.findOrCreate({
-    where: { owner_username: owner, device_id: deviceId },
-    defaults: { owner_username: owner, device_id: deviceId, device_name: deviceId, last_seen: new Date() },
-  });
+  await ensureDevice(owner,deviceId);
 
   let dispatchLog=null;
   const result=await sequelize.transaction({isolationLevel:Transaction.ISOLATION_LEVELS.READ_COMMITTED},(transaction) => withTaskTransaction(transaction,async () => {

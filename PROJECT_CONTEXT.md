@@ -352,3 +352,19 @@ Khóa state user trước device, reservation/task run/cursor chung transaction,
 Migration local đã chạy thành công; additive/idempotent, backup local gitignored, bảo toàn Enabled/Priority/history/cursor. VPS chưa deploy. Lệnh backend: npm run migrate:round-robin. Docker: build backend, compose run --rm backend npm run migrate:round-robin, rồi up -d --build. Không seed.
 
 Đã đạt: Round-Robin API/DB/UI integration (4/50 request, 50 resume, 16 Page claim/resume, rollback, owner, reorder/archive, migration twice, process restart, drag/drop/reload/mobile); Task Registry integration UI; Instagram cross-follow UI; CrossTarget Engine; task report; frontend production build (cảnh báo chunk lớn hiện hữu). DB test riêng tự cleanup. Các chỉnh sửa kịch bản nuôi/tương tác chéo và RR đang trong working tree, chưa commit/push. Công việc còn lại: commit/push khi được yêu cầu và migration trên VPS khi triển khai.
+
+## 2026-10-07 — Device status/capacity/pagination và MMO branding
+
+Base đã commit/push main 7579fc7 (RR + nurture). Lượt mới sửa status source/counter/filter, capacity registration 1000/user, backend pagination/search, bỏ export UI và đổi MMO Manager + Quản lý tài nguyên MMO với logo DK đúng asset user cung cấp. Chi tiết audit, files, API và kiểm thử: DEVICE_DASHBOARD.md.
+
+Timeout reuse 300s, config DEVICE_OFFLINE_TIMEOUT_SECONDS trong config/devices.js/.env.example. Không dùng account.updated_at làm heartbeat; giữ legacy inventory Offline khi chưa có tín hiệu device. Active run hoặc reported RUNNING + last_seen mới => Running; online không chạy => Idle. Explicit Idle/Online không bị UID cũ đẩy thành Running. Counter và filter chung source, online=running+idle. API summary nhận device_status/device_task/device_search/page/page_size; mặc định 50, 20/50/100, summary toàn dataset, next-available query page Idle, admin aggregate trước pagination.
+
+Đăng ký heartbeat/next-task dùng ensureDevice: capacity dựa unique Dashboard + FB/IG inventory per-owner, existing device vẫn hoạt động, new device 1001 bị 409 DEVICE_LIMIT_REACHED. New registration khóa RR state theo user (không advance) để tránh FK deadlock; fallback User lock trước RR migration. Không thay luồng import/assignment resources/API report cũ. Không schema/migration mới.
+
+Logo center-crop kỹ thuật ảnh gốc, giữ thiết kế: frontend/public/assets/dk-logo.png và dk-favicon.png. Sidebar/login/mobile header/title/meta đã đổi; /export nav/route bỏ, backend API export giữ. Platform TikTok và storage auth keys không đổi.
+
+Đạt Device HTTP/MySQL/Chrome DB tạm test status/transition/1000/1001/race/search/filter/pages/polling/branding/logo/favicon/mobile, hồi quy RR UI (4/50/50resume/16Page), task report chỉ-ID; frontend build đạt (chunk warning hiện hữu), không lint/typecheck script. Không seed/sửa DB thật/deploy. Thay đổi mới chưa commit/push; không cần migration mới khi deploy lượt này (môi trường chưa có RR vẫn chạy migration RR cũ).
+
+Logo cập nhật: thay DK gradient bằng đúng ảnh DK đầu ngựa xanh/nền trắng trong Downloads/logo.png người dùng gửi ngày 2026-10-07. Chỉ cắt viền trắng dư và resize, giữ toàn bộ artwork. Asset mới frontend/public/assets/dk-horse-logo.png (256px), dk-horse-favicon.png (64px); sidebar/login/mobile/favicon đổi path mới để tránh cache ảnh cũ. Không đổi chức năng/backend. Build frontend kiểm tra sau thay logo; chưa commit/push.
+
+Logo được thay lần nữa từ bản hiện tại Downloads/logo.png theo yêu cầu tiếp theo; ảnh nguồn có nét đầu ngựa và bố cục khác bản đính kèm trước. Giữ toàn bộ ảnh nguồn, chỉ resize 256/64px, không crop để tránh cắt nét phía trái. Asset dk-logo-<source SHA256 prefix>.png và dk-favicon-<source SHA256 prefix>.png; tất cả UI/favicon dùng tên mới theo nội dung để tránh cache. Chưa commit/push.
