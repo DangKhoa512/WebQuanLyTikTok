@@ -1,3 +1,4 @@
+require('./EmailTickMailbox');
 require('./CrossTargetCycle');
 require('./CrossTargetBatch');
 require('./CrossTargetHistory');
