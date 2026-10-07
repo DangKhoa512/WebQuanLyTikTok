@@ -17,3 +17,9 @@ export const crossFollowError = (action = emptyCrossFollow()) => {
   return '';
 };
 export const serializeCrossFollowSettings = settings => ({ ...settings, scenarios: settings.scenarios.map(scenario => ({ ...scenario, actions: { ...scenario.actions, cross_follow: { ...(scenario.actions.cross_follow || emptyCrossFollow()), usernames: normalizeUsernameList(scenario.actions.cross_follow?.usernames) } } })) });
+
+export const emptyCrossAccountFollow = () => ({ enabled: false, min: 0, max: 0 });
+export const crossAccountFollowError = (action = emptyCrossAccountFollow()) => {
+  if (typeof action.enabled !== 'boolean' || !Number.isSafeInteger(action.min) || !Number.isSafeInteger(action.max) || action.min < 0 || action.max < action.min || action.max > 200) return 'Min/Max: 0 <= Min <= Max <= 200.';
+  return '';
+};

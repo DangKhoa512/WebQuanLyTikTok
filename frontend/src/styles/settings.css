@@ -202,3 +202,41 @@
 /* The username list needs the full Instagram scenario editor width. */
 #ig-nurture .settings-activity-cross-follow { grid-column: 1 / -1; }
 #ig-nurture .settings-activity-cross-follow textarea { min-height: 144px; }
+
+/* Keep a dedicated value area beside the non-shrinking unit, shared by both platforms. */
+.settings-input-unit > input { flex:1 1 0; width:0; min-width:7ch; padding-inline:8px; border-radius:0; }
+.settings-input-unit > span { flex:0 0 auto; padding-inline:8px; }
+.settings-field { min-width:0; }
+.settings-activity { container-type:inline-size; }
+@container (max-width: 310px) {
+  .settings-min-max { grid-template-columns:1fr; }
+  .settings-range-arrow { display:none; }
+}
+.settings-scenario-modal { width:min(820px,calc(100vw - 32px)); }
+.settings-scenario-modal .settings-activities { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.settings-scenario-modal .settings-min-max { grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:8px; }
+.settings-scenario-modal .settings-range-arrow { display:block; }
+.settings-scenario-modal .settings-activity-cross-follow { grid-column:1 / -1; }
+.settings-scenario-modal .settings-modal-content > header { flex-shrink:0; background:white; padding-block:16px; margin-top:-16px; }
+.settings-scenario-modal footer { flex-shrink:0; background:white; padding-bottom:16px; margin-top:12px; margin-bottom:-16px; flex-wrap:wrap; }
+@container (max-width:310px) {
+  .settings-scenario-modal .settings-min-max { grid-template-columns:1fr; }
+  .settings-scenario-modal .settings-range-arrow { display:none; }
+}
+@media(max-width:650px) {
+  .settings-scenario-modal .settings-activities { grid-template-columns:1fr; }
+  .settings-scenario-modal .settings-modal-content { padding:16px; }
+}
+
+/* Scroll only the activity body so the header/footer never cover inputs. */
+.settings-scenario-modal .settings-modal-content { display:flex; flex-direction:column; max-height:calc(100dvh - 48px); box-sizing:border-box; }
+.settings-scenario-modal .settings-modal-content > .settings-helper { flex-shrink:0; }
+.settings-scenario-modal .settings-workspace { display:grid; grid-template-rows:minmax(0,1fr) auto; gap:12px; height:min(560px,calc(100dvh - 260px)); flex-shrink:0; min-height:0; overflow:hidden; }
+.settings-scenario-scroll { overflow:auto; min-height:0; padding-right:4px; }
+
+.task-order-controls { display:flex; align-items:center; gap:6px; }
+.task-drag-handle { cursor:grab; touch-action:pan-y; }
+.task-drag-handle:active { cursor:grabbing; }
+.task-order-dragging { opacity:.5; }
+.task-order-preview { background:#f8fafc; border:1px solid var(--settings-line); border-radius:8px; padding:16px; }
+.task-order-preview p { line-height:1.7; overflow-wrap:anywhere; margin-bottom:0; }

@@ -107,3 +107,46 @@ npm run build --prefix frontend
 ```
 
 Integration dùng database test có timestamp/random, kiểm tra tên khác DB thật và cleanup đúng DB do script tạo. Không chạy `testFacebookFriendSuggestions.js` standalone trên DB đang dùng; script cũ có cleanup fixture trực tiếp. Engine test kiểm tra concurrency, retry, tail/cycle, pool edit, FAILED, đổi device, owner/scenario/source isolation, uniqueness DB, legacy migration hai lần, process Node mới và API thật.
+
+## Instagram Follow chéo Account
+
+Scenario lưu riêng hai nguồn:
+
+```json
+{
+  "cross_follow": { "enabled": true, "min": 2, "max": 5, "usernames": ["demo_a", "demo_b", "demo_c", "demo_d", "demo_e"] },
+  "cross_account_follow": { "enabled": true, "min": 3, "max": 6 }
+}
+```
+
+`cross_account_follow` lấy username từ `InstagramAccount.uid` của owner đã xác thực. Trạng thái hợp lệ: `LOGIN_THANH_CONG`, `DANG_LAM`, `DA_CHAY_XONG`. Loại trash, nguồn/cùng username nguồn, username rỗng/sai định dạng; dedupe cả bản reg/job. Không cần textarea hoặc client gửi danh sách account. Min/Max cấu hình tối đa 200; pool thiếu trả batch ngắn/rỗng, không bù bằng target trùng.
+
+POST `/api/instagram/nurture/targets`, header `x-api-key`, JSON:
+
+```json
+{
+  "source_account_id": 123,
+  "scenario_id": "scenario-demo",
+  "request_id": "follow-account-demo-001",
+  "action": "cross_account_follow",
+  "count": 3
+}
+```
+
+POST `/api/instagram/nurture/targets/report`, cùng API key:
+
+```json
+{
+  "source_account_id": 123,
+  "scenario_id": "scenario-demo",
+  "request_id": "follow-account-demo-001",
+  "action": "cross_account_follow",
+  "results": [{ "target": "demo_target", "status": "SUCCESS" }]
+}
+```
+
+Các ID/username là minh họa; target báo cáo phải thuộc batch đã cấp. Không truyền `action` vẫn dùng `cross_follow` thủ công. Retry dùng cùng request_id; lượt cấp mới dùng request_id mới. Pool cập nhật status hiện tại ở lượt mới; retry trả batch cũ để giữ idempotency. Scope engine riêng `ACCOUNT_CROSS_FOLLOW` nên history không lẫn với danh sách Username, không phụ thuộc phone; giữ scope scenario của Instagram hiện có.
+
+API nuôi và Dashboard get task trả activity ở `data.scenario.actions.cross_account_follow` hoặc `task.data.scenario.actions.cross_account_follow`. Có `enabled`, `min`, `max`, `configured_min`, `configured_max`, `targets`, `usernames` (batch), `request_id`, `cycle_id` và số lượng. Min/Max response được giới hạn theo batch như cross_follow cũ; configured_min/max là cấu hình gốc. `account_count` optional ở API nuôi/next-task chỉ định count cho nguồn Account; `count` cũ vẫn dành nguồn Username. Khi không chỉ định, reserve tối đa Max. Device thực hiện follow, backend chỉ cấp/ghi nhận target.
+
+Quick Create Instagram lưu `generator_config.actions` và đầy đủ action cho mỗi scenario. Newfeed/Reels/Story ON chia tổng time range; count follow không cộng vào thời gian. Random count Min/Max theo convention Facebook; do đó từng scenario có thể có range khác nhau trong khoảng người dùng nhập. Không thêm schema bảng/migration; dùng JSON AppSetting và ba bảng engine hiện có. Lệnh kiểm thử UI/API/DB riêng: `node backend/scripts/testInstagramCrossFollowIntegration.js --ui`.

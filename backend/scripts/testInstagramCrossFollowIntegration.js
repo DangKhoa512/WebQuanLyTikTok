@@ -80,6 +80,47 @@ let db, server, created = false;
   assert.deepEqual(fbSaved.scenarios[0].actions.join_groups, { enabled: true, min: 1, max: 2, links: ['group1', 'group2'] });
   assert.deepEqual(fbSaved.scenarios[0].actions.like_pages, { enabled: false, min: 1, max: 1, page_uids: ['page1'] });
   assert.deepEqual(fbSaved.scenarios[0].total_duration_seconds, { min: 30, max: 60 });
+  // Account targets use the same engine with a distinct action scope and live database pool.
+  const source = await Account.findOne({ where: { owner_username: user.username, uid: 'test_account' } });
+  const makeTarget = (uid,status,owner=user.username,extra={}) => Account.create({ owner_username: owner, kind: 'job', uid, raw_data: 'isolated', status, ...extra });
+  const b = await makeTarget('ig_b','DANG_LAM'), c = await makeTarget('ig_c','DA_CHAY_XONG');
+  const excluded = await Promise.all([makeTarget('ig_d','LOGIN_FAIL'), makeTarget('','LOGIN_THANH_CONG'), makeTarget('bad username','LOGIN_THANH_CONG'), makeTarget('other_owner','LOGIN_THANH_CONG',other.username), makeTarget('trashed','LOGIN_THANH_CONG',user.username,{trashed_at:new Date()}), makeTarget('reg_only','CHO_LOGIN',user.username,{kind:'reg'})]);
+  const accountConfig = config(action); accountConfig.scenarios[0].actions.cross_account_follow = {enabled:true,min:1,max:6};
+  assert.equal((await save(accountConfig)).status,200);
+  const targetReq = (id,count=1,extra={}) => request('/api/instagram/nurture/targets','POST',{source_account_id:source.id,scenario_id:'test',request_id:id,action:'cross_account_follow',count,...extra},true);
+  const batches = await Promise.all([targetReq('account-a'),targetReq('account-b')]);
+  assert(batches.every(row=>row.status===200));
+  assert.deepEqual(batches.flatMap(row=>row.data.data.targets).sort(),['ig_b','ig_c']);
+  assert.deepEqual((await targetReq('account-a')).data.data.targets,batches[0].data.data.targets,'Stable retry');
+  await source.update({device_id:'OTHER_PHONE'});
+  assert.deepEqual((await targetReq('account-a')).data.data.targets,batches[0].data.data.targets,'History follows source, not phone');
+  await b.update({status:'ACCOUNT_DIE'});
+  const next = await targetReq('account-current',6); assert.equal(next.status,200); assert.deepEqual(next.data.data.targets,['ig_c']);
+  await c.update({status:'LOGIN_FAIL'});
+  const empty = await targetReq('account-empty',6); assert.equal(empty.status,200); assert.deepEqual(empty.data.data.targets,[]);
+  assert.equal((await targetReq('account-owner',1,{source_account_id:excluded[3].id})).status,404);
+  await c.update({status:'LOGIN_THANH_CONG'});
+  const restored = await targetReq('account-restored'); assert.deepEqual(restored.data.data.targets,['ig_c']);
+  const reportBody={source_account_id:source.id,scenario_id:'test',request_id:'account-restored',action:'cross_account_follow',results:[{target:'ig_c',status:'SUCCESS'}]};
+  assert.equal((await request('/api/instagram/nurture/targets/report','POST',reportBody,true)).status,200);
+  assert.equal((await request('/api/instagram/nurture/targets/report','POST',reportBody,true)).status,200);
+  assert.equal((await request('/api/instagram/nurture/targets/report','POST',{...reportBody,action:'cross_follow'},true)).status,404,'Separate manual/account history');
+  assert.equal((await targetReq('bad-action',1,{action:'unknown'})).status,400);
+  for (const bad of [{enabled:true,min:3,max:2},{enabled:true,min:-1,max:2},{enabled:true,min:0,max:201},{enabled:'true',min:0,max:2},{enabled:true,min:1.5,max:2}]) {
+    const invalid=structuredClone(accountConfig); invalid.scenarios[0].actions.cross_account_follow=bad;
+    assert.equal((await save(invalid)).status,400);
+  }
+  await excluded[5].update({status:'LOGIN_THANH_CONG'});
+  const regPool=await targetReq('account-reg-kind',6);assert.deepEqual(regPool.data.data.targets,['reg_only'],'Both account kinds qualify by current status; username pool deduplicates');
+  await excluded[5].update({status:'CHO_LOGIN'});
+  await source.update({device_id:'CROSS_TEST'});
+  const deviceResult = await request('/api/instagram/nurture/get-account','POST',{device_id:'CROSS_TEST',request_id:'account-device'},true);
+  assert.equal(deviceResult.status,200); assert.equal(deviceResult.data.data.scenario.actions.cross_account_follow.enabled,true); assert.deepEqual(deviceResult.data.data.scenario.actions.cross_account_follow.targets,['ig_c']);
+  const dispatchResult=await request('/api/device/next-task','POST',{device_id:'CROSS_TEST',request_id:'account-dispatch',capabilities:['NUOI_INSTAGRAM']},true);
+  assert.equal(dispatchResult.data.task.data.scenario.actions.cross_account_follow.enabled,true);
+  assert.deepEqual(dispatchResult.data.task.data.scenario.actions.cross_account_follow.targets,['ig_c']);
+  await save(config(updated));
+  console.log('PASS account follow: live status/owner/username/self filters, races, cycle/empty pool, phone move, reports, validation, legacy/dispatcher');
   console.log('PASS backend: old scenarios/OFF, save/read DB, validation, normalization, device/resume/dispatcher, owner isolation, Facebook regression');
   if (process.argv.includes('--ui')) {
     const esbuild = require('../../frontend/node_modules/esbuild'), fs = require('fs');
@@ -123,6 +164,72 @@ let db, server, created = false;
       assert.equal(await (await numbers())[0].isEnabled(), false);
       assert(await browser.executeScript('const c=document.querySelector(".settings-activity-cross-follow").getBoundingClientRect(),g=document.querySelector("#ig-nurture .settings-activities").getBoundingClientRect();return Math.abs(c.width-g.width)<2;'));
       assert.equal(await browser.findElement(By.css('#fb-nurture textarea')).getAttribute('value'), 'group1\ngroup2', 'Shared FB target editor preserved');
+      await clickText('#ig-nurture .settings-button', '+ Tạo nhanh kịch bản');
+      const modalCard = async label => { for(const el of await browser.findElements(By.css('dialog .settings-activity'))) if((await el.findElement(By.css('h3')).getText()) === label) return el; throw new Error('Missing activity '+label); };
+      await (await modalCard('Xem Story (STR)')).findElement(By.css('[role=switch]')).click();
+      let manual=await modalCard('Theo dõi chéo Username'); await manual.findElement(By.css('[role=switch]')).click();
+      let range=await manual.findElements(By.css('input')); await edit(range[0],2); await edit(range[1],5);
+      await edit(await manual.findElement(By.css('textarea')),'u1\nu2\nu3\nu4\nu5');
+      let account=await modalCard('Follow chéo Account'); await account.findElement(By.css('[role=switch]')).click();
+      range=await account.findElements(By.css('input')); await edit(range[0],3); await edit(range[1],6);
+      assert.equal((await account.findElements(By.css('textarea'))).length,0);
+      await clickText('dialog button','Tạo kịch bản');
+      await browser.wait(async()=>(await current()).scenarios.length===21,15000);
+      const setupSaved=await current(); const configured=setupSaved.scenarios.slice(11);
+      assert.equal(configured.length,10);
+      for(const scenario of configured){
+        const a=scenario.actions;
+        assert(a.newfeed.enabled && a.reels.enabled && !a.story.enabled);
+        assert.deepEqual(scenario.total_duration_seconds,{min:900,max:1800});
+        assert(a.cross_follow.enabled && a.cross_follow.min>=2 && a.cross_follow.max<=5 && a.cross_follow.min<=a.cross_follow.max);
+        assert.deepEqual(a.cross_follow.usernames,['u1','u2','u3','u4','u5']);
+        assert(a.cross_account_follow.enabled && a.cross_account_follow.min>=3 && a.cross_account_follow.max<=6 && a.cross_account_follow.min<=a.cross_account_follow.max);
+      }
+      assert.equal(setupSaved.generator_config.actions.story.enabled,false);
+      await browser.get(base+'/preview'); await wait('return !!document.querySelector(".settings-activity-cross-account")');
+      for(const scenario of configured){
+        await browser.findElement(By.css('#ig-nurture select option[value="'+scenario.id+'"]')).click();
+        const values=await browser.findElements(By.css('#ig-nurture .settings-activity-cross-account input'));
+        assert.equal(Number(await values[0].getAttribute('value')),scenario.actions.cross_account_follow.min);
+        assert.equal(Number(await values[1].getAttribute('value')),scenario.actions.cross_account_follow.max);
+      }
+      await clickText('#ig-nurture .settings-button','+ Tạo nhanh kịch bản');
+      assert.equal(await (await modalCard('Xem Story (STR)')).findElement(By.css('[role=switch]')).getAttribute('aria-checked'),'false');
+      assert.equal(await (await modalCard('Follow chéo Account')).findElement(By.css('[role=switch]')).getAttribute('aria-checked'),'true');
+      await clickText('dialog button','Hủy');
+      await clickText('#fb-nurture .settings-button','+ Tạo nhanh kịch bản');
+      for(const label of ['Thích bài viết','Kết bạn ngẫu nhiên','Tham gia nhóm']){
+        const card=await modalCard(label);const toggle=await card.findElement(By.css('[role=switch]'));
+        if(await toggle.getAttribute('aria-checked')==='false') await toggle.click();
+        const input=await card.findElement(By.css('input'));
+        for(const value of [0,1,5,10,20,100,999]){await edit(input,value);assert.equal(await input.getAttribute('value'),String(value));}
+      }
+      const checkGeometry=async()=>assert(await browser.executeScript(`return [...document.querySelectorAll('dialog .settings-input-unit')].every(w=>{const i=w.querySelector('input'),u=w.querySelector('span'),a=i.getBoundingClientRect(),b=u.getBoundingClientRect(),r=w.getBoundingClientRect(),c=document.createElement('canvas').getContext('2d');c.font=getComputedStyle(i).font;return a.right<=b.left+1 && b.right<=r.right+1 && a.width>=c.measureText('999').width+36;});`),'Dedicated input value area fits 999 plus padding/spinner, no unit overlap/overflow');
+      await checkGeometry();
+      assert(await browser.executeScript('return getComputedStyle(document.querySelector("dialog .settings-activities")).gridTemplateColumns.split(" ").length===2'),'Two desktop cards per row');
+      await browser.sendDevToolsCommand('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+      await checkGeometry();
+      assert(await browser.executeScript('return document.querySelector("dialog").scrollWidth<=document.querySelector("dialog").clientWidth'),'No modal overflow');
+      const fbBefore=(await request('/api/settings/facebook-nurture')).data.data.settings;
+      await clickText('dialog button','Tạo và lưu ngẫu nhiên');
+      assert.deepEqual((await request('/api/settings/facebook-nurture')).data.data.settings,fbBefore,'Invalid FB generator range does not save');
+      for(const label of ['Thích bài viết','Kết bạn ngẫu nhiên','Đồng ý kết bạn','Tham gia nhóm','Like Page']){
+        const card=await modalCard(label);const toggle=await card.findElement(By.css('[role=switch]'));
+        if(await toggle.getAttribute('aria-checked')==='false') await toggle.click();
+        const fields=await card.findElements(By.css('input'));await edit(fields[0],1);await edit(fields[1],2);
+        const texts=await card.findElements(By.css('textarea'));
+        if(texts.length) await browser.executeScript("Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(arguments[0],arguments[1]);arguments[0].dispatchEvent(new Event('input',{bubbles:true}));",texts[0],label==='Like Page'?'page1\npage2':'group1\ngroup2');
+      }
+      await clickText('dialog button','Tạo và lưu ngẫu nhiên');
+      await browser.wait(async()=>(await request('/api/settings/facebook-nurture')).data.data.settings.scenarios.length===11,15000);
+      const facebookCreated=(await request('/api/settings/facebook-nurture')).data.data.settings.scenarios.slice(1);
+      for(const scenario of facebookCreated){
+        assert.deepEqual(scenario.total_duration_seconds,{min:900,max:1800});
+        for(const key of ['like_newfeed','friend_request','accept_friend','join_groups','like_pages']){const a=scenario.actions[key];assert(a.enabled && a.min>=1 && a.max<=2 && a.min<=a.max);}
+        assert.deepEqual(scenario.actions.join_groups.links,['group1','group2']);assert.deepEqual(scenario.actions.like_pages.page_uids,['page1','page2']);
+      }
+      console.log('PASS Facebook quick-create: validation, 10 scenarios, toggles/count ranges/groups/pages/time persistence unchanged');
+      console.log('PASS quick scenarios: 10 configured scenarios persisted/reloaded/editable; enabled-only time allocation; separate follow sources; desktop/mobile unit geometry and all number samples');
       await browser.sendDevToolsCommand('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
       assert(await browser.executeScript('return document.documentElement.scrollWidth <= innerWidth'), 'No mobile overflow');
       console.log('PASS browser: inline validation/save blocking, normalize/reload, OFF retains data, quick generation OFF, dynamic summary, full-width/mobile layout, Facebook editor');

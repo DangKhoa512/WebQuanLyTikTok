@@ -36,4 +36,11 @@ const normalizeCrossFollow = (data) => {
   // OFF retains the configured range and list, matching Facebook target activities.
   return { ...normalizeNurtureCount(data, Math.max(data.max, usernames.length)), usernames };
 };
-module.exports = { normalizeNurtureCount, normalizeNurtureTargets, normalizeCrossFollow };
+const normalizeCrossAccountFollow = (data) => {
+  if (data === undefined) return { enabled: false, min: 0, max: 0 };
+  if (!data || typeof data.enabled !== 'boolean' || !Number.isSafeInteger(data.min) || !Number.isSafeInteger(data.max) || data.min < 0 || data.max < data.min || data.max > 200) {
+    throw Object.assign(new Error('Follow account: Min/Max must be integers, 0 <= Min <= Max <= 200; enabled must be boolean.'), { statusCode: 400 });
+  }
+  return { enabled: data.enabled, min: data.min, max: data.max };
+};
+module.exports = { normalizeNurtureCount, normalizeNurtureTargets, normalizeCrossFollow, normalizeCrossAccountFollow };

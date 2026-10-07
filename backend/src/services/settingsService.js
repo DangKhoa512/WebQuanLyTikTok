@@ -1,4 +1,4 @@
-const { normalizeNurtureCount, normalizeNurtureTargets, normalizeCrossFollow } = require('../utils/nurtureActionUtils');
+const { normalizeNurtureCount, normalizeNurtureTargets, normalizeCrossFollow, normalizeCrossAccountFollow } = require('../utils/nurtureActionUtils');
 const AppSetting = require('../models/AppSetting');
 const { defaultOwner, normalizeOwner } = require('../utils/owner');
 const { TASK_TYPES, DEFAULT_TASK_DISPATCHER } = require('./deviceTaskTypes');
@@ -231,6 +231,14 @@ const normalizeFacebookNurture = (data = {}) => {
   };
 };
 
+const normalizeInstagramGenerator = (config) => {
+  const actions = config?.actions || {};
+  return { actions: {
+    ...Object.fromEntries(['newfeed', 'reels', 'story'].map(key => [key, { enabled: actions[key]?.enabled ?? true }])),
+    cross_follow: normalizeCrossFollow(actions.cross_follow),
+    cross_account_follow: normalizeCrossAccountFollow(actions.cross_account_follow),
+  } };
+};
 const normalizeInstagramNurture = (data = {}) => {
   const parsedCooldownHours = parseInt(data.cooldown_hours, 10);
   const cooldown_hours = Number.isInteger(parsedCooldownHours)
@@ -252,6 +260,7 @@ const normalizeInstagramNurture = (data = {}) => {
       reels: normalizeNurtureRange(scenario?.actions?.reels),
       story: normalizeNurtureRange(scenario?.actions?.story || scenario?.actions?.str),
       cross_follow: normalizeCrossFollow(scenario?.actions?.cross_follow),
+      cross_account_follow: normalizeCrossAccountFollow(scenario?.actions?.cross_account_follow),
     };
     return {
       id,
@@ -267,6 +276,7 @@ const normalizeInstagramNurture = (data = {}) => {
   return {
     active_scenario_id: scenarios.some((scenario) => scenario.id === requestedActiveId) ? requestedActiveId : null,
     cooldown_hours,
+    generator_config: normalizeInstagramGenerator(data.generator_config),
     scenarios,
   };
 };

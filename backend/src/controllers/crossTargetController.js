@@ -1,4 +1,4 @@
-﻿const { randomUUID } = require('crypto');
+const { randomUUID } = require('crypto');
 const { ownerFromRequest } = require('../utils/owner');
 const { success } = require('../utils/response');
 const settings = require('../services/settingsService');
@@ -13,11 +13,14 @@ const input = req => {
  if (typeof scenarioId !== 'string' || !scenarioId || scenarioId.length > 100) throw fail('scenario_id không hợp lệ.');
  const requestId = req.body.request_id ?? randomUUID();
  if (typeof requestId !== 'string' || !requestId.trim() || requestId.length > 100) throw fail('request_id không hợp lệ.');
- return { owner: ownerFromRequest(req), sourceAccountId, scenarioId, requestId };
+ const actionKey = req.body.action || 'cross_follow';
+ if (req.body.action !== undefined && !['cross_follow', 'cross_account_follow'].includes(actionKey)) throw fail('Invalid target action.');
+ return { owner: ownerFromRequest(req), sourceAccountId, scenarioId, requestId, ...(actionKey === 'cross_account_follow' ? { actionKey, actionType: 'ACCOUNT_CROSS_FOLLOW' } : {}) };
 };
 const getTargets = platform => async (req,res,next) => {
  try {
   const args = input(req);
+  if (platform === 'FACEBOOK' && args.actionKey) throw fail('Invalid Facebook action.');
   const config = await (platform === 'FACEBOOK' ? settings.getFacebookNurtureSettings(args.owner) : settings.getInstagramNurtureSettings(args.owner));
   const scenario = config.scenarios.find(row => row.id === args.scenarioId);
   if (!scenario) throw Object.assign(new Error('Không tìm thấy kịch bản của user.'),{statusCode:404});
@@ -28,6 +31,6 @@ const getTargets = platform => async (req,res,next) => {
  } catch(err) { next(err); }
 };
 const reportTargets = platform => async (req,res,next) => {
- try { const args=input(req); if(req.body.request_id === undefined) throw fail('Report cần request_id của batch đã cấp.'); return success(res, await markTargets({ ...args, platform, results: req.body.results }), 'Đã ghi nhận kết quả target'); } catch(err) { next(err); }
+ try { const args=input(req); if(platform === 'FACEBOOK' && args.actionKey) throw fail('Invalid Facebook action.'); if(req.body.request_id === undefined) throw fail('Report cần request_id của batch đã cấp.'); return success(res, await markTargets({ ...args, platform, results: req.body.results }), 'Đã ghi nhận kết quả target'); } catch(err) { next(err); }
 };
 module.exports = { getTargets, reportTargets };

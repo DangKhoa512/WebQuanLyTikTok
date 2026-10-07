@@ -365,14 +365,14 @@ const FacebookNurtureSettings = forwardRef(function FacebookNurtureSettings({ on
         <div className="settings-nurture-footer"><span className={dirty ? 'settings-unsaved' : 'settings-helper'}>{dirty ? 'Kịch bản có thay đổi chưa lưu' : 'Đã đồng bộ kịch bản'}</span><button className="settings-button danger" onClick={removeScenario}>Xóa kịch bản</button></div>
       </>}
     </fieldset>
-    {generatorSetupOpen && <SettingsModal title="Tạo nhanh kịch bản Facebook" onClose={() => { if (!busy) setGeneratorSetupOpen(false); }}>
+    {generatorSetupOpen && <SettingsModal className="settings-scenario-modal" title="Tạo nhanh kịch bản Facebook" onClose={() => { if (!busy) setGeneratorSetupOpen(false); }}>
       <p className="settings-helper">Tạo và lưu kịch bản từ các tính năng bên dưới. Kịch bản cũ được giữ nguyên; thao tác này cũng lưu các chỉnh sửa kịch bản hiện tại.</p>
-      <fieldset className="settings-workspace" disabled={busy}>
+      <fieldset className="settings-workspace" disabled={busy}><div className="settings-scenario-scroll">
         <NumberField label="Số kịch bản" min={1} max={50} unit="kịch bản" value={generatorCount} onChange={(e) => setGeneratorCount(e.target.value)} />
         <MinMaxField minLabel="Tổng thời gian Min" maxLabel="Tổng thời gian Max" min={generatorMinMinutes} max={generatorMaxMinutes} minimum={1} maximum={1440} unit="phút" onChange={(bound,value) => bound === 'min' ? setGeneratorMinMinutes(value) : setGeneratorMaxMinutes(value)} />
         <p className="settings-helper">Setup tính năng ngẫu nhiên ({generatorEnabledCount}/7)</p>
         <div className="settings-activities">{renderActions(generatorSetupActions,updateGeneratorAction,true)}</div>
-        <footer className="settings-button-group"><button className="settings-button ghost" onClick={() => setGeneratorSetupOpen(false)}>Đóng</button><button className="settings-button secondary" onClick={save}>Lưu setup tính năng</button><button className="settings-button primary" onClick={generateRandomScenarios}>{saving ? 'Đang tạo...' : 'Tạo và lưu ngẫu nhiên'}</button></footer>
+        </div><footer className="settings-button-group"><button className="settings-button ghost" onClick={() => setGeneratorSetupOpen(false)}>Đóng</button><button className="settings-button secondary" onClick={save}>Lưu setup tính năng</button><button className="settings-button primary" onClick={generateRandomScenarios}>{saving ? 'Đang tạo...' : 'Tạo và lưu ngẫu nhiên'}</button></footer>
       </fieldset>
     </SettingsModal>}
   </SettingsCard>;

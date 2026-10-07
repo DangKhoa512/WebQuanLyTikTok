@@ -17,7 +17,7 @@ export function SettingsToggle({ checked, onChange, label, disabled = false }) {
   return <button type="button" role="switch" aria-checked={!!checked} aria-label={label} disabled={disabled} className={`settings-toggle${checked ? ' on' : ''}`} onClick={() => onChange(!checked)}><span /></button>;
 }
 
-export function SettingsModal({ title, children, onClose }) {
+export function SettingsModal({ title, children, onClose, className = '' }) {
   const dialog = useRef(null);
   const returnFocus = useRef(null);
   useEffect(() => {
@@ -25,7 +25,7 @@ export function SettingsModal({ title, children, onClose }) {
     dialog.current.showModal();
     return () => returnFocus.current?.focus?.();
   }, []);
-  return <dialog ref={dialog} className="settings-modal" aria-labelledby="settings-modal-title" onCancel={(e) => { e.preventDefault(); onClose(); }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+  return <dialog ref={dialog} className={`settings-modal ${className}`} aria-labelledby="settings-modal-title" onCancel={(e) => { e.preventDefault(); onClose(); }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
     <div className="settings-modal-content"><header><h2 id="settings-modal-title">{title}</h2><button type="button" className="settings-button ghost" aria-label="Đóng" onClick={onClose}>×</button></header>{children}</div>
   </dialog>;
 }

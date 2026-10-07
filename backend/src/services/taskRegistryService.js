@@ -6,37 +6,43 @@ const failure = (message, statusCode=400) => Object.assign(new Error(message), {
 const createRegistryService = (db) => {
   const rows = (sql, replacements={}, transaction) => db.query(sql, {replacements,type:QueryTypes.SELECT,transaction});
   const write = (sql, replacements={}, transaction) => db.query(sql, {replacements,transaction});
-  const activated = async () => (await rows("SELECT setting_value FROM app_settings WHERE owner_username='__system__' AND setting_key='task_settings_v2' LIMIT 1"))[0]?.setting_value === 'complete';
-  const requireReady = async () => { if(!await activated()) throw failure('Task Registry chưa được migration. Chạy migration riêng trước khi sử dụng.',503); };
+  const roundRobin=require('./roundRobinService').createRoundRobinService(db);
+  const activated = async (transaction) => (await rows("SELECT setting_value FROM app_settings WHERE owner_username='__system__' AND setting_key='task_settings_v2' LIMIT 1",{},transaction))[0]?.setting_value === 'complete';
+  const requireReady = async (transaction) => { if(!await activated(transaction)) throw failure('Task Registry chưa được migration. Chạy migration riêng trước khi sử dụng.',503); };
   const identity = async owner => (await rows('SELECT id,username,role,is_active FROM users WHERE username=:owner AND is_active=1',{owner:normalizeOwner(owner)}))[0];
   const list = async (owner=null, includeArchived=false, transaction) => {
-    await requireReady();
+    await requireReady(transaction);
     const tasks=await rows(`SELECT * FROM task_registry ${includeArchived ? '' : 'WHERE archived_at IS NULL'} ORDER BY sort_order,id${transaction ? ' LOCK IN SHARE MODE' : ''}`,{},transaction);
     let settings=[];
     if(owner){
       const user=transaction ? (await rows('SELECT id FROM users WHERE username=:owner AND is_active=1 LOCK IN SHARE MODE',{owner:normalizeOwner(owner)},transaction))[0] : await identity(owner);
       if(!user)return [];
-      settings=await rows(`SELECT task_id,enabled,priority FROM user_task_settings WHERE user_id=:id${transaction ? ' LOCK IN SHARE MODE' : ''}`,{id:user.id},transaction);
+      settings=await rows(`SELECT task_id,enabled,priority,dispatch_order FROM user_task_settings WHERE user_id=:id${transaction ? ' LOCK IN SHARE MODE' : ''}`,{id:user.id},transaction);
     }
-    return tasks.map(task=>{
+    const result=tasks.map(task=>{
       const builtin=BUILTIN_TASKS.find(row=>row.task_key===task.task_key),setting=settings.find(row=>row.task_id===task.id);
-      return {...task,enabled:!!task.enabled,activity_key:builtin?.activity_key || task.task_key,stats_key:builtin?.stats_key || task.task_key,route:builtin?.route || null,executable:!!builtin,user_enabled:!!setting?.enabled,priority:setting?.priority ?? task.default_priority};
+      return {...task,enabled:!!task.enabled,activity_key:builtin?.activity_key || task.task_key,stats_key:builtin?.stats_key || task.task_key,route:builtin?.route || null,executable:!!builtin,user_enabled:!!setting?.enabled,priority:setting?.priority ?? task.default_priority,dispatch_order:setting?.dispatch_order ?? null};
     });
+    return owner ? roundRobin.order(result) : result;
   };
   const effective = async (owner,transaction) => {
-    if(!await activated())return null;
+    if(!await activated(transaction))return null;
     const tasks=await list(owner,false,transaction);
     return effectiveTasks(tasks,tasks.map(task=>({task_id:task.id,enabled:task.user_enabled,priority:task.priority})));
   };
-  const saveMine=async(owner,items)=>{
+  const saveMine=async(owner,items,taskIds)=>{
     await requireReady();
     if(!Array.isArray(items))throw failure('tasks phải là danh sách');
     return db.transaction(async transaction=>{
+      const state=await roundRobin.lock(owner,transaction);
       const user=(await rows('SELECT id FROM users WHERE username=:owner AND is_active=1 FOR UPDATE',{owner:normalizeOwner(owner)},transaction))[0];
       if(!user)throw failure('Phiên người dùng không hợp lệ',401);
       const available=await rows('SELECT id FROM task_registry WHERE archived_at IS NULL LOCK IN SHARE MODE',{},transaction),seen=new Set();
       for(const item of items){if(!available.some(task=>task.id===item.task_id)||seen.has(item.task_id)||typeof item.enabled!=='boolean'||!Number.isInteger(item.priority)||Math.abs(item.priority)>10000)throw failure('Cấu hình task không hợp lệ');seen.add(item.task_id);}
+      if(taskIds!==undefined && (!Array.isArray(taskIds)||taskIds.length!==available.length||new Set(taskIds).size!==taskIds.length||taskIds.some(id=>!Number.isSafeInteger(id)||!available.some(t=>t.id===id))))throw failure('Task order khong hop le');
       for(const item of items)await write('INSERT INTO user_task_settings (user_id,task_id,enabled,priority,created_at,updated_at) VALUES (:user_id,:task_id,:enabled,:priority,NOW(),NOW()) ON DUPLICATE KEY UPDATE enabled=VALUES(enabled),priority=VALUES(priority),updated_at=NOW()',{user_id:user.id,task_id:item.task_id,enabled:item.enabled,priority:item.priority},transaction);
+      await roundRobin.initialize(state.user_id,await list(owner,false,transaction),transaction);
+      if(taskIds)for(const [position,id] of taskIds.entries())await write('UPDATE user_task_settings SET dispatch_order=:position,updated_at=NOW() WHERE user_id=:user AND task_id=:id',{position,id,user:state.user_id},transaction);
     });
   };
   const create = async source => {
@@ -79,6 +85,7 @@ const createRegistryService = (db) => {
       await write("UPDATE app_settings SET setting_value='complete',updated_at=NOW() WHERE owner_username='__system__' AND setting_key='task_settings_v2'",{},transaction);
     });
   };
-  return {activated,identity,list,effective,saveMine,create,update,archive,users,migrate};
+  const migrateAll=async()=>{await migrate();await roundRobin.migrate();};
+  return {activated,identity,list,effective,saveMine,create,update,archive,users,migrate:migrateAll};
 };
 module.exports={createRegistryService,failure};

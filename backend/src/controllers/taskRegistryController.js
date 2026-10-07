@@ -11,7 +11,8 @@ const create=wrap(async req=>({task:await service.create(req.body)}));
 const update=wrap(async req=>({task:await service.update(Number(req.params.id),req.body)}));
 const archive=wrap(async req=>{await service.archive(Number(req.params.id));return{archived:true};});
 const mine=wrap(async req=>{
- await service.saveMine(req.taskUser.username,req.body.tasks);
+ await service.saveMine(req.taskUser.username,req.body.tasks || [],req.body.task_ids);
  return{tasks:await service.list(req.taskUser.username)};
 });
-module.exports={authenticate,admin,list,create,update,archive,mine};
+const order=wrap(async req=>{if(req.body.task_ids===undefined)throw failure('Can truyen task_ids');await service.saveMine(req.taskUser.username,[],req.body.task_ids);return{tasks:await service.list(req.taskUser.username)};});
+module.exports={authenticate,admin,list,create,update,archive,mine,order};

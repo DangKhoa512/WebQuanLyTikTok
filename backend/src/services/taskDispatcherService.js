@@ -1,4 +1,4 @@
-const { Op } = require('sequelize');
+const { Op, Transaction } = require('sequelize');
 const sequelize = require('../config/database');
 const DashboardDevice = require('../models/DashboardDevice');
 const DeviceTaskRun = require('../models/DeviceTaskRun');
@@ -8,8 +8,10 @@ const InstagramAccount = require('../models/InstagramAccount');
 const FacebookPageJob = require('../models/FacebookPageJob');
 const InstagramFacebookRegClaim = require('../models/InstagramFacebookRegClaim');
 const { getTaskDispatcherSettings, getInstagramNurtureSettings, getFacebookNurtureSettings } = require('./settingsService');
-const { TASK_TYPES } = require('./deviceTaskTypes');
-const { acquireLegacyTask } = require('./legacyTaskAdapter');
+const logger=require('../config/logger');
+const roundRobin=require('./roundRobinService').createRoundRobinService(sequelize);
+const { acquireLegacyTask, supportsTask, releaseUnassignedReservation } = require('./legacyTaskAdapter');
+const { withTaskTransaction } = require('./taskTransactionContext');
 
 const text = (value, max = 255) => {
   const normalized = String(value ?? '').trim();
@@ -66,7 +68,7 @@ const getCapabilities = async ({ owner, deviceId, requested }) => {
   const requestedTypes = Array.isArray(requested)
     ? requested.map((value) => String(value || '').trim().toUpperCase()).filter(Boolean)
     : [];
-  return new Set(Array.isArray(requested) && requested.length ? requestedTypes : TASK_TYPES);
+  return Array.isArray(requested) && requested.length ? new Set(requestedTypes) : null;
 };
 
 const markDevice = async ({ owner, deviceId, task = null, transaction }) => {
@@ -156,6 +158,7 @@ const releaseExpiredTasks = async (owner = null) => {
       });
       if (device?.last_seen && new Date(device.last_seen) >= cutoff) continue;
       await sequelize.transaction(async (transaction) => {
+        await DashboardDevice.findOne({where:{owner_username:ownerUsername,device_id:run.device_id},transaction,lock:transaction.LOCK.UPDATE});
         const lockedRun = await DeviceTaskRun.findOne({
           where: { id: run.id, status: 'RUNNING' },
           transaction,
@@ -178,6 +181,8 @@ const releaseExpiredTasks = async (owner = null) => {
 };
 
 const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
+  const dispatchStarted=Date.now();
+  await roundRobin.requireReady();
   await releaseExpiredTasks(owner);
   const [settings, capabilities] = await Promise.all([
     getTaskDispatcherSettings(owner),
@@ -188,15 +193,18 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
     defaults: { owner_username: owner, device_id: deviceId, device_name: deviceId, last_seen: new Date() },
   });
 
-  return sequelize.transaction(async (transaction) => {
+  let dispatchLog=null;
+  const result=await sequelize.transaction({isolationLevel:Transaction.ISOLATION_LEVELS.READ_COMMITTED},(transaction) => withTaskTransaction(transaction,async () => {
+    const state=await roundRobin.lock(owner,transaction);
     await DashboardDevice.findOne({
       where: { owner_username: owner, device_id: deviceId },
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
     const taskSettingsService=require('./taskRegistryService').createRegistryService(sequelize);
-    const currentSettings=await taskSettingsService.effective(owner,transaction);
-    if(currentSettings!==null)settings.tasks=currentSettings;
+    const registryTasks=await taskSettingsService.list(owner,false,transaction);
+    const orderedTasks=await roundRobin.initialize(state.user_id,registryTasks,transaction);
+    settings.tasks=Object.fromEntries(registryTasks.map(task=>[task.task_key,{enabled:task.enabled && task.user_enabled,priority:task.priority}]));
     const active = await DeviceTaskRun.findOne({
       where: { owner_username: owner, device_id: deviceId, status: { [Op.in]: ['RUNNING', 'REPORTING'] } },
       order: [['id', 'DESC']],
@@ -210,9 +218,9 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
         const nurtureSettings = await getInstagramNurtureSettings(owner);
         const scenario = nurtureSettings.scenarios.find(item => item.id === active.payload.scenario.id);
         if (scenario) {
-          const { allocateInstagramTargets } = require('./instagramCrossTargetService');
-          const crossFollow = await allocateInstagramTargets({ owner, sourceAccountId: Number(active.account_id), scenario, requestId: req.body.request_id ?? active.payload.run_id, requestedCount: req.body.count, transaction });
-          await active.update({ payload: { ...active.payload, scenario: { ...scenario, actions: { ...scenario.actions, cross_follow: crossFollow } } } }, { transaction });
+          const { allocateInstagramScenarioTargets } = require('./instagramCrossTargetService');
+          const responseScenario = await allocateInstagramScenarioTargets({ owner, sourceAccountId: Number(active.account_id), scenario, requestId: req.body.request_id ?? active.payload.run_id, requestedCount: req.body.count, accountRequestedCount: req.body.account_count, transaction });
+          await active.update({ payload: { ...active.payload, scenario: responseScenario } }, { transaction });
         }
       }
       if (active.task_type === 'NUOI_FACEBOOK' && active.payload?.scenario?.id) {
@@ -229,14 +237,24 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
       return { task: serializeTask(active, true), resumed: true };
     }
 
-    const ordered = Object.keys(settings.tasks)
-      .filter((type) => TASK_TYPES.includes(type) && capabilities.has(type) && settings.tasks[type]?.enabled)
-      .sort((a, b) => settings.tasks[b].priority - settings.tasks[a].priority);
-
-    for (const taskType of ordered) {
-      const legacyResponse = await acquireLegacyTask(taskType, req, deviceId);
-      const claimed = taskDataFromLegacy(taskType, legacyResponse);
-      if (!claimed) continue;
+    const cursorIndex=Math.max(0,orderedTasks.findIndex(task=>task.id===state.next_task_id));
+    const skipped=[];
+    for(let offset=0;offset<orderedTasks.length;offset++) {
+      const index=(cursorIndex+offset)%orderedTasks.length;
+      const candidate=orderedTasks[index],taskType=candidate.task_key;
+      if(!settings.tasks[taskType]?.enabled){skipped.push({task:taskType,reason:'OFF'});continue;}
+      if(capabilities && !capabilities.has(taskType)){skipped.push({task:taskType,reason:'CAPABILITY'});continue;}
+      if(!supportsTask(taskType)){skipped.push({task:taskType,reason:'NO_HANDLER'});continue;}
+      // Savepoint keeps successful claims atomic and preserves no-work maintenance.
+      const attempt=await sequelize.transaction({transaction});
+      let claimed;
+      try {
+        const legacyResponse=await acquireLegacyTask(taskType,{...req,dispatch_transaction:attempt},deviceId,attempt);
+        if(legacyResponse.statusCode>=500)throw Object.assign(new Error('Task reservation failed'),{statusCode:legacyResponse.statusCode});
+        claimed=taskDataFromLegacy(taskType,legacyResponse);
+        if(!claimed){await releaseUnassignedReservation(taskType,owner,deviceId,attempt);await attempt.commit();skipped.push({task:taskType,reason:'NO_WORK_OR_INELIGIBLE'});continue;}
+        await attempt.commit();
+      }catch(err){if(!attempt.finished)await attempt.rollback();if([403,404,409].includes(err.statusCode)){skipped.push({task:taskType,reason:'RESERVE_CONFLICT_OR_INELIGIBLE'});continue;}throw err;}
       const previousRetry = await DeviceTaskRun.max('retry_count', {
         where: {
           owner_username: owner,
@@ -257,13 +275,19 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
         locked_at: new Date(),
         retry_count: Number(previousRetry) || 0,
       }, { transaction });
+      const next=orderedTasks[(index+1)%orderedTasks.length].id;
+      await roundRobin.advance(state,next,transaction);
       await markDevice({ owner, deviceId, task: run, transaction });
+      dispatchLog={event:'ROUND_ROBIN_DISPATCH',user_id:state.user_id,device_id:deviceId,selected_task:taskType,previous_cursor:state.next_task_id,next_cursor:next,skipped_tasks:skipped};
       return { task: serializeTask(run), resumed: false };
     }
 
     await markDevice({ owner, deviceId, transaction });
+    dispatchLog={event:'ROUND_ROBIN_NO_TASK',user_id:state.user_id,device_id:deviceId,previous_cursor:state.next_task_id,next_cursor:state.next_task_id,skipped_tasks:skipped};
     return { task: null, resumed: false };
-  });
+  }));
+  if(dispatchLog){const {event,...metadata}=dispatchLog;logger.info(event,{...metadata,dispatch_duration:Date.now()-dispatchStarted});}
+  return result;
 };
 
 module.exports = {

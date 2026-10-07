@@ -1,3 +1,4 @@
+const { withTaskTransaction } = require('./taskTransactionContext');
 const facebookController = require('../controllers/facebookController');
 const instagramController = require('../controllers/instagramController');
 const instagramFacebookRegController = require('../controllers/instagramFacebookRegController');
@@ -48,10 +49,10 @@ const invokeController = (handler, req, body = {}) => new Promise((resolve, reje
     .catch((err) => finish(err, true));
 });
 
-const acquireLegacyTask = (taskType, req, deviceId) => {
+const acquireLegacyTask = (taskType, req, deviceId, transaction) => {
   const handler = acquireHandlers[taskType];
   if (!handler) throw new Error('Unsupported task type: ' + taskType);
-  return invokeController(handler, req, { device_id: deviceId });
+  return withTaskTransaction(transaction, () => invokeController(handler, req, { device_id: deviceId }));
 };
 
 const reportLegacyTask = (taskType, req, body) => {
@@ -66,4 +67,11 @@ const releaseLegacyRegInstagram = (req, body) => invokeController(
   body
 );
 
-module.exports = { acquireLegacyTask, reportLegacyTask, releaseLegacyRegInstagram };
+// Keep legacy no-work maintenance (expired/invalid accounts), but leave no unassigned Page lock.
+const releaseUnassignedReservation = async (taskType, owner, deviceId, transaction) => {
+ const Account=require('../models/FacebookAccount');
+ if(taskType==='PAGE_JOB')await Account.update({status:'LOGIN_THANH_CONG',locked_by:null,locked_at:null},{where:{owner_username:owner,kind:'job',locked_by:deviceId,status:'DANG_LAM'},transaction});
+ if(taskType==='REG_PAGE')await Account.update({reg_page_locked_by:null,reg_page_locked_at:null},{where:{owner_username:owner,kind:'job',reg_page_locked_by:deviceId},transaction});
+};
+const supportsTask = taskType => !!acquireHandlers[taskType];
+module.exports = { supportsTask, releaseUnassignedReservation, acquireLegacyTask, reportLegacyTask, releaseLegacyRegInstagram };

@@ -15,7 +15,7 @@ Sáu task giữ nguyên key và defaults: PAGE_JOB 100, INSTAGRAM_JOB 90, REG_PA
 
 ## Dispatcher và owner
 
-`canRun = task active && System Enabled && userSetting.enabled`, sau đó giữ nguyên handler, capabilities, priority DESC, READY data, account/device condition, lock, retry, cooldown.
+`canRun = task active && System Enabled && userSetting.enabled`, sau đó giữ nguyên handler, capabilities, Round-Robin (dispatch_order), READY data, account/device condition, lock, retry, cooldown.
 
 JWT xác định current owner. Device tiếp tục dùng x-api-key xác thực username active. Không dùng user_id/target_user_id/owner_username từ body để đổi owner. Registry API đọc lại role/is_active từ DB; user tạo/sửa/archive loại task trực tiếp bị 403.
 
@@ -35,7 +35,7 @@ Dashboard dùng cùng Registry. User thấy account/device/statistics/activity t
 
 **Đã loại bỏ** `/users`, `/users/:id/tasks` và API assign/revoke. Gọi các endpoint này trả 404, kể cả admin. `service.users()` chỉ là truy vấn nội bộ để tổng hợp Dashboard toàn hệ thống; không mở API quản lý cấu hình user.
 
-UI: bảng compact Tác vụ / Platform / Enabled / Priority; admin có thêm tạo/sửa/archive loại task. Không user selector, không section phân quyền, không số lượng task được cấp. User chỉnh priority được. Dùng primitives và SaveBar chung hiện có; nháp giữ khi đổi tab, lỗi save giữ nháp, Hủy khôi phục baseline. Lưu chỉ gửi các dòng đã thay đổi.
+UI: Enabled + drag/drop order + up/down controls + cycle preview. Own Priority input is hidden; Priority remains DB/API metadata. Reorder saves current toggles and full task_ids atomically; backend response is authoritative; failures restore previous order.
 
 ## Migration an toàn
 
@@ -86,3 +86,36 @@ Giữ thứ tự Registry sort_order/id, không thêm cột priority, không s�
 Kiểm tra đạt: frontend build, backend syntax/diff; integration `--ui --legacy` qua API/Chrome thật trên DB tạm đủ sáu ca (ON, OFF, OFF+READY26, ON+ERROR6, task mới OFF/0, self ON rồi refresh), giữ search khi polling và không reload, không toggle, mobile không overflow; admin status riêng/statistics toàn hệ thống. `scripts/test-dashboard-ui.cjs` đã cập nhật selector số liệu cho cột Status và thêm assert badge/read-only.
 
 Contract task completion mới: xem TASK_REPORT_API.md. POST /api/device/task/report chỉ cần {task_id}, mặc định SUCCESS và chỉ ghi trạng thái task/thiết bị; data nghiệp vụ gửi qua API cũ. Task report không còn gọi lại handler nghiệp vụ hoặc lưu result.
+
+## Round-Robin toàn user — cập nhật 2026-10-07
+
+Phần này thay thế mô tả cấp task theo Priority và chỉnh Priority cá nhân phía trên. Mỗi user có thứ tự riêng; tất cả máy cùng user dùng chung con trỏ lưu DB. Priority còn nguyên trong DB/API, chỉ dùng để khởi tạo thứ tự lần đầu (giảm dần), không quyết định task được cấp sau migration. UI cá nhân ẩn Priority, thêm kéo thả, nút lên/xuống và preview vòng chạy. Kéo thả lưu cả toggle đang chỉnh cùng thứ tự; lỗi khôi phục thứ tự trước đó.
+
+Schema bổ sung: `user_task_settings.dispatch_order` nullable unsigned integer, index `(user_id,dispatch_order,task_id)`; bảng `user_dispatcher_state` với PK/FK `user_id`, nullable FK `next_task_id`, `updated_at`. Marker `AppSetting('__system__','round_robin_v1','complete')`. Task mới mặc định OFF, thêm cuối vòng khi cấu hình được khởi tạo. Metadata không tự tạo handler nghiệp vụ.
+
+`GET /api/task-registry` trả task theo thứ tự cá nhân, bổ sung `dispatch_order`. JWT `PUT /api/task-registry/order` nhận `{ "task_ids": [1,2,3,4,5,6] }`: thay số bằng toàn bộ ID task active thực tế, mỗi ID xuất hiện đúng một lần. Không nhận owner khác. `PUT /api/task-registry/mine` giữ contract tasks cũ và nhận thêm task_ids tùy chọn để lưu Enabled/Priority/thứ tự trong cùng transaction. API thiết bị get/report giữ contract hiện tại.
+
+Dispatcher khóa state user trước device; reservation nghiệp vụ, task run và cursor chung transaction/connection, từng ứng viên dùng savepoint. Quét tối đa một vòng: OFF, archived, capabilities không hỗ trợ, chưa có handler hoặc thiếu dữ liệu hợp lệ được bỏ qua. Chỉ sau cấp thành công, next_task_id chuyển sang task kế tiếp sau task thực sự được cấp. Resume, SUCCESS/FAILED và no-task không dịch cursor. Reorder giữ nguyên ID next_task_id nếu còn active; task đã archive thì bắt đầu từ đầu thứ tự active. User khác có state/lock độc lập.
+
+Context transaction chỉ áp dụng trong dispatcher; API nghiệp vụ cũ vẫn giữ hành vi riêng. Các cập nhật bảo trì khi không cấp được Page (đã hoàn thành, token hỏng) được giữ, khóa Page chưa có task được giải phóng. Log sau commit gồm user/device, task được chọn, cursor trước/sau, lý do skip và thời gian; không ghi credential/account payload.
+
+Migration local đã chạy thành công ngày 2026-10-07, có backup local gitignored và đối chiếu Enabled/Priority/history/cursor. Chưa triển khai VPS. Migration không seed/drop/reset, chạy lại không đổi cấu hình hoặc cursor hiện hữu. Không có DDL tự động khi startup; dispatcher yêu cầu migration hoàn tất.
+
+Chạy trong backend sau khi cập nhật source:
+
+```bash
+npm run migrate:round-robin
+```
+
+Docker tại thư mục chứa compose (build image mới trước migration):
+
+```bash
+docker compose build backend
+docker compose run --rm backend npm run migrate:round-robin
+docker compose up -d --build
+docker compose logs backend
+```
+
+Kiểm thử: `node backend/scripts/testRoundRobinIntegration.js --ui` trên DB tạm: chuỗi vòng chính xác; 4 và 50 request HTTP đồng thời (50: 13/13/12/12), 50 resume; 16 Page claim/resume đồng thời; skip/OFF/capabilities/no-task; rollback khi tạo task lỗi; owner isolation; reorder/archive; migration lặp; restart process; kéo thả/lưu/reload/failure rollback/mobile. Đây là xác minh tính đúng đắn trên môi trường local, không phải số liệu sức tải VPS. Registry integration UI, CrossTarget, Instagram cross-follow UI, task report và frontend build cũng đã đạt.
+
+Các file Round-Robin: backend/src/services/{roundRobinService,taskTransactionContext,taskDispatcherService,taskRegistryService,legacyTaskAdapter}.js; backend/src/controllers/taskRegistryController.js; backend/src/middleware/taskAcquirePermission.js; backend/src/routes/taskRegistry.js; backend/scripts/{migrateRoundRobin,testRoundRobinIntegration,testTaskRegistryIntegration}.js; backend/package.json; frontend/src/components/TaskRegistrySettings.jsx; frontend/src/services/taskRegistryApi.js; frontend/src/styles/settings.css; TASK_REGISTRY.md; PROJECT_CONTEXT.md. Các thay đổi kịch bản nuôi/tương tác chéo trước đó vẫn giữ nguyên, chưa commit/push ở lượt này.

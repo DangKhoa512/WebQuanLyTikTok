@@ -1,4 +1,4 @@
-import { emptyCrossFollow, normalizeUsernameList, crossFollowError, serializeCrossFollowSettings } from './crossFollowConfig';
+import { emptyCrossAccountFollow, crossAccountFollowError, emptyCrossFollow, normalizeUsernameList, crossFollowError, serializeCrossFollowSettings } from './crossFollowConfig';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useSettingsData } from './SettingsData';
 import { ScenarioActivity, ScenarioSelector, ScenarioTargetActivity } from './ScenarioSettings';
@@ -8,6 +8,7 @@ import { SettingsCard, NumberField, SettingsModal } from './SettingsPrimitives';
 
 const emptyActions = () => ({
   cross_follow: emptyCrossFollow(),
+  cross_account_follow: emptyCrossAccountFollow(),
   newfeed: { enabled: false, min: 30, max: 60 },
   reels: { enabled: false, min: 20, max: 40 },
   story: { enabled: false, min: 15, max: 30 },
@@ -19,11 +20,14 @@ const actionRows = [
   { key: 'story', label: 'Xem Story (STR)', unit: 'giây' },
 ];
 
+const emptyGeneratorConfig = () => ({ actions: { ...emptyActions(), ...Object.fromEntries(actionRows.map(row => [row.key, { enabled: true }])) } });
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ onStateChange, externalSaving = false }, ref) {
   const { loadSettings, saveSettings } = useSettingsData();
   const [settings, setSettings] = useState({ active_scenario_id: null, cooldown_hours: 24, scenarios: [] });
+  const generatorActions = settings.generator_config?.actions || emptyGeneratorConfig().actions;
+  const updateGenerator = (key, field, value) => setSettings(current => ({ ...current, generator_config: { actions: { ...(current.generator_config?.actions || emptyGeneratorConfig().actions), [key]: { ...(current.generator_config?.actions || emptyGeneratorConfig().actions)[key], [field]: value } } } }));
   const [savedSettings, setSavedSettings] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [reload, setReload] = useState(0);
@@ -79,6 +83,9 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
 
   const generateRandomScenarios = async () => {
     if (!validate()) return;
+    if (!actionRows.some(row => generatorActions[row.key]?.enabled)) { toast.error('Bật ít nhất một hoạt động theo thời gian'); return; }
+    const setupError = crossFollowError(generatorActions.cross_follow) || crossAccountFollowError(generatorActions.cross_account_follow);
+    if (setupError) { toast.error(setupError); return; }
     const count = parseInt(generatorCount, 10);
     const minMinutes = parseInt(generatorMinMinutes, 10);
     const maxMinutes = parseInt(generatorMaxMinutes, 10);
@@ -105,9 +112,7 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
     const totalMinSeconds = minMinutes * 60;
     const totalMaxSeconds = maxMinutes * 60;
     const generated = Array.from({ length: count }, (_, index) => {
-      const enabledKeys = ['newfeed'];
-      if (Math.random() < .75) enabledKeys.push('reels');
-      if (Math.random() < .55) enabledKeys.push('story');
+      const enabledKeys = actionRows.filter(row => generatorActions[row.key]?.enabled).map(row => row.key);
       const weights = Object.fromEntries(enabledKeys.map((key) => [key, randomInt(20, 100)]));
       const weightTotal = Object.values(weights).reduce((sum, value) => sum + value, 0);
       const allocate = (totalSeconds) => {
@@ -127,7 +132,11 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
         min: minTimes[key] || 0,
         max: Math.max(maxTimes[key] || 0, minTimes[key] || 0),
       }]));
-      actions.cross_follow = emptyCrossFollow();
+      for (const key of ['cross_follow', 'cross_account_follow']) {
+        const configured = generatorActions[key];
+        const min = randomInt(configured.min, configured.max);
+        actions[key] = { ...configured, min, max: randomInt(min, configured.max), ...(key === 'cross_follow' ? { usernames: normalizeUsernameList(configured.usernames) } : {}) };
+      }
       return {
         id: `auto-${generatedAt}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
         name: `Kịch bản ${minMinutes}-${maxMinutes} phút #${settings.scenarios.length + index + 1}`,
@@ -135,6 +144,8 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
       };
     });
     const nextSettings = {
+      ...settings,
+      generator_config: { actions: generatorActions },
       active_scenario_id: settings.active_scenario_id || generated[0].id,
       cooldown_hours: settings.cooldown_hours || 24,
       scenarios: [...settings.scenarios, ...generated],
@@ -207,7 +218,7 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
         toast.error('Tên kịch bản không được để trống');
         return false;
       }
-      const followError = crossFollowError(scenario.actions.cross_follow);
+      const followError = crossFollowError(scenario.actions.cross_follow) || crossAccountFollowError(scenario.actions.cross_account_follow);
       if (followError) { toast.error(`${scenario.name}: ${followError}`); setSelectedId(scenario.id); return false; }
       for (const key of ['newfeed', 'reels', 'story']) {
         const action = scenario.actions[key];
@@ -268,17 +279,43 @@ const InstagramNurtureSettings = forwardRef(function InstagramNurtureSettings({ 
       {!selected && <div className="settings-empty">Chưa có kịch bản. Tạo kịch bản mới hoặc dùng trình tạo nhanh để bắt đầu.</div>}
       {selected && <>
         <div className="settings-scenario-heading"><label className="settings-field"><span>Tên kịch bản</span><input value={selected.name} maxLength={100} aria-label="Tên kịch bản" placeholder="Tên kịch bản" onChange={(e) => updateScenario((scenario) => ({ ...scenario, name: e.target.value }))} /></label>{settings.active_scenario_id === selected.id ? <span className="settings-badge success">● Đang sử dụng</span> : <button type="button" className="settings-button secondary" onClick={() => setSettings((old) => ({ ...old, active_scenario_id: selected.id }))}>Sử dụng kịch bản</button>}</div>
-        <div className="settings-duration" title="Tổng thời gian chỉ tính hoạt động theo thời gian; theo dõi chéo tính theo số lượng.">Tổng thời gian <strong>{(selectedDuration.min / 60).toFixed(1)} – {(selectedDuration.max / 60).toFixed(1)} phút</strong><span>{[...actionRows, { key: 'cross_follow', label: 'Theo dõi chéo' }].filter(row => selected.actions[row.key]?.enabled).map(row => row.label).join(' + ') || 'Chưa bật hoạt động'}</span></div>
+        <div className="settings-duration" title="Tổng thời gian chỉ tính hoạt động theo thời gian; theo dõi chéo tính theo số lượng.">Tổng thời gian <strong>{(selectedDuration.min / 60).toFixed(1)} – {(selectedDuration.max / 60).toFixed(1)} phút</strong><span>{[...actionRows, { key: 'cross_follow', label: 'Theo dõi chéo' }, { key: 'cross_account_follow', label: 'Follow chéo Account' }].filter(row => selected.actions[row.key]?.enabled).map(row => row.label).join(' + ') || 'Chưa bật hoạt động'}</span></div>
         <div className="settings-activities">{actionRows.map((row) => {
           const action = selected.actions[row.key];
           return <ScenarioActivity key={row.key} label={row.label} enabled={action.enabled} onToggle={(value) => updateAction(row.key,'enabled',value)}><MinMaxField minLabel="Thời gian tối thiểu" maxLabel="Thời gian tối đa" min={action.min} max={action.max} unit={row.unit} disabled={!action.enabled} onChange={(bound,value) => updateAction(row.key,bound,value)} /></ScenarioActivity>;
         })}
+          <ScenarioActivity className="settings-activity-cross-account" label="Follow chéo Account" enabled={selected.actions.cross_account_follow?.enabled} onToggle={value => updateAction('cross_account_follow', 'enabled', value)}>
+            <MinMaxField min={(selected.actions.cross_account_follow || emptyCrossAccountFollow()).min} max={(selected.actions.cross_account_follow || emptyCrossAccountFollow()).max} maximum={200} unit="người" disabled={!selected.actions.cross_account_follow?.enabled} onChange={(bound, value) => updateAction('cross_account_follow', bound, value)} />
+            <p className="settings-helper">Nguồn: Account Instagram đủ điều kiện trong hệ thống.</p>
+            {crossAccountFollowError(selected.actions.cross_account_follow) && <p className="settings-field-error" role="alert">{crossAccountFollowError(selected.actions.cross_account_follow)}</p>}
+          </ScenarioActivity>
           <ScenarioTargetActivity className="settings-activity-cross-follow" label="Theo dõi chéo Username" action={selected.actions.cross_follow || emptyCrossFollow()} onToggle={(value) => updateAction('cross_follow', 'enabled', value)} onRangeChange={(bound, value) => updateAction('cross_follow', bound, value)} listLabel="Danh sách Username (mỗi dòng 1 username)" placeholder={'username1\nusername2\nusername3'} value={(selected.actions.cross_follow?.usernames || []).join('\n')} onTextChange={(value) => updateAction('cross_follow', 'usernames', value.split(/\r?\n/))} count={normalizeUsernameList(selected.actions.cross_follow?.usernames).filter(value => value.length <= 255 && /^[a-zA-Z0-9._]+$/.test(value)).length} error={crossFollowError(selected.actions.cross_follow)} />
         </div>
         <div className="settings-nurture-footer"><span className={dirty ? 'settings-unsaved' : 'settings-helper'}>{dirty ? 'Kịch bản có thay đổi chưa lưu' : 'Đã đồng bộ kịch bản'}</span><button type="button" className="settings-button danger" onClick={removeScenario}>Xóa kịch bản</button></div>
       </>}
     </fieldset>
-    {generatorOpen && <SettingsModal title="Tạo nhanh kịch bản" onClose={() => { if (!saving) setGeneratorOpen(false); }}><p className="settings-helper">Chia tổng thời gian ngẫu nhiên cho Newfeed, Reels và Story. Kịch bản cũ được giữ nguyên; các kịch bản mới được tạo và lưu ngay.</p><fieldset className="settings-workspace" disabled={busy}><div className="settings-generator-fields"><NumberField label="Số kịch bản" unit="kịch bản" min={1} max={50} value={generatorCount} onChange={(e) => setGeneratorCount(e.target.value)} /><MinMaxField minLabel="Tổng thời gian Min" maxLabel="Tổng thời gian Max" min={generatorMinMinutes} max={generatorMaxMinutes} minimum={1} maximum={1440} unit="phút" onChange={(bound,value) => bound === 'min' ? setGeneratorMinMinutes(value) : setGeneratorMaxMinutes(value)} /></div><p className="settings-helper">Đang có {settings.scenarios.length}/50 kịch bản.{dirty ? ' Thao tác này cũng lưu các chỉnh sửa kịch bản hiện tại.' : ''}</p><footer className="settings-button-group"><button type="button" className="settings-button ghost" onClick={() => setGeneratorOpen(false)}>Hủy</button><button type="button" className="settings-button primary" onClick={generateRandomScenarios}>{saving ? 'Đang tạo...' : 'Tạo kịch bản'}</button></footer></fieldset></SettingsModal>}
+    {generatorOpen && <SettingsModal className="settings-scenario-modal" title="Tạo nhanh kịch bản Instagram" onClose={() => { if (!saving) setGeneratorOpen(false); }}>
+      <p className="settings-helper">Chia tổng thời gian cho các hoạt động đang ON. Số lượng follow được random trong khoảng đã nhập, giống Facebook.</p>
+      <fieldset className="settings-workspace" disabled={busy}><div className="settings-scenario-scroll">
+        <div className="settings-generator-fields">
+          <NumberField label="Số kịch bản" unit="kịch bản" min={1} max={50} value={generatorCount} onChange={e => setGeneratorCount(e.target.value)} />
+          <MinMaxField minLabel="Tổng thời gian Min" maxLabel="Tổng thời gian Max" min={generatorMinMinutes} max={generatorMaxMinutes} minimum={1} maximum={1440} unit="phút" onChange={(bound,value) => bound === 'min' ? setGeneratorMinMinutes(value) : setGeneratorMaxMinutes(value)} />
+        </div>
+        <h3>Setup tính năng ngẫu nhiên</h3>
+        <div className="settings-activities">
+          {actionRows.map(row => <ScenarioActivity key={row.key} label={row.label} enabled={generatorActions[row.key]?.enabled} onToggle={value => updateGenerator(row.key, 'enabled', value)}><p className="settings-helper">Chia theo tổng thời gian phiên khi ON.</p></ScenarioActivity>)}
+          <ScenarioTargetActivity className="settings-activity-cross-follow" label="Theo dõi chéo Username" action={generatorActions.cross_follow} onToggle={value => updateGenerator('cross_follow','enabled',value)} onRangeChange={(bound,value) => updateGenerator('cross_follow',bound,value)} unit="người" listLabel="Danh sách Username (mỗi dòng 1 username)" value={generatorActions.cross_follow.usernames.join('\n')} onTextChange={value => updateGenerator('cross_follow','usernames',value.split(/\r?\n/))} count={normalizeUsernameList(generatorActions.cross_follow.usernames).length} error={crossFollowError(generatorActions.cross_follow)} />
+          <ScenarioActivity label="Follow chéo Account" enabled={generatorActions.cross_account_follow.enabled} onToggle={value => updateGenerator('cross_account_follow','enabled',value)}>
+            <MinMaxField min={generatorActions.cross_account_follow.min} max={generatorActions.cross_account_follow.max} maximum={200} unit="người" disabled={!generatorActions.cross_account_follow.enabled} onChange={(bound,value) => updateGenerator('cross_account_follow',bound,value)} />
+            <p className="settings-helper">Nguồn: Account đủ điều kiện.</p>
+            {crossAccountFollowError(generatorActions.cross_account_follow) && <p className="settings-field-error" role="alert">{crossAccountFollowError(generatorActions.cross_account_follow)}</p>}
+          </ScenarioActivity>
+        </div>
+        <p className="settings-helper">Đang có {settings.scenarios.length}/50 kịch bản.{dirty ? ' Thao tác này cũng lưu các chỉnh sửa hiện tại.' : ''}</p>
+        </div><footer className="settings-button-group"><button type="button" className="settings-button ghost" onClick={() => setGeneratorOpen(false)}>Hủy</button><button type="button" className="settings-button primary" onClick={generateRandomScenarios}>{saving ? 'Đang tạo...' : 'Tạo kịch bản'}</button></footer>
+      </fieldset>
+    </SettingsModal>}
+
   </SettingsCard>;
 });
 export default InstagramNurtureSettings;

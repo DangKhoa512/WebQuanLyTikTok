@@ -4,6 +4,8 @@
   "description": "TikTok Account Manager Backend API",
   "main": "src/server.js",
   "scripts": {
+    "migrate:round-robin": "node scripts/migrateRoundRobin.js --apply",
+    "test:round-robin": "node scripts/testRoundRobinIntegration.js --ui",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node seeds/seedData.js",

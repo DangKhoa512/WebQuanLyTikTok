@@ -1,4 +1,4 @@
-const { allocateInstagramTargets } = require('../services/instagramCrossTargetService');
+const { allocateInstagramScenarioTargets } = require('../services/instagramCrossTargetService');
 const { Op } = require('sequelize');
 const { randomUUID } = require('crypto');
 const sequelize = require('../config/database');
@@ -430,8 +430,7 @@ const getNurtureAccount = async (req,res,next) => {
       return {account,scenario,resumed:false};
     });
     if(!claimed)return error(res,'Het account Instagram co the nuoi luc nay',404,{account:null,device_id,cooldown_hours:settings.cooldown_hours});
-    const crossFollow = await allocateInstagramTargets({ owner: owner_username, sourceAccountId: claimed.account.id, scenario: claimed.scenario, requestId: req.body.request_id ?? claimed.account.nurture_run_id, requestedCount: req.body.count });
-    const responseScenario = { ...claimed.scenario, actions: { ...claimed.scenario.actions, cross_follow: crossFollow } };
+    const responseScenario = await allocateInstagramScenarioTargets({ owner: owner_username, sourceAccountId: claimed.account.id, scenario: claimed.scenario, requestId: req.body.request_id ?? claimed.account.nurture_run_id, requestedCount: req.body.count, accountRequestedCount: req.body.account_count });
     return success(res,{run_id:claimed.account.nurture_run_id,account:serialize(claimed.account),scenario:responseScenario,resumed:claimed.resumed,cooldown_hours:settings.cooldown_hours},claimed.resumed?'Tiep tuc account Instagram dang nuoi':'Lay account Instagram nuoi thanh cong');
   }catch(err){next(err);}
 };
