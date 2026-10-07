@@ -1,3 +1,4 @@
+require('./GhostInboxMailbox');
 require('./EmailTickMailbox');
 require('./CrossTargetCycle');
 require('./CrossTargetBatch');

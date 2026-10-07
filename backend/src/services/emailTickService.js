@@ -1,5 +1,6 @@
 const axios=require('axios');
-const {randomInt,createHash}=require('crypto');
+const {randomInt}=require('crypto');
+const {selectOtp,parseTime}=require('./mailOtpService');
 const {getEmailTickConfig,parseTypes,invalid}=require('../config/emailtick');
 const providerError=(code,statusCode=502)=>Object.assign(new Error(code),{code,statusCode,isEmailTickError:true});
 const resolveTypes=(input,randomCount,config=getEmailTickConfig())=>{
@@ -24,21 +25,11 @@ const normalizeResponse=response=>{
  if(data.success!==true){if(data.error==='INVALID_MAILBOX')throw providerError('INVALID_MAILBOX',410);throw providerError('EMAILTICK_ERROR');}
  return data;
 };
-const parseMessageTime=value=>{const time=typeof value==='number'||typeof value==='string'&&/^\d+$/.test(value)?Number(value):NaN;return Number.isSafeInteger(time)&&time>0?(time>=1000000000000?Math.floor(time/1000):time):null;};
-const senderFilters={instagram:name=>name.toLowerCase().includes('instagram'),facebook:name=>name.toLowerCase().includes('facebook')};
-const extractOtp=(emails,{provider='instagram',minimumTime=0,lastEmailTime=0,processedMessageCodes=[],lastMessageCode=null,nowSeconds=Math.floor(Date.now()/1000)}={})=>{
- const filter=senderFilters[provider];if(!filter)throw invalid('INVALID_PROVIDER');
- const seen=new Set(processedMessageCodes);
- const candidates=emails.map(message=>{
-  if(!message||typeof message!=='object'||typeof message.fromName!=='string'||typeof message.subject!=='string'||!filter(message.fromName))return null;
-  const time=parseMessageTime(message.time);
-  if(!time || time<minimumTime || time<Number(lastEmailTime||0) || time>nowSeconds+300)return null;
-  const messageCode=typeof message.code==='string'&&message.code.trim()&&message.code.length<=255?message.code.trim():createHash('sha256').update(JSON.stringify([message.fromName,message.subject,time])).digest('hex');
-  if(messageCode===lastMessageCode || time===Number(lastEmailTime||0)&&seen.has(messageCode))return null;
-  const code=message.subject.match(/\b(\d{6})\b/)?.[1];
-  return code?{code,messageCode,time}:null;
- }).filter(Boolean).sort((a,b)=>b.time-a.time || a.messageCode.localeCompare(b.messageCode));
- return candidates[0]||null;
+const parseMessageTime=parseTime;
+const extractOtp=(emails,options={})=>{
+ const provider=options.provider||'instagram';
+ if(!['instagram','facebook','generic'].includes(provider))throw invalid('INVALID_PROVIDER');
+ return selectOtp(emails.map(m=>m&&({id:m.code,fromName:m.fromName,subject:m.subject,receivedAt:m.time})),{...options,service:provider.toUpperCase(),allowBody:false});
 };
 const createEmailTickService=({config=getEmailTickConfig(),http=axios,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={})=>{
  const request=async(path,payload)=>{

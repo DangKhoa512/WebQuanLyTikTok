@@ -13,11 +13,14 @@
     "test:cross-target-engine": "node scripts/testCrossTargetEngineIntegration.js",
     "migrate:cross-targets": "node scripts/migrateCrossTargets.js --apply",
     "test:instagram-cross-follow": "node scripts/testInstagramCrossFollowIntegration.js --ui",
-    "test:instagram-check-live-mock": "node scripts/testInstagramCheckLiveMock.js"
+    "test:instagram-check-live-mock": "node scripts/testInstagramCheckLiveMock.js",
+    "test:mail": "node scripts/testMail.js && node scripts/testMailIntegration.js",
+    "migrate:ghostinbox": "node scripts/migrateGhostInbox.js --apply"
   },
   "dependencies": {
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
+    "cheerio": "1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",

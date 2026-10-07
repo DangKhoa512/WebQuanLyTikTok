@@ -1,0 +1,12 @@
+﻿const path=require('path');require('dotenv').config({path:path.resolve(__dirname,'../.env')});
+if(!/^quanly_mail_test_[0-9]+_[a-f0-9]+$/.test(process.env.DB_NAME||''))throw Error('Test DB required');
+const express=require('express'),mock=express();mock.use(express.json({limit:'4mb'}));const sessions=new Map();let sequence=0;
+const snapshot=s=>JSON.stringify({data:{email:s.email,error:'',messages:[[[{id:'fixture-curl-id',subject:'041374 is your Instagram code',sender_name:'Instagram',sender_email:'security@mail.instagram.com',timestamp:new Date((Math.floor(Date.now()/1000)+1)*1000).toISOString(),content:'<p>041374</p>',attachments:[[],{s:'arr'}]},{s:'arr'}]],{s:'arr'}]},memo:{name:'frontend.app',id:s.id},checksum:'fixture'});
+mock.get('/',(req,res)=>{const id='fixture-curl-session-'+(++sequence),s={id,email:'curl'+sequence+'@gmail.com'};sessions.set(id,s);res.set('Set-Cookie','ghostinbox_session='+id+'; Path=/; Max-Age=7200').type('html').send('<input id="heroUser" value="'+s.email+'">');});
+mock.use((req,res,next)=>{req.session=sessions.get(req.headers.cookie?.match(/ghostinbox_session=([^;]+)/)?.[1]);if(!req.session)return res.sendStatus(419);next();});
+mock.get('/confirm-gmail-alias',(req,res)=>res.redirect('/inbox'));
+mock.get('/inbox',(req,res)=>res.type('html').send('<meta name="csrf-token" content="fixture-curl-csrf"><div wire:snapshot="'+snapshot(req.session).replace(/"/g,'&quot;')+'"></div>'));
+mock.post('/livewire/update',(req,res)=>{if(req.body._token!=='fixture-curl-csrf')return res.sendStatus(419);res.json({components:[{snapshot:snapshot(req.session),effects:{}}],assets:[]});});
+let upstream,server,db;
+(async()=>{upstream=mock.listen(0,'127.0.0.1');await new Promise(r=>upstream.once('listening',r));process.env.GHOSTINBOX_BASE_URL='http://127.0.0.1:'+upstream.address().port;process.env.GHOSTINBOX_RETRY_COUNT='0';const logger=require('../src/config/logger');for(const k of ['info','warn','debug','error'])logger[k]=()=>{};db=require('../src/config/database');server=require('../src/app').listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));process.send({url:'http://127.0.0.1:'+server.address().port});})().catch(e=>{console.error(e.name);process.exit(1);});
+process.on('message',async message=>{if(message!=='stop')return;if(server)await new Promise(r=>server.close(r));if(upstream)await new Promise(r=>upstream.close(r));if(db)await db.close();process.exit(0);});

@@ -1,0 +1,68 @@
+const path=require('path'),crypto=require('crypto'),assert=require('assert');
+require('dotenv').config({path:path.resolve(__dirname,'../.env')});
+const {Sequelize}=require('sequelize');
+const original=process.env.DB_NAME,testDb='quanly_mail_test_'+Date.now()+'_'+crypto.randomBytes(4).toString('hex');
+if(!/^quanly_mail_test_[0-9]+_[a-f0-9]+$/.test(testDb)||testDb===original)throw Error('Unsafe test database');
+const manager=new Sequelize('',process.env.DB_USER,process.env.DB_PASS,{host:process.env.DB_HOST||'localhost',port:Number(process.env.DB_PORT)||3306,dialect:'mysql',logging:false});
+let db,server,providerServer,created=false;
+const logger=require('../src/config/logger'),savedLogs={},logs=[];
+for(const key of ['info','warn','error','debug']){savedLogs[key]=logger[key];logger[key]=(...args)=>logs.push(args);}
+(async()=>{
+ await manager.query('CREATE DATABASE `'+testDb+'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');created=true;process.env.DB_NAME=testDb;
+ const express=require('express'),mock=express();mock.use(express.json({limit:'4mb'}));
+ const sessions=new Map();let sequence=0,mode='normal',upstreamCalls=0;
+ const sign=data=>JSON.stringify({...data,checksum:crypto.createHmac('sha256','fixture-signing-key').update(JSON.stringify(data)).digest('hex')});
+ const snapshot=(s,items=[])=>sign({data:{email:s.email,messages:[items.map(m=>[m,{s:'arr'}]),{s:'arr'}],error:'',initial:false},memo:{id:s.id,name:'frontend.app'}});
+ mock.use((req,res,next)=>{upstreamCalls++;if(mode==='challenge')return res.status(403).type('html').send('<title>Just a moment...</title>challenge-platform');if(mode==='rate')return res.status(429).set('Retry-After','30').send('limited');if(mode==='expired')return res.status(419).send('expired');next();});
+ mock.get('/',(req,res)=>{const id='fixture-session-'+(++sequence),s={id,email:'ghost'+sequence+'@gmail.com',messages:[]};sessions.set(id,s);res.set('Set-Cookie',['ghostinbox_session='+id+'; Path=/; Max-Age=7200','XSRF-TOKEN=fixture-xsrf; Path=/']);res.type('html').send('<input id="heroUser" value="'+s.email+'">');});
+ mock.use((req,res,next)=>{if(req.path.startsWith('/get-')||req.path==='/activate-email')return next();const id=req.headers.cookie?.match(/ghostinbox_session=([^;]+)/)?.[1];req.session=sessions.get(id);if(!req.session)return res.status(419).send('expired');next();});
+ mock.get('/confirm-gmail-alias',(req,res)=>{assert.equal(req.query.email,req.session.email);res.redirect('/inbox');});
+ mock.get('/inbox',(req,res)=>res.type('html').send('<meta name="csrf-token" content="csrf-'+req.session.id+'"><div wire:snapshot="'+snapshot(req.session).replace(/"/g,'&quot;')+'"></div>'));
+ mock.post('/livewire/update',(req,res)=>{assert.equal(req.headers['x-livewire'],'');assert.equal(req.body._token,'csrf-'+req.session.id);const component=req.body.components[0],sent=JSON.parse(component.snapshot),checksum=sent.checksum;delete sent.checksum;assert.equal(checksum,JSON.parse(sign(sent)).checksum);assert.equal(sent.data.email,req.session.email);assert(component.calls.every(c=>c.method==='__dispatch'&&['syncEmail','fetchMessages'].includes(c.params[0])));res.json({components:[{snapshot:snapshot(req.session,req.session.messages),effects:{returns:[],html:'',dispatches:[]}}],assets:[]});});
+ mock.post('/get-mailbox',(req,res)=>res.json({success:true,email:'tick@example.test',code:'synthetic-tick-secret'}));mock.post('/activate-email',(req,res)=>res.json({success:true}));let tickEmails=[];mock.post('/get-emails',(req,res)=>res.json({success:true,emails:tickEmails}));
+ providerServer=mock.listen(0,'127.0.0.1');await new Promise(r=>providerServer.once('listening',r));const upstream='http://127.0.0.1:'+providerServer.address().port;
+ process.env.GHOSTINBOX_BASE_URL=upstream;process.env.GHOSTINBOX_TIMEOUT_MS='500';process.env.GHOSTINBOX_RETRY_COUNT='0';process.env.EMAILTICK_BASE_URL=upstream;
+ db=require('../src/config/database');const User=require('../src/models/User'),Ghost=require('../src/models/GhostInboxMailbox'),Tick=require('../src/models/EmailTickMailbox');await User.sync({logging:false});await Ghost.sync({logging:false});await Tick.sync({logging:false});
+ await User.bulkCreate([{username:'mail_fixture_owner',password_hash:'test-only',role:'user'},{username:'mail_fixture_other',password_hash:'test-only',role:'user'}],{logging:false});
+ const app=require('../src/app');const start=async()=>{server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));return 'http://127.0.0.1:'+server.address().port;};let base=await start();
+ const request=async(path,body,key='mail_fixture_owner')=>{const r=await fetch(base+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(key===null?{}:{'x-api-key':key})},...(body===undefined?{}:{body:JSON.stringify(body)})});return {status:r.status,data:await r.json()};};
+ assert.equal((await request('/api/mail/new',{provider:'GHOSTINBOX'},null)).status,401);assert.equal(upstreamCalls,0);
+ assert.equal((await request('/api/mail/new',{provider:'invalid'})).status,400);assert.equal((await request('/api/mail/new',{provider:'GHOSTINBOX',token:'must-not-log'})).status,400);
+ const mail=(await request('/api/mail/new',{provider:'GHOSTINBOX'})).data;assert.deepEqual(Object.keys(mail).sort(),['email','mailbox_id','provider','success']);assert.equal(mail.provider,'GHOSTINBOX');
+ const second=(await request('/api/mail/new',{provider:'GHOSTINBOX'})).data;assert.notEqual(mail.email,second.email);
+ const codePath='/api/mail/code?mailbox_id='+mail.mailbox_id;
+ let calls=upstreamCalls;assert.equal((await request(codePath,undefined,'mail_fixture_other')).status,404);assert.equal(upstreamCalls,calls);
+ assert.equal((await request(codePath+'&service=BAD')).status,400);assert.equal((await request(codePath+'&requested_at=invalid')).status,400);assert.equal((await request(codePath+'&token=must-not-log')).status,400);
+ assert.deepEqual((await request(codePath)).data,{success:true,status:'WAITING',code:null});assert.equal(upstreamCalls,calls,'No poll within 10s');
+ let record=await Ghost.unscoped().findOne({where:{mailbox_id:mail.mailbox_id},logging:false});assert(record.provider_state.cookies.ghostinbox_session);assert.equal((await Ghost.findOne({where:{mailbox_id:mail.mailbox_id},logging:false})).toJSON().provider_state,undefined);
+ const session=sessions.get(record.provider_state.cookies.ghostinbox_session.value),time=Math.floor(Date.now()/1000);
+ const message=(id,subject,content,offset=1,sender='Instagram')=>({id,subject,content,sender_name:sender,sender_email:'security@mail.instagram.com',timestamp:new Date((time+offset)*1000).toISOString(),date:'fixture',datediff:'fixture',attachments:[[],{s:'arr'}]});
+ const unlockPoll=async id=>{const row=await Ghost.unscoped().findOne({where:{mailbox_id:id},logging:false}),state=structuredClone(row.provider_state);state.lastPolledAt=0;await row.update({provider_state:state},{logging:false});};
+ session.messages=[message('old','111111','',-1000),message('new','041374 is your Instagram code','<p>928105</p>')];await unlockPoll(mail.mailbox_id);
+ const race=await Promise.all([request(codePath),request(codePath)]);assert.equal(race.filter(r=>r.data.status==='RECEIVED').length,1);assert.equal(race.find(r=>r.data.status==='RECEIVED').data.code,'041374');
+ await unlockPoll(mail.mailbox_id);assert.equal((await request(codePath)).data.status,'WAITING','No duplicate OTP on later poll');
+ session.messages.push(message('body','No subject code','<script>123456</script><p>000009</p>',2));await unlockPoll(mail.mailbox_id);assert.equal((await request(codePath)).data.code,'000009');
+ session.messages=[message('new','041374 is your Instagram code','',3)];await unlockPoll(mail.mailbox_id);assert.equal((await request(codePath)).data.status,'WAITING','Processed ID remains skipped even if timestamp changes');
+ session.messages.push(message('generic','Verification code','<p>000010</p>',3,'Test sender'));await unlockPoll(mail.mailbox_id);assert.equal((await request(codePath+'&service=GENERIC')).data.code,'000010');
+ await new Promise(r=>server.close(r));base=await start();await unlockPoll(mail.mailbox_id);assert.equal((await request(codePath+'&service=GENERIC')).data.status,'WAITING','Persisted history across HTTP restart');
+ mode='rate';await unlockPoll(mail.mailbox_id);calls=upstreamCalls;assert.equal((await request(codePath)).status,429);assert.equal(upstreamCalls,calls+1);assert.equal((await request(codePath)).status,429);assert.equal(upstreamCalls,calls+1,'Respect Retry-After persisted in DB');
+ mode='normal';record=await Ghost.unscoped().findOne({where:{mailbox_id:mail.mailbox_id},logging:false});let state=structuredClone(record.provider_state);state.retryAfterAt=0;state.lastPolledAt=0;await record.update({provider_state:state},{logging:false});
+ mode='challenge';calls=upstreamCalls;assert.equal((await request(codePath)).data.error,'GHOSTINBOX_ACCESS_CHALLENGE');assert.equal(upstreamCalls,calls+1);
+ mode='expired';assert.equal((await request(codePath)).data.error,'GHOSTINBOX_SESSION_EXPIRED');assert.equal((await Ghost.findOne({where:{mailbox_id:mail.mailbox_id},logging:false})).status,'EXPIRED');mode='normal';
+ const tick=(await request('/api/mail/new',{provider:'EMAILTICK'})).data;assert.equal(tick.provider,'EMAILTICK');tickEmails=[{code:'tick-id',fromName:'Instagram',subject:'000011',time:time+4}];assert.equal((await request('/api/mail/code?mailbox_id='+tick.mailbox_id)).data.code,'000011');assert.equal((await request('/api/emailtick/code?mailbox_id='+tick.mailbox_id)).data.status,'WAITING');assert.equal((await request('/api/emailtick/new',{types:3})).data.success,true);
+ const {spawn}=require('child_process');const run=()=>new Promise((resolve,reject)=>{const child=spawn(process.execPath,[path.join(__dirname,'migrateGhostInbox.js'),'--apply'],{env:process.env,stdio:['ignore','pipe','pipe']});let output='';child.stdout.on('data',x=>output+=x);child.stderr.on('data',x=>output+=x);child.on('error',reject);child.on('exit',code=>code===0?resolve(output):reject(Error('Migration failed')));});
+ const old=JSON.stringify((await Ghost.unscoped().findAll({order:[['id','ASC']],logging:false})).map(r=>r.toJSON()));await run();await run();assert.equal(JSON.stringify((await Ghost.unscoped().findAll({order:[['id','ASC']],logging:false})).map(r=>r.toJSON())),old);
+ const {fork,spawnSync}=require('child_process');
+ const child=fork(path.join(__dirname,'mailHttpTestServer.js'),[],{env:process.env,stdio:['ignore','pipe','pipe','ipc']});
+ let childOutput='';child.stderr.on('data',x=>childOutput+=x);child.stdout.on('data',x=>childOutput+=x);
+ try{
+  const address=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('HTTP test child timeout')),15000);child.once('message',m=>{clearTimeout(timer);resolve(m);});child.once('exit',code=>{clearTimeout(timer);reject(Error('HTTP child failed '+code));});});
+  const API={},install=require('../../tools/autotouch/mail');
+  install(API,{getBaseUrl:()=>address.url,getApiKey:()=> 'mail_fixture_owner',allowHttp:true,safeParse:JSON.parse,sleep:seconds=>{assert.equal(seconds,10);spawnSync(process.execPath,['-e','Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,'+(seconds*1000)+')']);},exec:command=>{const r=spawnSync(command,{shell:process.platform==='win32'?path.join(process.env.ProgramFiles||'C:/Program Files','Git/bin/bash.exe'):'/bin/sh',encoding:'utf8',timeout:65000});return r.status===0?r.stdout:'';}});
+  const curlMail=API._Mail_New('GHOSTINBOX');assert(curlMail);assert.equal(API._Mail_GetOTP(curlMail.mailbox_id,'INSTAGRAM'),'041374');
+ }finally{if(child.connected)child.send('stop');await new Promise(r=>{if(child.exitCode!==null)return r();child.once('exit',r);setTimeout(()=>{child.kill();r();},5000).unref();});}
+ const serialized=JSON.stringify(logs);for(const secret of ['fixture-session-','fixture-xsrf','csrf-fixture','synthetic-tick-secret','041374','000009','must-not-log'])assert(!serialized.includes(secret),'Secret must not appear in logs: '+secret);
+ console.log('MAIL_INTEGRATION_OK: HTTP Ghost/Livewire->MySQL->VPS auth, per-mailbox sessions, CSRF/signature, hidden state/logs, polling, concurrency/duplicate/body/zero, persistence, Retry-After/challenge/expiry, safe idempotent migration, EmailTick legacy/common');
+})().catch(e=>{console.error(e.stack);process.exitCode=1;}).finally(async()=>{
+ if(server)await new Promise(r=>server.close(r));if(providerServer)await new Promise(r=>providerServer.close(r));if(db)await db.close();if(created&&/^quanly_mail_test_[0-9]+_[a-f0-9]+$/.test(testDb)&&testDb!==original)await manager.query('DROP DATABASE `'+testDb+'`');await manager.close();for(const [key,value]of Object.entries(savedLogs))logger[key]=value;
+});

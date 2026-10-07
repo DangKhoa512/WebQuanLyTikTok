@@ -28,6 +28,7 @@ app.use(
 app.use('/api/totp', require('./routes/totp'));
 // Mailbox credentials/provider errors also need isolated logging and parsing.
 app.use('/api/emailtick', require('./routes/emailtick'));
+app.use('/api/mail', require('./routes/mail'));
 
 // ── Body parsing ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
