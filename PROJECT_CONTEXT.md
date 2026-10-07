@@ -305,3 +305,10 @@ Yêu cầu mới **bỏ mô hình admin phân task cho user**. Phần này và [
 - Đạt testEmailTick.js (resolver/filter/zero/schema/retry/Cloudflare/AutoTouch), testEmailTickIntegration.js (HTTP provider giả→activate→MySQL riêng→VPS/curl thật, old OTP/concurrency/ties/persistence/migration/owner/auth/hidden credentials/logs). Test/migration npm scripts mới trong backend/package.json. Chưa commit/push lượt này; không thêm UI/provider setting page ngoài yêu cầu, chưa chạy trực tiếp trên iPhone.
 
 - Final verification: npm run test:emailtick and npm run test:totp passed on 2026-10-07; includes expired-mailbox handling and config errors. Syntax checks and git diff --check passed. No frontend changes; no frontend build required.
+
+## EmailTick without cookies - 2026-10-07
+
+- Shared headers for get-mailbox/activate-email/get-emails now include browser User-Agent and Accept application/json, text/plain, */*, with Origin/Referer/Content-Type. No Cookie is sent or stored.
+- Live empty inbox returns exactly {success:true} without emails; normalize this response to [] (VPS WAITING). Malformed emails still fail validation.
+- Live check from development machine passed create, activate and get-emails without cookies. Inbox was empty; real OTP receipt and production VPS remain unverified. No real mailbox credentials were logged or stored in the application database.
+- npm run test:emailtick --prefix backend passed unit/integration, including no-Cookie headers and empty-inbox response. git diff --check passed. These changes are not committed/pushed yet.

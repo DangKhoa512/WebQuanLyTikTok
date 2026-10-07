@@ -1,4 +1,4 @@
-﻿# EmailTick: VPS provider integration
+# EmailTick: VPS provider integration
 
 ## Phạm vi / trạng thái
 
@@ -145,3 +145,10 @@ npm run test:totp --prefix backend
 Unit: types/random/dedupe/allowed/config, schema/content-type/Cloudflare, headers/timeout/retry, filter/newest/time/old message/ties/leading zeros, AutoTouch WAITING/RECEIVED/error/timeout và bounded polling.
 
 Integration: provider HTTP giả + MySQL DB riêng + API auth thực + curl AutoTouch trên process con. Kiểm tra activate thành công/thất bại, credentials ẩn, owner spoof/isolation, không OTP lặp/concurrency/ties, migration hai lần giữ dữ liệu, mailbox persistence và không có credential/OTP trong application/SQL log. Chỉ dùng fixture giả, test DB có prefix+timestamp/random, kiểm tra khác DB thật và cleanup đúng DB đã tạo. Không tạo mailbox thật trên EmailTick và chưa test trực tiếp iPhone/VPS production.
+
+## EmailTick without cookies - 2026-10-07
+
+- Shared headers for get-mailbox/activate-email/get-emails now include browser User-Agent and Accept application/json, text/plain, */*, with Origin/Referer/Content-Type. No Cookie is sent or stored.
+- Live empty inbox returns exactly {success:true} without emails; normalize this response to [] (VPS WAITING). Malformed emails still fail validation.
+- Live check from development machine passed create, activate and get-emails without cookies. Inbox was empty; real OTP receipt and production VPS remain unverified. No real mailbox credentials were logged or stored in the application database.
+- npm run test:emailtick --prefix backend passed unit/integration, including no-Cookie headers and empty-inbox response. git diff --check passed. These changes are not committed/pushed yet.

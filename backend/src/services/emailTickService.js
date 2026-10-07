@@ -44,7 +44,7 @@ const createEmailTickService=({config=getEmailTickConfig(),http=axios,sleep=ms=>
  const request=async(path,payload)=>{
   for(let attempt=0;attempt<=config.retryCount;attempt++){
    try {
-    const response=await http.post(config.baseUrl+path,payload,{timeout:config.timeoutMs,headers:{Accept:'*/*','Content-Type':'application/json',Origin:config.baseUrl,Referer:config.baseUrl+'/'},responseType:'text',transformResponse:[data=>data],validateStatus:()=>true,maxRedirects:0,maxContentLength:1024*1024,maxBodyLength:8192});
+    const response=await http.post(config.baseUrl+path,payload,{timeout:config.timeoutMs,headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',Accept:'application/json, text/plain, */*','Content-Type':'application/json',Origin:config.baseUrl,Referer:config.baseUrl+'/'},responseType:'text',transformResponse:[data=>data],validateStatus:()=>true,maxRedirects:0,maxContentLength:1024*1024,maxBodyLength:8192});
     return normalizeResponse(response);
    }catch(err){
     const transient=err.code==='EMAILTICK_TEMPORARY_ERROR'||['ECONNRESET','ECONNABORTED','ETIMEDOUT','EAI_AGAIN'].includes(err.code);
@@ -58,7 +58,7 @@ const createEmailTickService=({config=getEmailTickConfig(),http=axios,sleep=ms=>
   resolveTypes:(input,count)=>resolveTypes(input,count,config),
   async createMailbox(types){const data=await request('/get-mailbox',{types});if(typeof data.email!=='string'||data.email.length>255||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)||typeof data.code!=='string'||!data.code.trim()||data.code.length>4096)throw providerError('EMAILTICK_INVALID_RESPONSE');return{email:data.email,mailboxCode:data.code};},
   async activateMailbox(email,mailboxCode){await request('/activate-email',{email,code:mailboxCode});},
-  async getEmails(email,mailboxCode){const data=await request('/get-emails',{email,code:mailboxCode});if(!Array.isArray(data.emails)||data.emails.length>1000)throw providerError('EMAILTICK_INVALID_RESPONSE');return data.emails;},
+  async getEmails(email,mailboxCode){const data=await request('/get-emails',{email,code:mailboxCode});if(!Object.prototype.hasOwnProperty.call(data,'emails') && Object.keys(data).length===1)return [];if(!Array.isArray(data.emails)||data.emails.length>1000)throw providerError('EMAILTICK_INVALID_RESPONSE');return data.emails;},
   extractOtp,
  };
 };
