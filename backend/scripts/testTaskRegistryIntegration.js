@@ -215,7 +215,7 @@ let db,server,created=false;
  assert((await registry.list(null,true)).some(task=>task.task_key==='INSTAGRAM_JOB' && task.archived_at));
  console.log('TASK_SETTINGS_DISABLE_HISTORY_OK: priority retained in task metadata, self-disabled running task not resumed, in-flight report accepted, archive keeps history/name/key');
  settingsModule.getTaskDispatcherSettings=originalGetter;
- console.log('TASK_REGISTRY_DISPATCHER_SANDBOX_OK: actual registry-backed dispatcher settings; default OFF denied, same-device race, two-device isolation, report success, retry, timeout release and preview lock behavior');
+ console.log('TASK_REGISTRY_DISPATCHER_SANDBOX_OK: actual registry-backed dispatcher settings; default OFF denied, same-device race, two-device isolation, report success, retry, offline task hold/resume and preview lock behavior');
  console.log((process.argv.includes('--legacy')?'TASK_SETTINGS_LEGACY_UPGRADE_OK':'TASK_SETTINGS_FRESH_MIGRATION_OK'));
  console.log('TASK_REGISTRY_DB_API_OK: isolated DB; idempotent migration, old settings preserved, registry CRUD/archive, global visibility/default OFF, self-enabled/priority, owner isolation, removed assign endpoints, direct admin API 403, own timeout/retry');
 })().catch(err=>{console.error('Task registry isolated test failed: '+err.stack);process.exitCode=1;}).finally(async()=>{

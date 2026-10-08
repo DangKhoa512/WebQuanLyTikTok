@@ -223,7 +223,7 @@ const releaseStaleInstagramLocks = async ({ owner_username, status, releaseStatu
   if (releaseStatus === 'LOGIN_THANH_CONG') update.completed_at = null;
   if (FINAL_STATUSES.includes(releaseStatus)) update.completed_at = new Date();
   if (failReason) update.fail_reason = failReason;
-  await InstagramAccount.update(update, { where: { owner_username, kind: 'job', status, locked_at: { [Op.lt]: new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000) } } });
+  await InstagramAccount.update(update, { where: { [Op.and]: require('../services/activeTaskProtection').withoutActiveTask('instagram_accounts','INSTAGRAM'), owner_username, kind: 'job', status, locked_at: { [Op.lt]: new Date(Date.now() - LOCK_TIMEOUT_MIN * 60 * 1000) } } });
 };
 
 const deviceAccountWhere = (owner_username, device_id) => ({

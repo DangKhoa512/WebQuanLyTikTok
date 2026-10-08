@@ -1,3 +1,5 @@
+const sequelize=require('../config/database');
+const {clearDeviceWarning}=require('../services/deviceMonitoringService');
 const DashboardDevice = require('../models/DashboardDevice');
 const {ensureDevice,hasOwnedDevice}=require('../services/deviceRegistrationService');
 const DeviceTaskRun = require('../models/DeviceTaskRun');
@@ -20,45 +22,57 @@ const heartbeat = async (req, res, next) => {
     const owner_username = ownerFromRequest(req);
     const device_id = text(req.body.device_id || req.body.device || req.body.phone || req.body.may);
     if (!device_id) return error(res, 'Can truyen device_id', 400);
-    const taskId = parseInt(req.body.task_id, 10);
-    const activeTask = Number.isInteger(taskId)
-      ? await DeviceTaskRun.findOne({
-        where: {
-          id: taskId,
-          owner_username,
-          device_id,
-          locked_by: device_id,
-          status: { [Op.in]: ['RUNNING', 'REPORTING'] },
-        },
-      })
-      : await DeviceTaskRun.findOne({where:{owner_username,device_id,status:{[Op.in]:['RUNNING','REPORTING']}},order:[['id','DESC']]});
-    if (Number.isInteger(taskId) && !activeTask) return error(res, 'task_id khong thuoc device hoac da ket thuc', 409);
-    const current_task = activeTask?.task_type || text(req.body.current_task || req.body.task, 100);
-    const current_uid = activeTask?.uid || activeTask?.username || text(req.body.current_uid || req.body.uid || req.body.username);
-    const requestedStatus = String(req.body.status || '').trim().toUpperCase();
-    const reported_status = activeTask ? 'RUNNING'
-      : ['IDLE','ONLINE'].includes(requestedStatus) ? requestedStatus
-      : current_task || current_uid || requestedStatus === 'RUNNING' ? 'RUNNING' : 'IDLE';
-    const now = new Date();
-    const existing = await DashboardDevice.findOne({ where: { owner_username, device_id } });
-    const started_at = activeTask?.locked_at || (reported_status === 'RUNNING'
-      ? existing?.reported_status === 'RUNNING' && existing.current_task === current_task && existing.current_uid === current_uid
-        ? existing.started_at || now
-        : now
-      : null);
-    const payload = {
-      owner_username,
-      device_id,
-      device_name: text(req.body.device_name || req.body.name) || existing?.device_name || device_id,
-      current_task,
-      current_uid,
-      reported_status,
-      started_at,
-      last_seen: now,
-      last_error: text(req.body.error || req.body.last_error, 1000),
-    };
-    const row = await ensureDevice(owner_username,device_id,payload);
-    await row.update(payload);
+    const taskId=req.body.task_id==null?null:Number(req.body.task_id);
+    if(taskId!==null){
+      const id=taskId;
+      if(!Number.isSafeInteger(id)||id<=0)return error(res,'task_id khong hop le',400);
+      const valid=await DeviceTaskRun.findOne({where:{id,owner_username,device_id,locked_by:device_id,status:{[Op.in]:['RUNNING','REPORTING']}}});
+      if(!valid)return error(res,'task_id khong thuoc device hoac da ket thuc',409);
+    }
+    await ensureDevice(owner_username,device_id);
+    const row = await sequelize.transaction(async transaction=>{
+      const row=await DashboardDevice.findOne({where:{owner_username,device_id},transaction,lock:transaction.LOCK.UPDATE});
+      const activeTask = Number.isInteger(taskId)
+        ? await DeviceTaskRun.findOne({
+          where: {
+            id: taskId,
+            owner_username,
+            device_id,
+            locked_by: device_id,
+            status: { [Op.in]: ['RUNNING', 'REPORTING'] },
+          }, transaction,
+        })
+        : await DeviceTaskRun.findOne({where:{owner_username,device_id,status:{[Op.in]:['RUNNING','REPORTING']}},order:[['id','DESC']],transaction});
+      if (Number.isInteger(taskId) && !activeTask) throw Object.assign(new Error('task_id khong thuoc device hoac da ket thuc'),{statusCode:409});
+      const current_task = activeTask?.task_type || text(req.body.current_task || req.body.task, 100);
+      const current_uid = activeTask?.uid || activeTask?.username || text(req.body.current_uid || req.body.uid || req.body.username);
+      const requestedStatus = String(req.body.status || '').trim().toUpperCase();
+      const reported_status = activeTask ? 'RUNNING'
+        : ['IDLE','ONLINE'].includes(requestedStatus) ? requestedStatus
+        : current_task || current_uid || requestedStatus === 'RUNNING' ? 'RUNNING' : 'IDLE';
+      const now = new Date();
+      const existing = row;
+      const started_at = activeTask?.locked_at || (reported_status === 'RUNNING'
+        ? existing?.reported_status === 'RUNNING' && existing.current_task === current_task && existing.current_uid === current_uid
+          ? existing.started_at || now
+          : now
+        : null);
+      const payload = {
+        owner_username,
+        device_id,
+        device_name: text(req.body.device_name || req.body.name) || existing?.device_name || device_id,
+        current_task,
+        current_uid,
+        reported_status,
+        started_at,
+        last_seen: now,
+        last_error: text(req.body.error || req.body.last_error, 1000),
+      };
+      await row.update(payload,{transaction});
+
+      await clearDeviceWarning(owner_username,device_id,transaction);
+      return row;
+    });
     return success(res, { device: row.toJSON() }, 'Da cap nhat heartbeat');
   } catch (err) {
     next(err);

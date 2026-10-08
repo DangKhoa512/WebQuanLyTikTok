@@ -4,6 +4,13 @@ const DeviceTaskRun=require('../models/DeviceTaskRun');
 const DashboardDevice=require('../models/DashboardDevice');
 const {getTaskDispatcherSettings}=require('./settingsService');
 const {RETRYABLE_ERRORS}=require('./deviceTaskTypes');
+const {clearDeviceWarning}=require('./deviceMonitoringService');
+const refreshDevice=async(device,run,transaction,error=null)=>{
+ if(!device)return;
+ const active=await DeviceTaskRun.findOne({where:{owner_username:run.owner_username,device_id:run.device_id,status:{[Op.in]:['RUNNING','REPORTING']}},order:[['id','DESC']],transaction});
+ await device.update({reported_status:active?'RUNNING':'IDLE',current_task:active?.task_type||null,current_uid:active?.uid||active?.username||null,started_at:active?.locked_at||null,last_seen:new Date(),last_error:error},{transaction});
+ await clearDeviceWarning(run.owner_username,run.device_id,transaction);
+};
 const fail=(message,statusCode)=>Object.assign(new Error(message),{statusCode});
 
 // Task bookkeeping only. Account data, domain locks and statistics belong to the legacy APIs.
@@ -24,6 +31,7 @@ const reportTask=async({owner,deviceId,taskId,status='SUCCESS',errorCode,message
   if(!run)throw fail('Khong tim thay task',404);
   if(['SUCCESS','FAILED','RELEASED'].includes(run.status)){
    if(run.status!==finalStatus)throw fail('Task da ket thuc voi trang thai '+run.status,409);
+   await refreshDevice(device,run,transaction);
    return {run,already_reported:true,legacy:null,retryable:false};
   }
   if(run.status!=='RUNNING')throw fail('Task dang duoc bao cao',409);
@@ -31,8 +39,7 @@ const reportTask=async({owner,deviceId,taskId,status='SUCCESS',errorCode,message
   const retryable=finalStatus==='FAILED'&&RETRYABLE_ERRORS.has(normalizedError)&&retries<=settings.max_retry;
   const completedAt=new Date();
   await run.update({status:finalStatus,completed_at:completedAt,retry_count:retries,error_code:finalStatus==='SUCCESS'?null:normalizedError,error_message:finalStatus==='SUCCESS'?null:(message||normalizedError)},{transaction});
-  const other=await DeviceTaskRun.findOne({where:{owner_username:owner,device_id:run.device_id,id:{[Op.ne]:run.id},status:{[Op.in]:['RUNNING','REPORTING']}},transaction});
-  if(device&&!other)await device.update({reported_status:'IDLE',current_task:null,current_uid:null,started_at:null,last_seen:completedAt,last_error:finalStatus==='SUCCESS'?null:(message||normalizedError)},{transaction});
+  await refreshDevice(device,run,transaction,finalStatus==='SUCCESS'?null:(message||normalizedError));
   return {run,already_reported:false,legacy:null,retryable};
  });
 };

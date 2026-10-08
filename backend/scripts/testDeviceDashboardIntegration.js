@@ -14,6 +14,9 @@ let db,server,browser,created=false;
  const {ensureDevice}=require('../src/services/deviceRegistrationService');
  const {classifyDevice,paginateDevices}=require('../src/services/deviceStatusService');
  const {offlineTimeoutSeconds}=require('../src/config/devices');const now=Date.now();
+ for(const minutes of [10,25,30]){assert.equal(classifyDevice({last_seen:new Date(now-minutes*60000),reported_status:'IDLE'},now),'IDLE');assert.equal(classifyDevice({last_seen:new Date(now-minutes*60000),active_task:true},now),'RUNNING');}
+ assert.equal(classifyDevice({last_seen:new Date(now-31*60000),active_task:true},now),'OFFLINE');
+ assert.equal(classifyDevice({last_seen:new Date(now-1800001)},now),'OFFLINE');
  assert.equal(classifyDevice({last_seen:new Date(now),reported_status:'RUNNING'},now),'RUNNING');
  assert.equal(classifyDevice({last_seen:new Date(now),reported_status:'IDLE',current_uid:'previous-account'},now),'IDLE');
  assert.equal(classifyDevice({last_seen:new Date(now-(offlineTimeoutSeconds+1)*1000),reported_status:'RUNNING'},now),'OFFLINE');
@@ -92,6 +95,16 @@ let db,server,browser,created=false;
   await browser.findElement(By.css('.dashboard-search button')).click();await wait('return document.querySelectorAll(".dashboard-device-row").length===50');
   await browser.findElement(By.css('.dashboard-status-filters button:nth-child(2)')).click();
   await wait('return document.querySelectorAll(".dashboard-device-row").length>0&&[...document.querySelectorAll(".dashboard-device-row .dashboard-status")].every(el=>el.textContent==="RUNNING")');
+  // Monitoring UI: an outage appears immediately; heartbeat clears the filtered row on polling.
+  await Device.update({last_seen:new Date(Date.now()-31*60000)},{where:{owner_username:a.username,device_id:'B'}});
+  await require('../src/services/deviceMonitoringService').monitorDevices(a.username);
+  await browser.findElement(By.css('.dashboard-status-filters button:nth-child(5)')).click();
+  await wait('return document.querySelectorAll(".dashboard-device-row").length===1&&document.querySelector(".dashboard-device-row").textContent.includes("Cần xử lý")');
+  assert((await browser.findElement(By.css('.dashboard-alerts')).getText()).includes('Thiết bị mất phản hồi trên 30 phút'));
+  assert((await browser.findElement(By.css('.dashboard-device-row td:nth-child(11)')).getText()).includes('31 phút'));
+  await heartbeat('B');await wait('return document.querySelectorAll(".dashboard-device-row").length===0');
+  await browser.findElement(By.css('.dashboard-status-filters button:nth-child(2)')).click();
+  await wait('return document.querySelectorAll(".dashboard-device-row").length>0');
   // Realtime uses the existing 15-second polling loop; no navigation reload.
   const documentId=await browser.executeScript('window.qaDocumentId="same-page";return document.querySelector(".dashboard-status-filters button:nth-child(2) span").textContent');
   await heartbeat('B',{status:'RUNNING',current_task:'PAGE_JOB'});
@@ -103,7 +116,7 @@ let db,server,browser,created=false;
   assert(await browser.executeScript('return document.querySelector(".mobile-brand img").naturalWidth>0'));
   const artifacts=path.resolve(__dirname,'../../artifacts');fs.mkdirSync(artifacts,{recursive:true});await browser.executeScript('window.scrollTo(0,0)');fs.writeFileSync(path.join(artifacts,'device-dashboard-mobile.png'),await browser.takeScreenshot(),'base64');
   const errors=await browser.manage().logs().get(logging.Type.BROWSER);assert.equal(errors.length,0,'Unexpected browser error');
-  console.log('DEVICE_UI_OK: real backend pagination/search/filter/polling, login/sidebar/mobile branding, supplied DK logo/favicon, no export link, no page overflow');
+  console.log('DEVICE_UI_OK: unresponsive warning/attention filter/recovery polling; real backend pagination/search/filter/polling, login/sidebar/mobile branding, supplied DK logo/favicon, no export link, no page overflow');
  }
  console.log('DEVICE_DASHBOARD_OK: status/timeout/transitions, real HTTP stats/filter/search/pages, 1000/1001/race, legacy inventory, owner isolation/admin own scope');
 })().catch(err=>{console.error(err.stack);process.exitCode=1;}).finally(async()=>{

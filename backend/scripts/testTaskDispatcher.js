@@ -124,11 +124,13 @@ const main = async () => {
   await DeviceTaskRun.update({ locked_at: staleAt }, { where: { id: timeoutTask.task.id } });
   await DashboardDevice.update({ last_seen: staleAt }, { where: { owner_username: owner, device_id: device } });
   const released = await releaseExpiredTasks(owner);
-  assert(released === 1, 'task timeout cua device offline phai duoc release');
+  assert(released === 0, 'mat heartbeat khong duoc tu release task');
   const staleRun = await DeviceTaskRun.findByPk(timeoutTask.task.id);
   await second.reload();
-  assert(staleRun.status === 'RELEASED', 'task timeout phai thanh RELEASED');
-  assert(second.status === 'LOGIN_THANH_CONG' && second.locked_by === null, 'timeout phai mo lock account');
+  assert(staleRun.status === 'RUNNING', 'task mat phan hoi van giu RUNNING de doi soat');
+  assert(second.status === 'DANG_LAM' && second.locked_by === device, 'mat phan hoi khong duoc mo lock account');
+  const resumed = await getNextTask({ owner, deviceId: device, requestedCapabilities: ['INSTAGRAM_JOB'], req: request });
+  assert(resumed.task.id === timeoutTask.task.id && resumed.task.resumed, 'may tro lai phai resume task cu');
 
   console.log(JSON.stringify({
     ok: true,

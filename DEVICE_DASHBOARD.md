@@ -23,7 +23,7 @@ Khi đủ 1000, device mới bị 409 DEVICE_LIMIT_REACHED. Đăng ký mới ser
 GET /api/dashboard/summary JWT giữ accounts/tasks/activity/devices.summary/devices.rows; thêm query và metadata:
 
 ```text
-device_status=ALL|RUNNING|IDLE|OFFLINE
+device_status=ALL|RUNNING|IDLE|OFFLINE|DEVICE_UNRESPONSIVE
 device_task=ALL|<task>
 device_search=<text>
 page=1
@@ -76,3 +76,31 @@ Frontend: index.html; src/App.jsx; components/Layout.jsx; pages/Dashboard.jsx, L
 ## Dashboard per-user — thay đổi contract 2026-10-07
 
 Yêu cầu mới thay thế mô tả admin toàn hệ thống phía trên: cả admin và user Dashboard đều chỉ có data/Device/task stats/settings/activity của mình. Nhánh service aggregate users đã xóa. Capacity 1000/user và pagination giữ nguyên. JWT resolve identity active trong DB; query spoof owner bỏ qua. Scheduler global không trả trên Dashboard (scheduler=null), capabilities get/put cần owned device. Xem DASHBOARD_ISOLATION.md cho audit/schema/API/IDOR/test.
+
+## Offline timeout — cập nhật 2026-10-08
+
+Ngưỡng Offline hiện tại thay 300s ở phần cũ bằng 1800s (30 phút). Source duy nhất của logic phân loại vẫn backend/src/config/devices.js qua DEVICE_OFFLINE_TIMEOUT_SECONDS. Default và backend/.env.example =1800; backend/.env local đã cập nhật riêng key, runtime Node nạp dotenv đã xác minh 1800, không in secret khác. Compose backend.environment thêm ${DEVICE_OFFLINE_TIMEOUT_SECONDS:-1800}, có ưu tiên hơn env_file backend/.env để bản triển khai cũ không vô tình giữ override 300 ở env_file. Biến cùng tên trong môi trường chạy Compose/.env gốc vẫn có thể override chủ động.
+
+Điều kiện `now-last_seen > timeout*1000` giữ nguyên: đúng 30 phút còn online (Running nếu active/reported Running, còn lại Idle); 30 phút +1ms/31 phút Offline dù active task. Không mutation task, không tự báo FAILED. Timeout request/execution/lock/cooldown/reservation/Round-Robin không sửa; task expiration độc lập giữ nguyên. Nguồn last_seen heartbeat/get-task/task-report không đổi.
+
+Frontend không tính timeout riêng: summary/counter/alert/filter/table từ cùng classified snapshot backend và offline_timeout_seconds metadata, scope user authenticate kể cả admin. Polling 15s giữ nguyên, không thêm timer AutoTouch/task ngoài repo.
+
+Kiểm thử: node backend/scripts/testDeviceOfflineTimeout.js xác minh default/env override, 10/25/30 phút online, >30 phút offline, active task stale, không mutation và heartbeat recovery; testDeviceDashboardIntegration.js --ui bổ sung boundary và kiểm thử HTTP/MySQL/Chrome existing heartbeat/polling/filter/capacity; testDashboardIsolation.js hồi quy own/admin/spoof/IDOR. DB tạm riêng tự cleanup, không seed/DB thật writes.
+
+Production: đã cập nhật cấu hình Compose trong repo, chưa deploy/SSH VPS. Máy phát triển không có Docker CLI nên không chạy compose config/container locally; runtime Node local=1800 đã kiểm tra. Sau deploy source cần recreate backend bằng docker compose up -d --build; kiểm tra duy nhất key bằng docker compose exec backend node -e "console.log(require('./src/config/devices').offlineTimeoutSeconds)" (mong đợi1800). Không cần migration. Chưa commit/push lượt này.
+
+
+
+## Giám sát AutoTouch 24/7 — 2026-10-08
+
+Timeout tập trung DEVICE_OFFLINE_TIMEOUT_SECONDS=1800. Cron monitorDevices chạy ngay startup và mỗi 5 phút, độc lập với task completion, có guard chống chạy chồng trong process. Quá 30 phút không có tín hiệu hợp lệ: OFFLINE + DEVICE_UNRESPONSIVE. Đúng 30 phút còn online.
+
+Model DeviceHealth (device_health, unique owner_username/device_id) lưu status OFFLINE, alert_code DEVICE_UNRESPONSIVE, last_seen snapshot, unresponsive_since (=last_seen+timeout), detected_at (lần đầu cron phát hiện). Server sync force:false/alter:false tạo bảng mới khi boot, không cần seed hoặc migration thủ công. Monitor khóa device/recheck last_seen; giữ first detected_at; không cập nhật last_seen hoặc task/account/khóa. Bỏ qua snapshot cảnh báo đã lưu để tránh transaction lặp.
+
+Heartbeat/next-task/report SUCCESS hoặc FAILED hợp lệ cập nhật đúng owner/device và gỡ cảnh báo trong transaction. Report idempotent và next-task không có việc hoặc task bị OFF vẫn ghi liveness. Tín hiệu sai/report xung đột không cập nhật. Heartbeat/report khóa device cùng thứ tự chống race. Next-task resume đúng task ID cũ trước cấp mới; task OFF giữ task/khóa và trả no-task. releaseExpiredTasks chỉ monitor/trả 0, không RELEASED/TASK_TIMEOUT hoặc giải phóng account do mất heartbeat. activeTaskProtection loại trừ resource có task RUNNING/REPORTING cùng owner khỏi stale cleanup FB Job/IG Job/Reg IG; timeout cũ giữ cho resource không tracked. Global Round-Robin/cooldown/reservation/request timeout không đổi; dữ liệu nghiệp vụ vẫn báo qua API cũ.
+
+Dashboard derive cảnh báo từ last_seen cùng timeout, hiện ngay quá hạn; cron lưu bền mỗi 5 phút. Filter device_status=DEVICE_UNRESPONSIVE (Cần xử lý), unresponsive_total tính toàn dataset của user trước pagination. Hiển thị tên máy, task/account hiện tại hoặc gần nhất, Last Seen, thời gian không tín hiệu. Row có alert_code/unresponsive_since/unresponsive_seconds (quá ngưỡng)/inactive_seconds (không tín hiệu); cột Mất phản hồi dùng inactive_seconds. last_task/last_uid từ run mới nhất cùng owner. Inventory không last_seen vẫn Offline nhưng không suy ra mất phản hồi trên 30 phút.
+
+Repo không có vòng chạy AutoTouch chính để cài heartbeat nền. Client có thể gửi POST /api/device/heartbeat với device_id, task_id tùy chọn qua timer độc lập, không gọi lại vòng task từ timer.
+
+Kiểm thử đạt trên DB tạm riêng, không seed/ghi DB đang dùng: testDeviceMonitoring.js (API/MySQL/callback cron, biên 10/25/30/31, warning timestamp, owner/device trùng ID, invalid signals, hold/resume 5 concurrent, task OFF, recovery/race, FAILED/idempotent, stale-lock SQL); testDeviceDashboardIntegration.js --ui (Chrome cảnh báo/filter/duration/recovery polling, capacity/search/pagination/mobile); DeviceOfflineTimeout; TaskReportOnly; TaskRegistryIntegration (kỳ vọng hold/resume); RoundRobinIntegration (50 concurrent và Page); DashboardIsolation; frontend build. Chưa deploy VPS; cấu hình local/default/Compose 1800, cần xác minh container sau deploy. Chuẩn bị commit/push main theo yêu cầu user; sửa lỗi mã hóa tiếng Việt trước commit.

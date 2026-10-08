@@ -2,23 +2,27 @@ const cron           = require('node-cron');
 const accountService = require('../services/accountService');
 const { runFacebookWorkflowResets } = require('../services/facebookWorkflowService');
 const schedulerState = require('../services/schedulerState');
-const { releaseExpiredTasks } = require('../services/taskDispatcherService');
+const { monitorDevices } = require('../services/deviceMonitoringService');
 const logger         = require('../config/logger');
 
 let cronJob = null;
+let running = false;
 
 const runScheduledTransitions = async () => {
+  if(running)return;
+  running=true;
   const startedAt = new Date();
   schedulerState.markStarted();
   try {
+    const unresponsive = await monitorDevices();
     await accountService.runStatusTransitions();
     const result = await runFacebookWorkflowResets();
-    result.dispatcher_released = await releaseExpiredTasks();
+    result.device_unresponsive = unresponsive;
     schedulerState.markCompleted({ startedAt, result });
   } catch (error) {
     schedulerState.markFailed({ startedAt, error });
     logger.error('CRON: scheduled transitions failed', { error: error.message });
-  }
+  } finally { running=false; }
 };
 
 /**
@@ -46,4 +50,4 @@ const stopCronJobs = () => {
   }
 };
 
-module.exports = { startCronJobs, stopCronJobs };
+module.exports = { startCronJobs, stopCronJobs, runScheduledTransitions };

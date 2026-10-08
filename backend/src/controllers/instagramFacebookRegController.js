@@ -91,7 +91,7 @@ const expireStaleClaims = async (owner_username, transaction) => {
     completed_at: new Date(),
     locked_at: null,
   }, {
-    where: { owner_username, status: 'DANG_REG', locked_at: { [Op.lt]: expiredAt } },
+    where: { [Op.and]: require('../services/activeTaskProtection').withoutActiveTask('instagram_facebook_reg_claims','FACEBOOK',true), owner_username, status: 'DANG_REG', locked_at: { [Op.lt]: expiredAt } },
     transaction,
   });
 };

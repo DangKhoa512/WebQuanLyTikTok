@@ -2,6 +2,7 @@ const { QueryTypes, Op } = require('sequelize');
 const sequelize = require('../config/database');
 const DashboardDevice = require('../models/DashboardDevice');
 const DeviceTaskRun=require('../models/DeviceTaskRun');
+const {warningForDevice}=require('./deviceMonitoringService');
 const {classifyDevice,paginateDevices}=require('./deviceStatusService');
 const FacebookNurtureLog = require('../models/FacebookNurtureLog');
 const InstagramNurtureLog = require('../models/InstagramNurtureLog');
@@ -117,6 +118,10 @@ const getDevices = async (owner) => {
         FROM instagram_accounts WHERE owner_username=:owner AND kind='job' AND trashed_at IS NULL AND device_id IS NOT NULL AND device_id<>'' GROUP BY device_id
       ) source GROUP BY device_id`, { replacements: { owner }, type: QueryTypes.SELECT }),
   ]);
+  const latest=await sequelize.query(`SELECT r.device_id,r.task_type,r.uid,r.username,r.locked_at,r.status FROM device_task_runs r
+    JOIN (SELECT device_id,MAX(id) id FROM device_task_runs WHERE owner_username=:owner GROUP BY device_id) latest ON latest.id=r.id
+    WHERE r.owner_username=:owner`,{replacements:{owner},type:QueryTypes.SELECT});
+  const latestMap=new Map(latest.map(run=>[run.device_id,run]));
   const active=await DeviceTaskRun.findAll({where:{owner_username:owner,status:{[Op.in]:['RUNNING','REPORTING']}},attributes:['device_id','task_type','uid','username','locked_at'],raw:true});
   const activeMap=new Map(active.map(run=>[run.device_id,run]));
   const map = new Map(aggregates.map((row) => [row.device_id, {
@@ -131,10 +136,12 @@ const getDevices = async (owner) => {
   });
   const now = Date.now();
   const devices = [...map.values()].map((device) => {
+    const last=latestMap.get(device.device_id);
+    Object.assign(device,{last_task:last?.task_type||device.current_task||null,last_uid:last?.uid||last?.username||device.current_uid||null});
     const run=activeMap.get(device.device_id);
     if(run)Object.assign(device,{active_task:true,current_task:run.task_type,current_uid:run.uid||run.username,started_at:run.locked_at});
     const status=classifyDevice(device,now);
-    return { ...device, status, idle_with_work: status === 'IDLE' && device.ready_count > 0 };
+    return { ...device, ...warningForDevice(device,now), status, idle_with_work: status === 'IDLE' && device.ready_count > 0 };
   }).sort((a, b) => new Date(b.last_seen || 0) - new Date(a.last_seen || 0));
   const enrichedDevices=devices;
   const summary = enrichedDevices.reduce((out, device) => ({ ...out, total: out.total + 1, [device.status.toLowerCase()]: out[device.status.toLowerCase()] + 1 }), { total: 0, running: 0, idle: 0, offline: 0 });

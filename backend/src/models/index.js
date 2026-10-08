@@ -36,8 +36,9 @@ const FacebookFriendSuggestion = require('./FacebookFriendSuggestion');
 const InstagramNurtureAssignment = require('./InstagramNurtureAssignment');
 const InstagramNurtureLog = require('./InstagramNurtureLog');
 const PlatformMachineDailyStat = require('./PlatformMachineDailyStat');
+const DeviceHealth = require('./DeviceHealth');
 const DashboardDevice = require('./DashboardDevice');
 const DeviceTaskRun = require('./DeviceTaskRun');
 const DeviceTaskCapability = require('./DeviceTaskCapability');
 
-module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, InstagramAccount, InstagramFacebookRegClaim, InstagramFacebookRegResult, FacebookInstagramLink, InstagramJobDailyStat, InstagramJobAccountDailyStat, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat, FacebookRegPageReport, FacebookRegPageSuccessEvent, FacebookNurtureAssignment, FacebookNurtureLog, FacebookFriendSuggestion, InstagramNurtureAssignment, InstagramNurtureLog, PlatformMachineDailyStat, DashboardDevice, DeviceTaskRun, DeviceTaskCapability, EmailOtpOrder, EmailOtpDeviceUse };
+module.exports = { Account, ChromeAccount, User, UsedAccount, AccountGroup, JobAccount, JobDailyStat, FacebookAccount, InstagramAccount, InstagramFacebookRegClaim, InstagramFacebookRegResult, FacebookInstagramLink, InstagramJobDailyStat, InstagramJobAccountDailyStat, HotmailAccount, AppSetting, MachineApiConfig, ChromeKhangDailyLog, AppKhangDailyLog, JobAccountDailyLog, FacebookPageJob, FacebookJobDailyStat, FacebookRegPageReport, FacebookRegPageSuccessEvent, FacebookNurtureAssignment, FacebookNurtureLog, FacebookFriendSuggestion, InstagramNurtureAssignment, InstagramNurtureLog, PlatformMachineDailyStat, DeviceHealth, DashboardDevice, DeviceTaskRun, DeviceTaskCapability, EmailOtpOrder, EmailOtpDeviceUse };

@@ -817,6 +817,7 @@ const reportRegOnly = async (req, res, next) => {
 };
 const releaseStaleFacebookLocks = async ({ owner_username, groupId, status, releaseStatus, failReason = null }) => {
   const staleWhere = {
+    [Op.and]: require('../services/activeTaskProtection').withoutActiveTask('facebook_accounts','FACEBOOK'),
     owner_username,
     kind: 'job',
     status,

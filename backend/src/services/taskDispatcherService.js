@@ -9,6 +9,7 @@ const FacebookPageJob = require('../models/FacebookPageJob');
 const InstagramFacebookRegClaim = require('../models/InstagramFacebookRegClaim');
 const { getTaskDispatcherSettings, getInstagramNurtureSettings, getFacebookNurtureSettings } = require('./settingsService');
 const logger=require('../config/logger');
+const {monitorDevices,clearDeviceWarning}=require('./deviceMonitoringService');
 const {ensureDevice}=require('./deviceRegistrationService');
 const roundRobin=require('./roundRobinService').createRoundRobinService(sequelize);
 const { acquireLegacyTask, supportsTask, releaseUnassignedReservation } = require('./legacyTaskAdapter');
@@ -97,6 +98,7 @@ const markDevice = async ({ owner, deviceId, task = null, transaction }) => {
     last_seen: now,
     ...(task ? { last_error: null } : {}),
   }, { transaction });
+  await clearDeviceWarning(owner,deviceId,transaction);
   return device;
 };
 
@@ -138,53 +140,15 @@ const releaseDomainLock = async (run, transaction = null) => {
   }
 };
 
+// Compatibility export: missing heartbeat is an alert, never proof of task failure.
 const releaseExpiredTasks = async (owner = null) => {
-  const owners = owner
-    ? [owner]
-    : await DeviceTaskRun.findAll({ attributes: ['owner_username'], where: { status: 'RUNNING' }, group: ['owner_username'], raw: true })
-      .then((rows) => rows.map((row) => row.owner_username));
-  let released = 0;
-  for (const ownerUsername of owners) {
-    const settings = await getTaskDispatcherSettings(ownerUsername);
-    const cutoff = new Date(Date.now() - settings.lock_timeout_minutes * 60 * 1000);
-    const stale = await DeviceTaskRun.findAll({
-      where: { owner_username: ownerUsername, status: 'RUNNING', locked_at: { [Op.lt]: cutoff } },
-      order: [['locked_at', 'ASC']],
-      limit: 500,
-    });
-    for (const run of stale) {
-      const device = await DashboardDevice.findOne({
-        where: { owner_username: ownerUsername, device_id: run.device_id },
-        raw: true,
-      });
-      if (device?.last_seen && new Date(device.last_seen) >= cutoff) continue;
-      await sequelize.transaction(async (transaction) => {
-        await DashboardDevice.findOne({where:{owner_username:ownerUsername,device_id:run.device_id},transaction,lock:transaction.LOCK.UPDATE});
-        const lockedRun = await DeviceTaskRun.findOne({
-          where: { id: run.id, status: 'RUNNING' },
-          transaction,
-          lock: transaction.LOCK.UPDATE,
-        });
-        if (!lockedRun) return;
-        await releaseDomainLock(lockedRun, transaction);
-        await lockedRun.update({
-          status: 'RELEASED',
-          completed_at: new Date(),
-          error_code: 'TASK_TIMEOUT',
-          error_message: 'Device mat heartbeat qua thoi gian lock',
-        }, { transaction });
-        await markDevice({ owner: ownerUsername, deviceId: run.device_id, transaction });
-        released += 1;
-      });
-    }
-  }
-  return released;
+  await monitorDevices(owner);
+  return 0;
 };
 
 const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
   const dispatchStarted=Date.now();
   await roundRobin.requireReady();
-  await releaseExpiredTasks(owner);
   const [settings, capabilities] = await Promise.all([
     getTaskDispatcherSettings(owner),
     getCapabilities({ owner, deviceId, requested: requestedCapabilities }),
@@ -209,7 +173,10 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
-    if(active && !settings.tasks[active.task_type]?.enabled) return {task:null,resumed:false};
+    if(active && !settings.tasks[active.task_type]?.enabled) {
+      await markDevice({owner,deviceId,task:active,transaction});
+      return {task:null,resumed:false};
+    }
     if (active) {
       // Resume the same locked task, but use the owner's latest Instagram scenario.
       if (active.task_type === 'NUOI_INSTAGRAM' && active.payload?.scenario?.id) {

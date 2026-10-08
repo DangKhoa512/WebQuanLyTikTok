@@ -48,6 +48,7 @@ services:
     env_file: ./backend/.env
     environment:
       DB_HOST: mysql       # override to use docker service name
+      DEVICE_OFFLINE_TIMEOUT_SECONDS: ${DEVICE_OFFLINE_TIMEOUT_SECONDS:-1800}
     volumes:
       - ./backend/logs:/app/logs
     healthcheck:
