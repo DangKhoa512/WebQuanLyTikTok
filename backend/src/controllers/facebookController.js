@@ -1183,6 +1183,7 @@ const getNurtureAccount = async (req, res, next) => {
           status: { [Op.in]: NURTURE_ELIGIBLE_ACCOUNT_STATUSES },
           nurture_status: 'DANG_NUOI',
           nurture_locked_by: device_id,
+          [Op.or]: [{ live_status: { [Op.ne]: 'die' } }, { live_status: null }],
         },
         order: [['nurture_locked_at', 'DESC'], ['id', 'ASC']],
         transaction,

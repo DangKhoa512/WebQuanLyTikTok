@@ -407,3 +407,19 @@ Kiểm thử đạt trên DB tạm riêng, không seed/ghi DB đang dùng: testD
 instagramController.getNurtureAccount bổ sung loại trừ CHO_LOGIN cho nhánh resume DANG_NUOI theo máy; không tự reset khóa account Chờ Login. Giữ timeout/cooldown/Round-Robin/API report hiện hữu. Không schema/migration/frontend changes hoặc seed/DB thật writes.
 
 Kiểm thử DB tạm đạt: testTaskResumeLoginState.js (6 task types, CHO_LOGIN block, 3 concurrent mỗi loại, cursor/task/payload/account lock giữ nguyên, Login thành công resume cùng ID, legacy IG resume 404); testDeviceMonitoring.js; testTaskRegistryIntegration.js; testRoundRobinIntegration.js (4/50 concurrent và Page). Syntax và git diff --check đạt. Chưa commit/push/deploy lượt này.
+
+
+## 2026-10-09 — Chặn resume account Die
+
+Base a8968ef đã push. Bổ sung taskDispatcherService resume kiểm tra trạng thái hiện tại dưới khóa theo account id + owner: CHO_LOGIN, ACCOUNT_DIE hoặc live_status=die trả no-task; không cấp mới/tiến cursor/tự kết thúc task/giải phóng khóa. Chỉ đọc id/status/live_status, không dựa vào snapshot account trong payload cũ. Không dùng page_token_status=die thay cho account Die vì token Page lỗi là trạng thái riêng.
+
+Resume API nuôi cũ: Facebook getNurtureAccount lọc live_status khác die (vẫn cho null); Instagram lọc thêm ACCOUNT_DIE/live_status die ngoài CHO_LOGIN. Giữ bộ lọc cấp mới, cooldown, owner, khóa chống trùng. Các task/job cũ ngoài nhánh nuôi chưa mở rộng audit trong lượt này. Không schema/frontend/migration, không seed hoặc ghi DB đang dùng.
+
+Kiểm thử DB tạm đạt: testTaskResumeLoginState.js mở rộng cả 6 loại task, status ACCOUNT_DIE riêng/live_status die khi status LOGIN_THANH_CONG, snapshot cũ hợp lệ vẫn bị chặn, lock/task/payload/cursor giữ nguyên, phục hồi account resume cùng ID, legacy FB/IG Die không trả account. testDeviceMonitoring.js và testRoundRobinIntegration.js (50 concurrent, Page16) đạt; syntax/diff check đạt. Chưa commit/push/deploy lượt mới này.
+
+
+## 2026-10-09 — Bỏ task có source account không còn dữ liệu
+
+User cho phép kết thúc task cũ khi account đã bị xóa/thùng rác để máy nhận task khác. Dispatcher kiểm tra source theo id + owner_username + kind=job + trashed_at=null dưới khóa, trước branch task OFF và resume. Source không tồn tại trong Job inventory của owner (kể cả thiếu id không resolve được): ghi task FAILED, completed_at, error_code SOURCE_ACCOUNT_UNAVAILABLE, giữ history/payload/retry_count; sau đó tiếp tục vòng cấp task hiện hữu trong cùng transaction/request. Không gọi releaseDomainLock, không sửa tài nguyên của owner khác, không tự reset account/cooldown. Cursor chỉ tiến khi cấp task mới thành công. Nếu không có việc phù hợp: trả success/code0/has_taskfalse thay vì lỗi source. Nếu account vẫn tồn tại nhưng CHO_LOGIN/ACCOUNT_DIE/live_status die: giữ nhánh block/resume đối soát như lượt trước.
+
+Thay đổi chính ở backend/src/services/taskDispatcherService.js và testTaskResumeLoginState.js, tích hợp trên các sửa chặn Die chưa commit trước đó. Không schema/migration/frontend/seed/DB thật writes. Kiểm thử DB tạm đạt: 6 task x hard-delete/thùng rác, 3 request đồng thời mỗi case chỉ một task mới, account Die/ChờLogin vẫn block, no-next trảcode0/task cũFAILED; DeviceMonitoring; RoundRobin 50concurrent/Page16; TaskRegistryIntegration. Syntax/diffcheck đạt. Chưa commit/push/deploy toàn bộ lượt Die + missing source.

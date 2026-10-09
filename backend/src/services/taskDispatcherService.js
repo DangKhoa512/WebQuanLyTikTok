@@ -167,16 +167,12 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
     const registryTasks=await taskSettingsService.list(owner,false,transaction);
     const orderedTasks=await roundRobin.initialize(state.user_id,registryTasks,transaction);
     settings.tasks=Object.fromEntries(registryTasks.map(task=>[task.task_key,{enabled:task.enabled && task.user_enabled,priority:task.priority}]));
-    const active = await DeviceTaskRun.findOne({
+    let active = await DeviceTaskRun.findOne({
       where: { owner_username: owner, device_id: deviceId, status: { [Op.in]: ['RUNNING', 'REPORTING'] } },
       order: [['id', 'DESC']],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
-    if(active && !settings.tasks[active.task_type]?.enabled) {
-      await markDevice({owner,deviceId,task:active,transaction});
-      return {task:null,resumed:false};
-    }
     if (active) {
       const facebookTypes=['NUOI_FACEBOOK','REG_PAGE','PAGE_JOB','REG_INSTAGRAM'];
       const model=facebookTypes.includes(active.task_type)?FacebookAccount:InstagramAccount;
@@ -186,15 +182,21 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
         const claim=await InstagramFacebookRegClaim.findOne({where:{id:active.entity_id,owner_username:owner},attributes:['facebook_account_id'],transaction});
         accountId=claim?.facebook_account_id;
       }
-      if(accountId){
-        // Read current state under lock; the saved payload may predate a login reset.
-        const account=await model.unscoped().findOne({where:{id:accountId,owner_username:owner},attributes:['id','status'],transaction,lock:transaction.LOCK.UPDATE});
-        if(!account||account.status==='CHO_LOGIN'){
-          await markDevice({owner,deviceId,task:active,transaction});
-          return {task:null,resumed:false};
-        }
+      // Check the owner's current source, including soft deletion, before resuming saved data.
+      const account=accountId?await model.unscoped().findOne({where:{id:accountId,owner_username:owner,kind:'job',trashed_at:null},attributes:['id','status','live_status'],transaction,lock:transaction.LOCK.UPDATE}):null;
+      if(!account){
+        await active.update({status:'FAILED',completed_at:new Date(),error_code:'SOURCE_ACCOUNT_UNAVAILABLE',error_message:'Source account no longer exists in the owner Job inventory.'},{transaction});
+        active=null;
+      }else if(['CHO_LOGIN','ACCOUNT_DIE'].includes(account.status)||account.live_status==='die'){
+        await markDevice({owner,deviceId,task:active,transaction});
+        return {task:null,resumed:false};
       }
-
+    }
+    if(active && !settings.tasks[active.task_type]?.enabled) {
+      await markDevice({owner,deviceId,task:active,transaction});
+      return {task:null,resumed:false};
+    }
+    if (active) {
       // Resume the same locked task, but use the owner's latest Instagram scenario.
       if (active.task_type === 'NUOI_INSTAGRAM' && active.payload?.scenario?.id) {
         const nurtureSettings = await getInstagramNurtureSettings(owner);
