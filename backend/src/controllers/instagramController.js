@@ -409,7 +409,7 @@ const getNurtureAccount = async (req,res,next) => {
     await InstagramNurtureAssignment.findOrCreate({ where:{owner_username,device_id}, defaults:{owner_username,device_id,scenario_id:scenarios[0].id} });
     const claimed = await sequelize.transaction(async(transaction) => {
       await InstagramNurtureAssignment.findOne({where:{owner_username,device_id},transaction,lock:transaction.LOCK.UPDATE});
-      let account = await InstagramAccount.findOne({where:{owner_username,kind:'job',device_id,nurture_status:'DANG_NUOI',nurture_locked_by:device_id},order:[['nurture_locked_at','DESC'],['id','ASC']],transaction,lock:transaction.LOCK.UPDATE});
+      let account = await InstagramAccount.findOne({where:{owner_username,kind:'job',device_id,status:{[Op.ne]:'CHO_LOGIN'},nurture_status:'DANG_NUOI',nurture_locked_by:device_id},order:[['nurture_locked_at','DESC'],['id','ASC']],transaction,lock:transaction.LOCK.UPDATE});
       if (account) {
         let scenario = scenarios.find((item)=>item.id===account.nurture_scenario_id)||null;
         if (!scenario) { scenario=await pickInstagramNurtureScenario({owner_username,device_id,scenarios,transaction}); await account.update({nurture_scenario_id:scenario.id},{transaction}); }

@@ -178,6 +178,23 @@ const getNextTask = async ({ owner, deviceId, requestedCapabilities, req }) => {
       return {task:null,resumed:false};
     }
     if (active) {
+      const facebookTypes=['NUOI_FACEBOOK','REG_PAGE','PAGE_JOB','REG_INSTAGRAM'];
+      const model=facebookTypes.includes(active.task_type)?FacebookAccount:InstagramAccount;
+      let accountId=active.account_id;
+      if(!accountId&&['FACEBOOK_ACCOUNT','INSTAGRAM_ACCOUNT'].includes(active.entity_type))accountId=active.entity_id;
+      if(!accountId&&active.task_type==='REG_INSTAGRAM'){
+        const claim=await InstagramFacebookRegClaim.findOne({where:{id:active.entity_id,owner_username:owner},attributes:['facebook_account_id'],transaction});
+        accountId=claim?.facebook_account_id;
+      }
+      if(accountId){
+        // Read current state under lock; the saved payload may predate a login reset.
+        const account=await model.unscoped().findOne({where:{id:accountId,owner_username:owner},attributes:['id','status'],transaction,lock:transaction.LOCK.UPDATE});
+        if(!account||account.status==='CHO_LOGIN'){
+          await markDevice({owner,deviceId,task:active,transaction});
+          return {task:null,resumed:false};
+        }
+      }
+
       // Resume the same locked task, but use the owner's latest Instagram scenario.
       if (active.task_type === 'NUOI_INSTAGRAM' && active.payload?.scenario?.id) {
         const nurtureSettings = await getInstagramNurtureSettings(owner);

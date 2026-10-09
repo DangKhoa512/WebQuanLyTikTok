@@ -398,3 +398,12 @@ Dashboard derive cảnh báo từ last_seen cùng timeout, hiện ngay quá hạ
 Repo không có vòng chạy AutoTouch chính để cài heartbeat nền. Client có thể gửi POST /api/device/heartbeat với device_id, task_id tùy chọn qua timer độc lập, không gọi lại vòng task từ timer.
 
 Kiểm thử đạt trên DB tạm riêng, không seed/ghi DB đang dùng: testDeviceMonitoring.js (API/MySQL/callback cron, biên 10/25/30/31, warning timestamp, owner/device trùng ID, invalid signals, hold/resume 5 concurrent, task OFF, recovery/race, FAILED/idempotent, stale-lock SQL); testDeviceDashboardIntegration.js --ui (Chrome cảnh báo/filter/duration/recovery polling, capacity/search/pagination/mobile); DeviceOfflineTimeout; TaskReportOnly; TaskRegistryIntegration (kỳ vọng hold/resume); RoundRobinIntegration (50 concurrent và Page); DashboardIsolation; frontend build. Chưa deploy VPS; cấu hình local/default/Compose 1800, cần xác minh container sau deploy. Chuẩn bị commit/push main theo yêu cầu user; sửa lỗi mã hóa tiếng Việt trước commit.
+
+
+## 2026-10-09 — Chặn resume account Chờ Login
+
+Đã sửa taskDispatcherService.getNextTask: trước khi trả payload active run, đọc trạng thái account hiện tại theo id + owner_username dưới khóa transaction (FB cho NUOI_FACEBOOK/REG_PAGE/PAGE_JOB/REG_INSTAGRAM; IG cho NUOI_INSTAGRAM/INSTAGRAM_JOB). Dùng account_id, fallback entity_id account hoặc Facebook source từ Reg IG claim. Account CHO_LOGIN hoặc không còn tồn tại cùng owner: trả task:null/resumed:false (HTTP next-task code0/has_task:false), không cấp mới, không tiến cursor, không đổi task status/payload/domain lock; vẫn ghi last_seen/gỡ cảnh báo qua markDevice. Khi account trở lại Login thành công thì resume task ID cũ. Không thay bộ lọc cấp mới hoặc mở thêm trạng thái eligible khác.
+
+instagramController.getNurtureAccount bổ sung loại trừ CHO_LOGIN cho nhánh resume DANG_NUOI theo máy; không tự reset khóa account Chờ Login. Giữ timeout/cooldown/Round-Robin/API report hiện hữu. Không schema/migration/frontend changes hoặc seed/DB thật writes.
+
+Kiểm thử DB tạm đạt: testTaskResumeLoginState.js (6 task types, CHO_LOGIN block, 3 concurrent mỗi loại, cursor/task/payload/account lock giữ nguyên, Login thành công resume cùng ID, legacy IG resume 404); testDeviceMonitoring.js; testTaskRegistryIntegration.js; testRoundRobinIntegration.js (4/50 concurrent và Page). Syntax và git diff --check đạt. Chưa commit/push/deploy lượt này.
