@@ -346,7 +346,8 @@ const runStatusTransitions = async () => {
     );
     if (died > 0) logger.info(`CRON: ${died} accounts → ACC_DIE`);
   } catch (err) {
-    logger.error('CRON runStatusTransitions error', { error: err.message, stack: err.stack });
+    logger.error('CRON runStatusTransitions error', { name: err.name });
+    throw err;
   }
 };
 

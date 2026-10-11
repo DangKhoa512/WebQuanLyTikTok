@@ -1,0 +1,124 @@
+{
+  "fixture": "synthetic-owner-A-independent-reads",
+  "checks": [
+    {
+      "metric": "facebook.total",
+      "expected": 4,
+      "actual": 4,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "facebook.login_success",
+      "expected": 1,
+      "actual": 1,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "facebook.not_nurtured",
+      "expected": 2,
+      "actual": 2,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "facebook.errors",
+      "expected": 1,
+      "actual": 1,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "instagram.total",
+      "expected": 3,
+      "actual": 3,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "instagram.active",
+      "expected": 1,
+      "actual": 1,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "instagram.not_nurtured",
+      "expected": 3,
+      "actual": 3,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "instagram.errors",
+      "expected": 0,
+      "actual": 0,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "page.total",
+      "expected": 3,
+      "actual": 3,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "page.ready",
+      "expected": 1,
+      "actual": 1,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "page.running",
+      "expected": 1,
+      "actual": 1,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "page.done",
+      "expected": 1,
+      "actual": 1,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "device.total",
+      "expected": 4,
+      "actual": 4,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "device.running",
+      "expected": 1,
+      "actual": 1,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "device.idle",
+      "expected": 1,
+      "actual": 1,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "device.offline",
+      "expected": 2,
+      "actual": 2,
+      "difference": 0,
+      "status": "PASS"
+    },
+    {
+      "metric": "task_failed_history",
+      "expected": 2,
+      "actual": 2,
+      "difference": 0,
+      "status": "PASS"
+    }
+  ]
+}

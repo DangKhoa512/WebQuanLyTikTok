@@ -302,3 +302,5 @@ export const exportApi = {
 };
 
 export default api;
+
+export const systemHealthApi = { get: () => api.get('/system-health') };

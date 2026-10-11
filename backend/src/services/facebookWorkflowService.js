@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const {withoutActiveTask}=require('./activeTaskProtection');
 const logger = require('../config/logger');
 const FacebookAccount = require('../models/FacebookAccount');
 const FacebookPageJob = require('../models/FacebookPageJob');
@@ -17,6 +18,7 @@ const resetExpiredNurtureStates = async ({ owner_username, resetHours }) => {
     where: {
       owner_username,
       kind: 'job',
+      [Op.and]: withoutActiveTask('facebook_accounts','FACEBOOK',false,true),
       nurture_status: 'DA_NUOI',
       last_nurture_at: { [Op.lte]: resetBefore },
     },
@@ -31,6 +33,7 @@ const resetExpiredPageJobStates = async ({ owner_username, resetHours }) => sequ
     where: {
       owner_username,
       kind: 'job',
+      [Op.and]: withoutActiveTask('FacebookAccount','FACEBOOK',false,true),
       status: 'DA_CHAY_XONG',
       completed_at: { [Op.lte]: resetBefore },
     },

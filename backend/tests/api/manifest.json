@@ -1,0 +1,11 @@
+{
+  "scripts": [
+    "testTotp.js",
+    "testEmailTick.js",
+    "testEmailTickIntegration.js",
+    "testMail.js",
+    "testMailIntegration.js",
+    "testInstagramCheckLiveMock.js",
+    "../tests/api/parser.test.js"
+  ]
+}

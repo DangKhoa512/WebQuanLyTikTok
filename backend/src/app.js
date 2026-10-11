@@ -10,6 +10,7 @@ const { errorHandler, notFound } = require('./middleware/errorHandler');
 const logger                    = require('./config/logger');
 
 const app = express();
+app.use(require('./services/apiHealthMetrics').middleware);
 
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet());
@@ -36,7 +37,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ── HTTP request logging ──────────────────────────────────────────────────────
 // Use 'short' format in dev, 'combined' in prod
-const morganFmt = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+const morganFmt = ':method :status :response-time ms'; // Never log query strings or credentials.
 app.use(
   morgan(morganFmt, {
     stream: { write: (msg) => logger.info(msg.trim()) },

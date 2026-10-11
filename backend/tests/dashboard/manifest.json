@@ -1,0 +1,7 @@
+{
+  "scripts": [
+    "testDashboardIsolation.js",
+    "testDeviceDashboardIntegration.js",
+    "testDashboardFailureCounts.js"
+  ]
+}

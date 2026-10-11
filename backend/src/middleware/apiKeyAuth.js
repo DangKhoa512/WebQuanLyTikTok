@@ -15,9 +15,10 @@ const apiKeyAuth = async (req, res, next) => {
     return error(res, 'Thieu API key. Them header: x-api-key la tai khoan user', 401);
   }
 
-  const user = await User.findOne({ where: { username, is_active: true }, raw: true });
+  let user;
+  try { user = await User.findOne({ where: { username, is_active: true }, raw: true }); } catch (err) { return next(err); }
   if (!user) {
-    logger.warn('Invalid user API key attempt', { ip: req.ip, path: req.path, username });
+    logger.warn('Invalid user API key attempt', { ip: req.ip, path: req.path });
     return error(res, 'API key khong hop le', 401);
   }
 

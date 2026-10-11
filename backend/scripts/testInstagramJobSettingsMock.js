@@ -17,6 +17,8 @@ AppSetting.findOrCreate = async ({where, defaults}) => {
 sequelize.transaction = async (callback) => callback({LOCK:{UPDATE:'UPDATE'}});
 Account.update = async () => [0];
 stats.addInstagramAccountClaim = async () => {};
+const registryModule=require('../src/services/taskRegistryService');
+registryModule.createRegistryService=()=>({identity:async()=>({id:1}),activated:async()=>false,effective:async()=>null});
 const settings = require('../src/controllers/settingsController');
 const instagram = require('../src/controllers/instagramController');
 const invoke = async (handler, req) => {

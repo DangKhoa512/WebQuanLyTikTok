@@ -21,6 +21,7 @@ const startServer = async () => {
     logger.info('✅ Database connection established');
 
     // 2. Sync tables (create if not exists, do NOT alter in production)
+    require('./config/jwt').getJwtSecret(); // Validate production auth before startup migrations.
     await sequelize.sync({ force: false, alter: false });
     logger.info('✅ Database tables synchronised');
 

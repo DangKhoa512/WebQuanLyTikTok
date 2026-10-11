@@ -1,0 +1,37 @@
+{
+  "environment": "local-existing-schema-read-only",
+  "checks": {
+    "device": [
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "dashboard_devices",
+        "partitions": null,
+        "type": "ref",
+        "possible_keys": "uq_dashboard_device_owner,idx_dashboard_device_last_seen",
+        "key": "idx_dashboard_device_last_seen",
+        "key_len": "402",
+        "ref": "const",
+        "rows": 1,
+        "filtered": 100,
+        "Extra": "Backward index scan"
+      }
+    ],
+    "runs": [
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "device_task_runs",
+        "partitions": null,
+        "type": "ref",
+        "possible_keys": "idx_device_task_run_device_status,idx_device_task_run_entity,idx_device_task_run_timeout",
+        "key": "idx_device_task_run_entity",
+        "key_len": "402",
+        "ref": "const",
+        "rows": 1,
+        "filtered": 100,
+        "Extra": "Using index condition; Using where"
+      }
+    ]
+  }
+}

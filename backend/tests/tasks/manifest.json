@@ -1,0 +1,8 @@
+{
+  "scripts": [
+    "testTaskReportOnly.js",
+    "testTaskResumeLoginState.js",
+    "testTaskRegistryPolicy.js",
+    "testTaskRegistryIntegration.js"
+  ]
+}

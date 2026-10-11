@@ -6,11 +6,11 @@ const apiKeyAuth = require('../middleware/apiKeyAuth');
 const router = express.Router();
 
 // Phone API
-router.post('/get-account', controller.getForPhone);
-router.post('/login-success', controller.loginSuccess);
-router.post('/login-fail', controller.loginFail);
-router.post('/add-job', controller.addJobCount);
-router.post('/report', controller.reportResult);
+router.post('/get-account', apiKeyAuth, controller.getForPhone);
+router.post('/login-success', apiKeyAuth, controller.loginSuccess);
+router.post('/login-fail', apiKeyAuth, controller.loginFail);
+router.post('/add-job', apiKeyAuth, controller.addJobCount);
+router.post('/report', apiKeyAuth, controller.reportResult);
 router.post('/import-api', apiKeyAuth, controller.importAccountsApi);
 
 // Dashboard API

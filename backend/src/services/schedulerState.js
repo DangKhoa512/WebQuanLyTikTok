@@ -1,6 +1,8 @@
 const state = {
   status: 'STARTING',
+  started_at: null,
   last_run_at: null,
+  last_success_at: null,
   next_run_at: null,
   duration_ms: null,
   last_result: { nurture_reset: 0, page_job_reset: 0, account_reset: 0 },
@@ -9,12 +11,14 @@ const state = {
 
 const markStarted = () => {
   state.status = 'RUNNING';
+  state.started_at = new Date().toISOString();
   state.last_error = null;
 };
 
 const markCompleted = ({ startedAt, result = {} }) => {
   const now = new Date();
   state.status = 'ONLINE';
+  state.last_success_at = now.toISOString();
   state.last_run_at = now.toISOString();
   state.next_run_at = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
   state.duration_ms = now.getTime() - startedAt.getTime();

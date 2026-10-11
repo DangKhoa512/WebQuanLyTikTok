@@ -11,8 +11,10 @@ let running = false;
 const runScheduledTransitions = async () => {
   if(running)return;
   running=true;
+  try { return await require('../services/cronLockService').withCronLock(async()=>{
   const startedAt = new Date();
   schedulerState.markStarted();
+  await require('../services/cronHealthService').publishCronHealth();
   try {
     const unresponsive = await monitorDevices();
     await accountService.runStatusTransitions();
@@ -22,7 +24,8 @@ const runScheduledTransitions = async () => {
   } catch (error) {
     schedulerState.markFailed({ startedAt, error });
     logger.error('CRON: scheduled transitions failed', { error: error.message });
-  } finally { running=false; }
+  } finally { await require('../services/cronHealthService').publishCronHealth(); }
+  }); } catch(error) { schedulerState.markFailed({startedAt:new Date(),error}); logger.error('CRON execution failed',{name:error.name}); } finally { running=false; }
 };
 
 /**

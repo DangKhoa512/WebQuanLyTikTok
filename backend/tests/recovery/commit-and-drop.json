@@ -1,0 +1,7 @@
+{
+  "assignment_commit_drop_resume": "PASS",
+  "report_commit_drop_retry": "PASS",
+  "unique_accounts": 1000,
+  "unique_tasks": 1000,
+  "terminal_success_rows": 1000
+}

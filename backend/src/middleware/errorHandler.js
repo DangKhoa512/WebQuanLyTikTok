@@ -5,13 +5,10 @@ const { error } = require('../utils/response');
  * Global error handler middleware
  */
 const errorHandler = (err, req, res, next) => {
-  logger.error('Unhandled error', {
-    error: err.message,
-    stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined,
-    path: req.path,
-    method: req.method,
-    body: req.body,
-  });
+  logger.error('Unhandled error', { name: err.name, type: err.type, method: req.method });
+
+  if (err.type === 'entity.parse.failed') return error(res, 'Invalid JSON payload', 400);
+  if (err.type === 'entity.too.large') return error(res, 'Payload too large', 413);
 
   // Sequelize validation error
   if (err.name === 'SequelizeValidationError') {
@@ -25,7 +22,7 @@ const errorHandler = (err, req, res, next) => {
 
   // Custom statusCode attached to error
   const statusCode = err.statusCode || 500;
-  return error(res, err.message || 'Internal Server Error', statusCode);
+  return error(res, statusCode >= 500 ? 'Internal Server Error' : (err.message || 'Request failed'), statusCode);
 };
 
 /**

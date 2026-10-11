@@ -64,7 +64,7 @@ const getTaskSummary = async (owner, facebookWorkflow, instagramNurture) => {
       SUM(nurture_status='NUOI_FAIL') errors
       FROM facebook_accounts WHERE owner_username=:owner AND kind='job' AND trashed_at IS NULL`, replacements),
     one(`SELECT
-      SUM(status IN ('LOGIN_THANH_CONG','DANG_LAM','DA_CHAY_XONG') AND COALESCE(live_status,'unknown')<>'die'
+      SUM(status='LOGIN_THANH_CONG' AND COALESCE(live_status,'unknown')<>'die'
         AND nurture_locked_by IS NULL AND cookies IS NOT NULL
         AND (nurture_status IN ('CHUA_NUOI','NUOI_FAIL') OR (nurture_status='DA_NUOI' AND last_nurture_at<=:igNurtureResetAt))) ready,
       SUM(nurture_status='DANG_NUOI') running,
@@ -180,7 +180,9 @@ const getOwnerDashboardSummary = async (owner) => {
   const scheduler = null;
   const visibleActivityTypes=new Set(task_registry.map(task=>task.activity_key || task.task_key));
   const visibleActivity=registryActive ? activity.filter(row=>visibleActivityTypes.has(row.type)) : activity;
-  return { accounts, tasks:visibleTasks, task_registry, devices, scheduler, activity: visibleActivity.slice(0, 30), generated_at: new Date().toISOString() };
+  const failedRows=await sequelize.query("SELECT task_type,COUNT(*) count FROM device_task_runs WHERE owner_username=:owner AND status='FAILED' GROUP BY task_type",{replacements:{owner},type:QueryTypes.SELECT});
+  const task_failures={total:failedRows.reduce((sum,row)=>sum+number(row.count),0),by_type:Object.fromEntries(failedRows.map(row=>[row.task_type,number(row.count)]))};
+  return { task_failures, accounts, tasks:visibleTasks, task_registry, devices, scheduler, activity: visibleActivity.slice(0, 30), generated_at: new Date().toISOString() };
 };
 
 const getDashboardSummary=async(owner,query={},legacyQuery)=>{

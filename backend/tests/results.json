@@ -1,0 +1,236 @@
+{
+  "executed_at": "2026-10-11T13:09:20.503Z",
+  "results": [
+    {
+      "group": "accounts",
+      "script": "testFacebookImportParser.js",
+      "status": "PASS",
+      "elapsed_ms": 528,
+      "error": null
+    },
+    {
+      "group": "accounts",
+      "script": "testFacebookSelfLimit.js",
+      "status": "PASS",
+      "elapsed_ms": 3830,
+      "error": null
+    },
+    {
+      "group": "accounts",
+      "script": "testInstagramJobSettingsMock.js",
+      "status": "PASS",
+      "elapsed_ms": 664,
+      "error": null
+    },
+    {
+      "group": "api",
+      "script": "testTotp.js",
+      "status": "PASS",
+      "elapsed_ms": 7011,
+      "error": null
+    },
+    {
+      "group": "api",
+      "script": "testEmailTick.js",
+      "status": "PASS",
+      "elapsed_ms": 305,
+      "error": null
+    },
+    {
+      "group": "api",
+      "script": "testEmailTickIntegration.js",
+      "status": "PASS",
+      "elapsed_ms": 3810,
+      "error": null
+    },
+    {
+      "group": "api",
+      "script": "testMail.js",
+      "status": "PASS",
+      "elapsed_ms": 320,
+      "error": null
+    },
+    {
+      "group": "api",
+      "script": "testMailIntegration.js",
+      "status": "PASS",
+      "elapsed_ms": 13921,
+      "error": null
+    },
+    {
+      "group": "api",
+      "script": "testInstagramCheckLiveMock.js",
+      "status": "PASS",
+      "elapsed_ms": 4913,
+      "error": null
+    },
+    {
+      "group": "api",
+      "script": "../tests/api/parser.test.js",
+      "status": "PASS",
+      "elapsed_ms": 1147,
+      "error": null
+    },
+    {
+      "group": "cron",
+      "script": "testCronActiveProtection.js",
+      "status": "PASS",
+      "elapsed_ms": 3452,
+      "error": null
+    },
+    {
+      "group": "cron",
+      "script": "../tests/cron/failurePropagation.test.js",
+      "status": "PASS",
+      "elapsed_ms": 397,
+      "error": null
+    },
+    {
+      "group": "cron",
+      "script": "testCronDistributedLock.js",
+      "status": "PASS",
+      "elapsed_ms": 6583,
+      "error": null
+    },
+    {
+      "group": "dashboard",
+      "script": "testDashboardIsolation.js",
+      "status": "PASS",
+      "elapsed_ms": 9343,
+      "error": null
+    },
+    {
+      "group": "dashboard",
+      "script": "testDeviceDashboardIntegration.js",
+      "status": "PASS",
+      "elapsed_ms": 12195,
+      "error": null
+    },
+    {
+      "group": "dashboard",
+      "script": "testDashboardFailureCounts.js",
+      "status": "PASS",
+      "elapsed_ms": 3614,
+      "error": null
+    },
+    {
+      "group": "devices",
+      "script": "testDeviceOfflineTimeout.js",
+      "status": "PASS",
+      "elapsed_ms": 150,
+      "error": null
+    },
+    {
+      "group": "devices",
+      "script": "testDeviceMonitoring.js",
+      "status": "PASS",
+      "elapsed_ms": 4245,
+      "error": null
+    },
+    {
+      "group": "dispatcher",
+      "script": "testRoundRobinIntegration.js",
+      "status": "PASS",
+      "elapsed_ms": 9644,
+      "error": null
+    },
+    {
+      "group": "performance",
+      "script": "testAuditFarm.js",
+      "status": "PARTIAL",
+      "elapsed_ms": 136097,
+      "error": null
+    },
+    {
+      "group": "realtime",
+      "script": "testSystemHealthUI.js",
+      "status": "PASS",
+      "elapsed_ms": 27258,
+      "error": null
+    },
+    {
+      "group": "recovery",
+      "script": "testDeviceMonitoring.js",
+      "status": "PASS",
+      "elapsed_ms": 3958,
+      "error": null
+    },
+    {
+      "group": "reservations",
+      "script": "testCrossTargetEngineIntegration.js",
+      "status": "PASS",
+      "elapsed_ms": 5729,
+      "error": null
+    },
+    {
+      "group": "reservations",
+      "script": "testInstagramCrossFollowIntegration.js",
+      "status": "PASS",
+      "elapsed_ms": 4180,
+      "error": null
+    },
+    {
+      "group": "security",
+      "script": "../tests/security/errorLogging.test.js",
+      "status": "PASS",
+      "elapsed_ms": 130,
+      "error": null
+    },
+    {
+      "group": "security",
+      "script": "../tests/security/apiKeyFailure.test.js",
+      "status": "PASS",
+      "elapsed_ms": 401,
+      "error": null
+    },
+    {
+      "group": "security",
+      "script": "../tests/security/productionJwt.test.js",
+      "status": "PASS",
+      "elapsed_ms": 124,
+      "error": null
+    },
+    {
+      "group": "security",
+      "script": "testLegacyPhoneAuth.js",
+      "status": "PASS",
+      "elapsed_ms": 3644,
+      "error": null
+    },
+    {
+      "group": "security",
+      "script": "../tests/security/userValidation.test.js",
+      "status": "PASS",
+      "elapsed_ms": 383,
+      "error": null
+    },
+    {
+      "group": "tasks",
+      "script": "testTaskReportOnly.js",
+      "status": "PASS",
+      "elapsed_ms": 7312,
+      "error": null
+    },
+    {
+      "group": "tasks",
+      "script": "testTaskResumeLoginState.js",
+      "status": "PASS",
+      "elapsed_ms": 5543,
+      "error": null
+    },
+    {
+      "group": "tasks",
+      "script": "testTaskRegistryPolicy.js",
+      "status": "PASS",
+      "elapsed_ms": 60,
+      "error": null
+    },
+    {
+      "group": "tasks",
+      "script": "testTaskRegistryIntegration.js",
+      "status": "PASS",
+      "elapsed_ms": 4789,
+      "error": null
+    }
+  ]
+}

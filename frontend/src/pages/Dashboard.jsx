@@ -104,15 +104,17 @@ export default function Dashboard() {
   const tasks = data?.tasks || {};
   const TASKS = dashboardTasksFromRegistry(data);
   const deviceSummary = data?.devices?.summary || {};
-  const sumErrors = predicate => TASKS.filter(predicate).reduce((total,task)=>total+number(tasks[task.key]?.errors),0);
-  const nurtureErrors = sumErrors(task=>task.taskKey.startsWith('NUOI_'));
-  const pageErrors = sumErrors(task=>task.platform==='FACEBOOK' && !task.taskKey.startsWith('NUOI_'));
-  const instagramErrors = sumErrors(task=>task.platform==='INSTAGRAM' && !task.taskKey.startsWith('NUOI_'));
-  const taskErrors = sumErrors(()=>true);
+  const failureTypes = data?.task_failures?.by_type || {};
+  const failuresFor = keys => keys.reduce((sum,key)=>sum+number(failureTypes[key]),0);
+  const nurtureErrors = failuresFor(['NUOI_FACEBOOK','NUOI_INSTAGRAM']);
+  const pageErrors = failuresFor(['PAGE_JOB','REG_PAGE']);
+  const instagramErrors = failuresFor(['INSTAGRAM_JOB','REG_INSTAGRAM']);
+  const taskErrors = number(data?.task_failures?.total);
+  const otherErrors = Math.max(0,taskErrors-nurtureErrors-pageErrors-instagramErrors);
   const alerts = [
     number(data?.devices?.unresponsive_total) > 0 && {label: `Thiết bị mất phản hồi trên ${number(data?.devices?.offline_timeout_seconds)/60} phút (${fmtNumber(data.devices.unresponsive_total)})`,status:'DEVICE_UNRESPONSIVE'},
     number(deviceSummary.offline) > 0 && { label: `${fmtNumber(deviceSummary.offline)} thiết bị Offline`, status:'OFFLINE' },
-    ...TASKS.filter((task) => number(tasks[task.key]?.errors) > 0).map((task) => ({ label: `${fmtNumber(tasks[task.key].errors)} ${task.title} Error`, to: task.to || '#tasks' })),
+    ...TASKS.filter((task) => task.taskKey !== 'REG_INSTAGRAM' && number(tasks[task.key]?.errors) > 0).map((task) => ({ label: `${fmtNumber(tasks[task.key].errors)} ${task.title} Error`, to: task.to || '#tasks' })),
   ].filter(Boolean);
 
   return <div className="page dashboard-monitor-page">
@@ -139,8 +141,9 @@ export default function Dashboard() {
         <SummaryCard icon="▣" title="Device" value={deviceSummary.total} color="#0284c7" to="#devices" rows={[
           { label: 'Running', value: deviceSummary.running }, { label: 'Idle', value: deviceSummary.idle }, { label: 'Offline', value: deviceSummary.offline, danger: true },
         ]} />
-        <SummaryCard icon="!" title="Error" value={taskErrors} color="#dc2626" to="#tasks" rows={[
+        <SummaryCard icon="!" title="Error" subtitle="Lượt task thất bại (lịch sử)" value={taskErrors} color="#dc2626" to="#tasks" rows={[
           { label: 'Nuôi account', value: nurtureErrors, danger: true }, { label: 'Page', value: pageErrors, danger: true }, { label: 'Instagram', value: instagramErrors, danger: true },
+          ...(otherErrors ? [{label:'Khác',value:otherErrors,danger:true}] : []),
         ]} />
       </div>
     </section>
@@ -153,7 +156,7 @@ export default function Dashboard() {
           <td className="dashboard-task-status-cell"><span className={`dashboard-task-status ${task.enabled?'is-enabled':'is-disabled'}`} title={task.enabled ? (task.systemEnabled?'Cấu hình Dispatcher của bạn đang bật tác vụ này.':'Cấu hình của bạn đang bật; loại tác vụ hiện bị tắt toàn hệ thống.') : 'Tác vụ này hiện đang tắt trong cấu hình Dispatcher của bạn.'}><span aria-hidden="true">●</span> {task.enabled?'Đang bật':'Đang tắt'}</span></td>
           <td><TaskLink className="dashboard-task-value is-ready" to={task.to}>{fmtNumber(tasks[task.key]?.ready)}</TaskLink></td>
           <td><TaskLink className="dashboard-task-value is-running" to={task.to}>{fmtNumber(tasks[task.key]?.running)}</TaskLink></td>
-          <td><TaskLink className="dashboard-task-value is-error" to={task.to}>{fmtNumber(tasks[task.key]?.errors)}</TaskLink></td>
+          <td title={task.taskKey === 'REG_INSTAGRAM' ? 'Lượt claim thất bại trong lịch sử; không phải lỗi chưa xử lý' : 'Account/tài nguyên đang ở trạng thái lỗi nghiệp vụ'}><TaskLink className="dashboard-task-value is-error" to={task.to}>{fmtNumber(tasks[task.key]?.errors)}</TaskLink></td>
         </tr>)}</tbody>
       </table></div>
     </section>

@@ -8,7 +8,7 @@ const requireAdmin = (req, res) => {
   return false;
 };
 
-const normalizeUsername = (username) => (username || '').trim().toLowerCase();
+const normalizeUsername = (username) => (typeof username === 'string' ? username : '').trim().toLowerCase();
 
 const listUsers = async (req, res, next) => {
   if (!requireAdmin(req, res)) return;
@@ -29,6 +29,7 @@ const createUser = async (req, res, next) => {
     const { password, role = 'user' } = req.body;
     const username = normalizeUsername(req.body.username);
 
+    if (typeof password !== 'string') return error(res, 'password must be a string', 400);
     if (!username || !password) return error(res, 'Thieu username hoac password', 400);
     if (!['admin', 'user'].includes(role)) return error(res, 'role khong hop le', 400);
 
@@ -52,6 +53,9 @@ const createUser = async (req, res, next) => {
 const updateUser = async (req, res, next) => {
   if (!requireAdmin(req, res)) return;
   try {
+    if (req.body.is_active !== undefined && typeof req.body.is_active !== 'boolean') return error(res, 'is_active must be a boolean', 400);
+    if (req.body.role !== undefined && !['admin', 'user'].includes(req.body.role)) return error(res, 'Invalid role', 400);
+    if (req.body.password !== undefined && typeof req.body.password !== 'string') return error(res, 'password must be a string', 400);
     const user = await User.findByPk(req.params.id);
     if (!user) return error(res, 'User khong ton tai', 404);
 

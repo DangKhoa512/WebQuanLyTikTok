@@ -1,0 +1,10 @@
+const assert=require('assert');
+const logger=require('../../src/config/logger');
+const {errorHandler}=require('../../src/middleware/errorHandler');
+const records=[];logger.error=(...args)=>records.push(args);
+const res={status(code){this.code=code;return this;},json(body){this.body=body;return this;}};
+errorHandler(Object.assign(new Error('Unexpected token synthetic-password-secret'),{type:'entity.parse.failed',status:400,body:'synthetic-password-secret'}),{body:{password:'synthetic-password-secret',cookies:'synthetic-cookie-secret'},path:'/api/test',method:'POST'},res,()=>{});
+assert(!JSON.stringify(records).includes('synthetic-password-secret'),'error logs must not contain payload or parser excerpt');
+assert(!JSON.stringify(res.body).includes('synthetic-password-secret'),'parser response must not echo payload');
+assert.equal(res.code,400);
+console.log('ERROR_LOGGING_OK');

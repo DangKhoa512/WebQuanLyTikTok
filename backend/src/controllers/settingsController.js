@@ -127,7 +127,7 @@ const getFacebookLoginLimit = async (req, res, next) => {
       : ownerFromAdmin(req);
     const settings = await getFacebookLoginLimitSettings(targetOwner);
     settings.owner_username = targetOwner;
-    settings.editable = isAdmin;
+    settings.editable = true;
     return success(res, { settings }, 'Lay cai dat limit Facebook login thanh cong');
   } catch (err) {
     next(err);
@@ -136,12 +136,9 @@ const getFacebookLoginLimit = async (req, res, next) => {
 
 const updateFacebookLoginLimit = async (req, res, next) => {
   try {
-    if (req.admin?.role !== 'admin') {
-      return error(res, 'Chi admin duoc sua limit Facebook login', 403);
-    }
-
-    const owner = normalizeOwner(req.body.owner_username || ownerFromAdmin(req));
-    const limit = parseInt(req.body.limit, 10);
+    const isAdmin = req.admin?.role === 'admin';
+    const owner = isAdmin ? normalizeOwner(req.body.owner_username || ownerFromAdmin(req)) : ownerFromAdmin(req);
+    const limit = Number(req.body.limit);
     if (!Number.isInteger(limit) || limit <= 0) {
       return error(res, 'Limit phai lon hon 0', 400);
     }

@@ -1,0 +1,22 @@
+{
+  "scope": "separate run after full suite",
+  "results": [
+    {
+      "script": "testSystemHealthSignals.js",
+      "status": "PASS",
+      "exit_code": 0,
+      "elapsed_ms": 3483
+    },
+    {
+      "script": "testDeviceDashboardIntegration.js --ui",
+      "status": "FAIL",
+      "reason": "Pagination clicked while disabled; wait timed out at row 51"
+    },
+    {
+      "script": "testDeviceDashboardIntegration.js --ui",
+      "status": "PASS",
+      "exit_code": 0,
+      "note": "Harness waits for pagination enabled before click"
+    }
+  ]
+}

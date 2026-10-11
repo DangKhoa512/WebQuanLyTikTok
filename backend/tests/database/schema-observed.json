@@ -1,0 +1,7280 @@
+{
+  "observed_at": "2026-10-11T13:06:07.341Z",
+  "environment": "local-existing-database-metadata-only",
+  "columns": [
+    {
+      "TABLE_NAME": "account_groups",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "COLUMN_NAME": "account_type",
+      "COLUMN_TYPE": "enum('app','chrome','job','facebook_reg','facebook_job','instagram_reg','instagram_job')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "COLUMN_NAME": "name",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "COLUMN_NAME": "note",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "COLUMN_NAME": "job_type",
+      "COLUMN_TYPE": "enum('chrome','hotmail')",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "raw_data",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "username",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "password",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "twofa",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "email",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "email_pass",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "cookie",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "token",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "proxy",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "live_status",
+      "COLUMN_TYPE": "enum('unknown','live','die')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "video_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "followers",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "following",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "reg_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "last_upload_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "last_live_check_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "fail_reason",
+      "COLUMN_TYPE": "varchar(500)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "note",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "group_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "refresh_token",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "client_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "local",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "COLUMN_NAME": "khang_reported_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "COLUMN_NAME": "username",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('ACC_DA_KHANG','ACC_CHUA_KHANG')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "COLUMN_NAME": "report_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "COLUMN_NAME": "reported_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "COLUMN_NAME": "setting_key",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "COLUMN_NAME": "setting_value",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "raw_data",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "username",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "password",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "twofa",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "email",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "email_pass",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "cookie",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "token",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "proxy",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('ACC_LOGIN','LOGIN_THANH_CONG','ACC_DA_KHANG','ACC_CHUA_KHANG','ACC_DU_DK','ACC_DA_DUNG','ACC_DIE')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "live_status",
+      "COLUMN_TYPE": "enum('unknown','live','die')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "video_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "followers",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "following",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "note",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "reg_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "last_live_check_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "fail_reason",
+      "COLUMN_TYPE": "varchar(500)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "group_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "COLUMN_NAME": "khang_reported_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "COLUMN_NAME": "username",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('ACC_DA_KHANG','ACC_CHUA_KHANG')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "COLUMN_NAME": "report_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "COLUMN_NAME": "reported_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "platform",
+      "COLUMN_TYPE": "varchar(20)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "action_type",
+      "COLUMN_TYPE": "varchar(30)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "source_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "scenario_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "request_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "cycle_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "requested_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "available_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "issued_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "COLUMN_NAME": "issued_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "COLUMN_NAME": "platform",
+      "COLUMN_TYPE": "varchar(20)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "COLUMN_NAME": "action_type",
+      "COLUMN_TYPE": "varchar(30)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "COLUMN_NAME": "source_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "COLUMN_NAME": "scenario_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "COLUMN_NAME": "cycle_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "COLUMN_NAME": "legacy_imported",
+      "COLUMN_TYPE": "tinyint(1)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "platform",
+      "COLUMN_TYPE": "varchar(20)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "action_type",
+      "COLUMN_TYPE": "varchar(30)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "source_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "scenario_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "cycle_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "target_key",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "batch_id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('ISSUED','SUCCESS','FAILED')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "COLUMN_NAME": "issued_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "device_name",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "current_task",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "current_uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "reported_status",
+      "COLUMN_TYPE": "enum('ONLINE','RUNNING','IDLE')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "started_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "last_seen",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "last_error",
+      "COLUMN_TYPE": "varchar(1000)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "varchar(20)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "COLUMN_NAME": "alert_code",
+      "COLUMN_TYPE": "varchar(50)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "COLUMN_NAME": "last_seen",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "COLUMN_NAME": "unresponsive_since",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "COLUMN_NAME": "detected_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "COLUMN_NAME": "task_type",
+      "COLUMN_TYPE": "varchar(50)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "COLUMN_NAME": "enabled",
+      "COLUMN_TYPE": "tinyint(1)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "task_type",
+      "COLUMN_TYPE": "varchar(50)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "priority",
+      "COLUMN_TYPE": "int",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "entity_type",
+      "COLUMN_TYPE": "varchar(50)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "entity_id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "account_id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "username",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "page_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('RUNNING','REPORTING','SUCCESS','FAILED','RELEASED')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "completed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "retry_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "error_code",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "error_message",
+      "COLUMN_TYPE": "varchar(1000)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "payload",
+      "COLUMN_TYPE": "json",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "result",
+      "COLUMN_TYPE": "json",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "COLUMN_NAME": "email_order_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "COLUMN_NAME": "otp",
+      "COLUMN_TYPE": "varchar(1000)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "COLUMN_NAME": "source",
+      "COLUMN_TYPE": "enum('PURCHASED','CLAIMED')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "COLUMN_NAME": "used_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "site",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "gmail",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "order_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "otp_history",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "use_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('PENDING','PAUSED','DONE')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "source_device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "last_used_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "COLUMN_NAME": "locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "mailbox_id",
+      "COLUMN_TYPE": "varchar(36)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "UNI"
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "email",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "mailbox_code",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "types",
+      "COLUMN_TYPE": "json",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('CREATING','ACTIVE','ERROR','EXPIRED')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "last_email_time",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "last_message_code",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "processed_message_codes",
+      "COLUMN_TYPE": "json",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "kind",
+      "COLUMN_TYPE": "enum('reg','job')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "raw_data",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "password",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "two_fa",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "cookies",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "token",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "email",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "status_before_die",
+      "COLUMN_TYPE": "varchar(32)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "live_status",
+      "COLUMN_TYPE": "enum('unknown','live','die')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "login_get_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "login_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "last_live_check_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "fail_reason",
+      "COLUMN_TYPE": "varchar(500)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "note",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "trashed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "group_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "completed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "email_pass",
+      "COLUMN_TYPE": "varchar(500)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "refresh_token",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "client_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "page_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "pages",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "last_page_check_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "reg_page_locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "reg_page_locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "last_reg_page_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "page_token_status",
+      "COLUMN_TYPE": "enum('unknown','live','die')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "page_token_error",
+      "COLUMN_TYPE": "varchar(1000)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "nurture_status",
+      "COLUMN_TYPE": "enum('CHUA_NUOI','DANG_NUOI','DA_NUOI','NUOI_FAIL')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "nurture_locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "nurture_locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "nurture_run_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "nurture_scenario_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "last_nurture_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "COLUMN_NAME": "nurture_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "COLUMN_NAME": "source_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "COLUMN_NAME": "source_uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "COLUMN_NAME": "target_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "COLUMN_NAME": "target_uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "COLUMN_NAME": "run_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "COLUMN_NAME": "delivered_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "facebook_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "facebook_uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "instagram_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "instagram_uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "report_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "first_reported_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "last_reported_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "COLUMN_NAME": "stat_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "COLUMN_NAME": "web",
+      "COLUMN_TYPE": "enum('TTC','XSMM','NVC')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "COLUMN_NAME": "job_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "COLUMN_NAME": "xu_count",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "COLUMN_NAME": "uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "COLUMN_NAME": "report_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "COLUMN_NAME": "reported_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "COLUMN_NAME": "scenario_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "facebook_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "scenario_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "run_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('DA_NUOI','NUOI_FAIL')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "started_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "completed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "duration_seconds",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "message",
+      "COLUMN_TYPE": "varchar(1000)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "COLUMN_NAME": "stat_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "COLUMN_NAME": "page_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "facebook_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "page_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "page_name",
+      "COLUMN_TYPE": "varchar(500)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "job_status",
+      "COLUMN_TYPE": "enum('CHUA_LAM','DANG_LAM','DA_LAM')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "completed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "last_report_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "is_active",
+      "COLUMN_TYPE": "tinyint(1)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "facebook_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "uid",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "stat_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "previous_page_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "current_page_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "page_difference",
+      "COLUMN_TYPE": "int",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "pages_added",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "facebook_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "facebook_reg_page_report_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "uid",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "page_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "page_name",
+      "COLUMN_TYPE": "varchar(500)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "report_key",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "stat_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "mailbox_id",
+      "COLUMN_TYPE": "varchar(36)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "UNI"
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "email",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "provider_state",
+      "COLUMN_TYPE": "json",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('ACTIVE','EXPIRED')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "last_email_time",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "last_message_code",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "processed_message_codes",
+      "COLUMN_TYPE": "json",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "raw_data",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "email",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "password",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('CHUA_SU_DUNG','DANG_SU_DUNG','DA_SU_DUNG')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "used_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "note",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "kind",
+      "COLUMN_TYPE": "enum('reg','job')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "raw_data",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "password",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "two_fa",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "cookies",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "group_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "live_status",
+      "COLUMN_TYPE": "enum('unknown','live','die')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "login_get_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "login_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "completed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "nurture_status",
+      "COLUMN_TYPE": "enum('CHUA_NUOI','DANG_NUOI','DA_NUOI','NUOI_FAIL')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "nurture_locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "nurture_locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "nurture_run_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "nurture_scenario_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "last_nurture_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "nurture_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "fail_reason",
+      "COLUMN_TYPE": "varchar(500)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "note",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "trashed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "post_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "followers",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "following",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "COLUMN_NAME": "last_live_check_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "facebook_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "facebook_uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('DANG_REG','REG_XONG','REG_FAIL','CANCELLED')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "get_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "instagram_uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "email_order_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "fail_reason",
+      "COLUMN_TYPE": "varchar(1000)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "completed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "COLUMN_NAME": "eligibility_reset_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "claim_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "facebook_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "facebook_uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "instagram_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "instagram_uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "reported_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "COLUMN_NAME": "stat_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "COLUMN_NAME": "claimed_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "COLUMN_NAME": "stat_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "COLUMN_NAME": "web",
+      "COLUMN_TYPE": "enum('TTC','XSMM','NVC')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "COLUMN_NAME": "job_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "COLUMN_NAME": "xu_count",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "COLUMN_NAME": "scenario_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "instagram_account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "uid",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "scenario_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "run_id",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('DA_NUOI','NUOI_FAIL')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "started_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "completed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "duration_seconds",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "message",
+      "COLUMN_TYPE": "varchar(1000)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "username",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "job_type",
+      "COLUMN_TYPE": "enum('chrome','hotmail')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "report_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "taken_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "raw_data",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "username",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "password",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "email",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "email_pass",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "status",
+      "COLUMN_TYPE": "enum('ACCOUNT_CHAY','DANG_LAM','DUOI_50_JOB','FAIL_AVT','LOI_CAU_HINH','DA_CHAY_XONG','ACCOUNT_DIE')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "job_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "locked_by",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "locked_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "login_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "completed_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "fail_reason",
+      "COLUMN_TYPE": "varchar(500)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "note",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "group_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "live_status",
+      "COLUMN_TYPE": "enum('unknown','live','die')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "video_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "followers",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "following",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "last_live_check_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "login_fail_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "last_login_fail_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "job_type",
+      "COLUMN_TYPE": "enum('chrome','hotmail')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "today_job_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "today_job_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "job_web",
+      "COLUMN_TYPE": "enum('TDS','XSMM')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "xu_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "refresh_token",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "client_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "COLUMN_NAME": "reg_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "COLUMN_NAME": "stat_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "COLUMN_NAME": "job_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "COLUMN_NAME": "web",
+      "COLUMN_TYPE": "enum('TDS','XSMM')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "COLUMN_NAME": "xu_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "COLUMN_NAME": "config_key",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "COLUMN_NAME": "config_value",
+      "COLUMN_TYPE": "longtext",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "platform",
+      "COLUMN_TYPE": "enum('facebook','instagram')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "device_id",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "stat_date",
+      "COLUMN_TYPE": "date",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "live_count",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "die_count",
+      "COLUMN_TYPE": "bigint unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "report_count",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "last_reported_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "task_key",
+      "COLUMN_TYPE": "varchar(50)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "UNI"
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "name",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "platform",
+      "COLUMN_TYPE": "varchar(30)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "description",
+      "COLUMN_TYPE": "text",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "enabled",
+      "COLUMN_TYPE": "tinyint(1)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "sort_order",
+      "COLUMN_TYPE": "int",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "archived_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "COLUMN_NAME": "default_priority",
+      "COLUMN_TYPE": "int",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "account_type",
+      "COLUMN_TYPE": "enum('app','chrome')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "account_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "username",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "password",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "email",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "email_pass",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "owner_username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "used_by",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "source_status",
+      "COLUMN_TYPE": "varchar(50)",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "batch_id",
+      "COLUMN_TYPE": "varchar(64)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "used_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "COLUMN_NAME": "group_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "user_dispatcher_state",
+      "COLUMN_NAME": "user_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "user_dispatcher_state",
+      "COLUMN_NAME": "next_task_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "user_dispatcher_state",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "COLUMN_NAME": "user_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "COLUMN_NAME": "task_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "COLUMN_NAME": "enabled",
+      "COLUMN_TYPE": "tinyint(1)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "COLUMN_NAME": "priority",
+      "COLUMN_TYPE": "int",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "COLUMN_NAME": "dispatch_order",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "YES",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "COLUMN_NAME": "user_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "COLUMN_NAME": "task_id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "MUL"
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "COLUMN_NAME": "enabled",
+      "COLUMN_TYPE": "tinyint(1)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "COLUMN_NAME": "priority",
+      "COLUMN_TYPE": "int",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "users",
+      "COLUMN_NAME": "id",
+      "COLUMN_TYPE": "int unsigned",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "PRI"
+    },
+    {
+      "TABLE_NAME": "users",
+      "COLUMN_NAME": "username",
+      "COLUMN_TYPE": "varchar(100)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": "UNI"
+    },
+    {
+      "TABLE_NAME": "users",
+      "COLUMN_NAME": "password_hash",
+      "COLUMN_TYPE": "varchar(255)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "users",
+      "COLUMN_NAME": "role",
+      "COLUMN_TYPE": "enum('admin','user')",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "users",
+      "COLUMN_NAME": "is_active",
+      "COLUMN_TYPE": "tinyint(1)",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "users",
+      "COLUMN_NAME": "created_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    },
+    {
+      "TABLE_NAME": "users",
+      "COLUMN_NAME": "updated_at",
+      "COLUMN_TYPE": "datetime",
+      "IS_NULLABLE": "NO",
+      "COLUMN_KEY": ""
+    }
+  ],
+  "indexes": [
+    {
+      "TABLE_NAME": "account_groups",
+      "INDEX_NAME": "account_groups_account_type",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "account_type",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "INDEX_NAME": "account_groups_owner_username",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "INDEX_NAME": "account_groups_owner_username_account_type_name",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "INDEX_NAME": "account_groups_owner_username_account_type_name",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "account_type",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "INDEX_NAME": "account_groups_owner_username_account_type_name",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "name",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "INDEX_NAME": "idx_group_job_type",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "job_type",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_device_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_last_upload_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "last_upload_at",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "live_status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_locked_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "locked_at",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_reg_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "reg_at",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_status_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_status_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "live_status",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_status_locked_by_locked_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_status_locked_by_locked_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "locked_by",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "accounts_status_locked_by_locked_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "locked_at",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "idx_accounts_group_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "group_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "idx_accounts_khang_reported_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "khang_reported_at",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "idx_accounts_owner_username",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "uq_accounts_owner_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "INDEX_NAME": "uq_accounts_owner_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "username",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "INDEX_NAME": "idx_app_khang_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "INDEX_NAME": "idx_app_khang_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "INDEX_NAME": "idx_app_khang_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "report_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "INDEX_NAME": "uq_app_khang_owner_device_user_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "INDEX_NAME": "uq_app_khang_owner_device_user_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "INDEX_NAME": "uq_app_khang_owner_device_user_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "username",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "INDEX_NAME": "uq_app_khang_owner_device_user_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "report_date",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "INDEX_NAME": "uq_app_setting_owner_key",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "INDEX_NAME": "uq_app_setting_owner_key",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "setting_key",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "chrome_accounts_device_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "chrome_accounts_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "live_status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "chrome_accounts_reg_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "reg_at",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "chrome_accounts_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "chrome_accounts_status_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "chrome_accounts_status_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "live_status",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "idx_chrome_group_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "group_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "idx_chrome_khang_reported_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "khang_reported_at",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "idx_chrome_owner_username",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "uq_chrome_owner_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "INDEX_NAME": "uq_chrome_owner_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "username",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "INDEX_NAME": "idx_chrome_khang_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "INDEX_NAME": "idx_chrome_khang_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "INDEX_NAME": "idx_chrome_khang_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "report_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "INDEX_NAME": "uq_chrome_khang_owner_device_user_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "INDEX_NAME": "uq_chrome_khang_owner_device_user_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "INDEX_NAME": "uq_chrome_khang_owner_device_user_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "username",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "INDEX_NAME": "uq_chrome_khang_owner_device_user_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "report_date",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "INDEX_NAME": "uq_cross_batch_request",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "INDEX_NAME": "uq_cross_batch_request",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "platform",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "INDEX_NAME": "uq_cross_batch_request",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "action_type",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "INDEX_NAME": "uq_cross_batch_request",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "source_account_id",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "INDEX_NAME": "uq_cross_batch_request",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "scenario_id",
+      "SEQ_IN_INDEX": 5
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "INDEX_NAME": "uq_cross_batch_request",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "request_id",
+      "SEQ_IN_INDEX": 6
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "INDEX_NAME": "uq_cross_cycle_scope",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "INDEX_NAME": "uq_cross_cycle_scope",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "platform",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "INDEX_NAME": "uq_cross_cycle_scope",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "action_type",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "INDEX_NAME": "uq_cross_cycle_scope",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "source_account_id",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "INDEX_NAME": "uq_cross_cycle_scope",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "scenario_id",
+      "SEQ_IN_INDEX": 5
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "INDEX_NAME": "idx_cross_history_batch",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "batch_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "INDEX_NAME": "uq_cross_history_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "INDEX_NAME": "uq_cross_history_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "platform",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "INDEX_NAME": "uq_cross_history_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "action_type",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "INDEX_NAME": "uq_cross_history_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "source_account_id",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "INDEX_NAME": "uq_cross_history_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "scenario_id",
+      "SEQ_IN_INDEX": 5
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "INDEX_NAME": "uq_cross_history_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "cycle_id",
+      "SEQ_IN_INDEX": 6
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "INDEX_NAME": "uq_cross_history_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "target_key",
+      "SEQ_IN_INDEX": 7
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "INDEX_NAME": "idx_dashboard_device_last_seen",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "INDEX_NAME": "idx_dashboard_device_last_seen",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "last_seen",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "INDEX_NAME": "uq_dashboard_device_owner",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "INDEX_NAME": "uq_dashboard_device_owner",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "INDEX_NAME": "uq_device_health_owner",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "INDEX_NAME": "uq_device_health_owner",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "INDEX_NAME": "idx_device_task_capability_enabled",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "INDEX_NAME": "idx_device_task_capability_enabled",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "INDEX_NAME": "idx_device_task_capability_enabled",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "enabled",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "INDEX_NAME": "uq_device_task_capability",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "INDEX_NAME": "uq_device_task_capability",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "INDEX_NAME": "uq_device_task_capability",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "task_type",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_device_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_device_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_device_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_entity",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_entity",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "task_type",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_entity",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "entity_type",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_entity",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "entity_id",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_entity",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 5
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_timeout",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "idx_device_task_run_timeout",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "locked_at",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "INDEX_NAME": "idx_email_otp_use_owner_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "INDEX_NAME": "idx_email_otp_use_owner_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "INDEX_NAME": "uq_email_otp_use_order_device",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "email_order_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "INDEX_NAME": "uq_email_otp_use_order_device",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "INDEX_NAME": "idx_email_otp_gmail",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "gmail",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "INDEX_NAME": "idx_email_otp_locked_by",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "locked_by",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "INDEX_NAME": "idx_email_otp_owner_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "INDEX_NAME": "idx_email_otp_owner_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "INDEX_NAME": "uq_email_otp_owner_site_order",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "INDEX_NAME": "uq_email_otp_owner_site_order",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "site",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "INDEX_NAME": "uq_email_otp_owner_site_order",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "order_id",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "INDEX_NAME": "uq_emailtick_public_id",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "mailbox_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "facebook_accounts_device_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "facebook_accounts_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "live_status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "facebook_accounts_locked_by",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "locked_by",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "facebook_accounts_owner_username_kind_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "facebook_accounts_owner_username_kind_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "kind",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "facebook_accounts_owner_username_kind_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_completed_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "completed_at",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_friend_pool",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_friend_pool",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "kind",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_friend_pool",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_friend_pool",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_group_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "group_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_nurture_lock",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_nurture_lock",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "nurture_locked_by",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_nurture_pick",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_nurture_pick",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_nurture_pick",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "nurture_status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_page_token_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_page_token_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "page_token_status",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_reg_page_lock",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_reg_page_lock",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "reg_page_locked_by",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_reg_page_rotation",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_reg_page_rotation",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_reg_page_rotation",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "last_reg_page_at",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_trash",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_trash",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "kind",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "idx_facebook_trash",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "trashed_at",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "uq_facebook_owner_kind_uid",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "uq_facebook_owner_kind_uid",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "kind",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "INDEX_NAME": "uq_facebook_owner_kind_uid",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "uid",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "INDEX_NAME": "idx_fb_friend_run",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "INDEX_NAME": "idx_fb_friend_run",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "source_account_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "INDEX_NAME": "idx_fb_friend_run",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "run_id",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "INDEX_NAME": "idx_fb_friend_target",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "INDEX_NAME": "idx_fb_friend_target",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "target_account_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "INDEX_NAME": "uq_fb_friend_source_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "INDEX_NAME": "uq_fb_friend_source_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "source_account_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "INDEX_NAME": "uq_fb_friend_source_target",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "target_uid",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "INDEX_NAME": "idx_fb_ig_link_facebook_account",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "facebook_account_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "INDEX_NAME": "idx_fb_ig_link_instagram_account",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "instagram_account_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "INDEX_NAME": "idx_fb_ig_link_owner_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "INDEX_NAME": "idx_fb_ig_link_owner_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "INDEX_NAME": "uq_fb_ig_link_owner_uids",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "INDEX_NAME": "uq_fb_ig_link_owner_uids",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "facebook_uid",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "INDEX_NAME": "uq_fb_ig_link_owner_uids",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "instagram_uid",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "INDEX_NAME": "facebook_job_daily_stats_owner_username_stat_date_web",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "INDEX_NAME": "facebook_job_daily_stats_owner_username_stat_date_web",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "INDEX_NAME": "facebook_job_daily_stats_owner_username_stat_date_web",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "web",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "INDEX_NAME": "uq_facebook_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "INDEX_NAME": "uq_facebook_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "INDEX_NAME": "uq_facebook_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "INDEX_NAME": "uq_facebook_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "web",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "INDEX_NAME": "idx_facebook_login_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "INDEX_NAME": "idx_facebook_login_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "INDEX_NAME": "idx_facebook_login_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "report_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "INDEX_NAME": "uq_facebook_login_owner_device_uid_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "INDEX_NAME": "uq_facebook_login_owner_device_uid_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "INDEX_NAME": "uq_facebook_login_owner_device_uid_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "uid",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "INDEX_NAME": "uq_facebook_login_owner_device_uid_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "report_date",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "INDEX_NAME": "idx_fb_nurture_assignment_owner_scenario",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "INDEX_NAME": "idx_fb_nurture_assignment_owner_scenario",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "scenario_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "INDEX_NAME": "uq_fb_nurture_assignment_owner_device",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "INDEX_NAME": "uq_fb_nurture_assignment_owner_device",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "idx_fb_nurture_logs_account",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "facebook_account_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "idx_fb_nurture_logs_account",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "created_at",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "idx_fb_nurture_logs_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "idx_fb_nurture_logs_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "idx_fb_nurture_logs_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "created_at",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "idx_fb_nurture_logs_owner_created",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "idx_fb_nurture_logs_owner_created",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "created_at",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "uq_fb_nurture_logs_owner_run",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "INDEX_NAME": "uq_fb_nurture_logs_owner_run",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "run_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "INDEX_NAME": "idx_fb_page_claim_owner_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "INDEX_NAME": "idx_fb_page_claim_owner_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "INDEX_NAME": "uq_fb_page_claim_owner_device_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "INDEX_NAME": "uq_fb_page_claim_owner_device_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "INDEX_NAME": "uq_fb_page_claim_owner_device_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "INDEX_NAME": "idx_facebook_page_job_account_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "facebook_account_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "INDEX_NAME": "idx_facebook_page_job_account_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "job_status",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "INDEX_NAME": "idx_facebook_page_job_owner_active",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "INDEX_NAME": "idx_facebook_page_job_owner_active",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "is_active",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "INDEX_NAME": "uq_facebook_page_job_owner_page",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "INDEX_NAME": "uq_facebook_page_job_owner_page",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "page_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "INDEX_NAME": "facebook_reg_page_reports_facebook_account_id_created_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "facebook_account_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "INDEX_NAME": "facebook_reg_page_reports_facebook_account_id_created_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "created_at",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "INDEX_NAME": "facebook_reg_page_reports_owner_username_device_id_stat_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "INDEX_NAME": "facebook_reg_page_reports_owner_username_device_id_stat_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "INDEX_NAME": "facebook_reg_page_reports_owner_username_device_id_stat_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "INDEX_NAME": "facebook_reg_page_reports_owner_username_stat_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "INDEX_NAME": "facebook_reg_page_reports_owner_username_stat_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "INDEX_NAME": "idx_fb_reg_page_success_account",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "facebook_account_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "INDEX_NAME": "idx_fb_reg_page_success_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "INDEX_NAME": "idx_fb_reg_page_success_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "INDEX_NAME": "idx_fb_reg_page_success_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "INDEX_NAME": "uq_fb_reg_page_success_owner_key",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "INDEX_NAME": "uq_fb_reg_page_success_owner_key",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "report_key",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "INDEX_NAME": "uq_ghostinbox_public_id",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "mailbox_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "INDEX_NAME": "hotmail_accounts_device_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "INDEX_NAME": "hotmail_accounts_locked_by",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "locked_by",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "INDEX_NAME": "hotmail_accounts_owner_username_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "INDEX_NAME": "hotmail_accounts_owner_username_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "INDEX_NAME": "uq_hotmail_owner_email",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "INDEX_NAME": "uq_hotmail_owner_email",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "email",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "idx_instagram_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "idx_instagram_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "kind",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "idx_instagram_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "live_status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "idx_instagram_nurture_lock",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "idx_instagram_nurture_lock",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "nurture_locked_by",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "idx_instagram_nurture_pick",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "idx_instagram_nurture_pick",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "idx_instagram_nurture_pick",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "nurture_status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "instagram_accounts_device_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "instagram_accounts_owner_username_kind_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "instagram_accounts_owner_username_kind_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "kind",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "instagram_accounts_owner_username_kind_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "instagram_accounts_owner_username_kind_trashed_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "instagram_accounts_owner_username_kind_trashed_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "kind",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "instagram_accounts_owner_username_kind_trashed_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "trashed_at",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "uq_instagram_owner_kind_uid",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "uq_instagram_owner_kind_uid",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "kind",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "INDEX_NAME": "uq_instagram_owner_kind_uid",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "uid",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "idx_ig_fb_reg_account_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "idx_ig_fb_reg_account_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "facebook_account_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "idx_ig_fb_reg_account_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "idx_ig_fb_reg_device_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "idx_ig_fb_reg_device_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "idx_ig_fb_reg_device_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "idx_ig_fb_reg_instagram_uid",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "instagram_uid",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "idx_ig_fb_reg_owner_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "idx_ig_fb_reg_owner_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "instagram_facebook_reg_claims_owner_username_device_id_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "instagram_facebook_reg_claims_owner_username_device_id_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "instagram_facebook_reg_claims_owner_username_device_id_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "instagram_facebook_reg_claims_owner_username_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "instagram_facebook_reg_claims_owner_username_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "idx_ig_fb_reg_result_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "idx_ig_fb_reg_result_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "idx_ig_fb_reg_result_facebook",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "idx_ig_fb_reg_result_facebook",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "facebook_account_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "idx_ig_fb_reg_result_instagram",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "idx_ig_fb_reg_result_instagram",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "instagram_uid",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "uq_ig_fb_reg_result_claim_uid",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "uq_ig_fb_reg_result_claim_uid",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "claim_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "INDEX_NAME": "uq_ig_fb_reg_result_claim_uid",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "instagram_uid",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "INDEX_NAME": "instagram_job_account_daily_stats_owner_username_stat_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "INDEX_NAME": "instagram_job_account_daily_stats_owner_username_stat_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "INDEX_NAME": "uq_instagram_job_account_daily_owner_device_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "INDEX_NAME": "uq_instagram_job_account_daily_owner_device_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "INDEX_NAME": "uq_instagram_job_account_daily_owner_device_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "INDEX_NAME": "instagram_job_daily_stats_owner_username_stat_date_web",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "INDEX_NAME": "instagram_job_daily_stats_owner_username_stat_date_web",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "INDEX_NAME": "instagram_job_daily_stats_owner_username_stat_date_web",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "web",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "INDEX_NAME": "uq_instagram_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "INDEX_NAME": "uq_instagram_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "INDEX_NAME": "uq_instagram_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "INDEX_NAME": "uq_instagram_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "web",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "INDEX_NAME": "idx_ig_nurture_assignment_owner_scenario",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "INDEX_NAME": "idx_ig_nurture_assignment_owner_scenario",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "scenario_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "INDEX_NAME": "uq_ig_nurture_assignment_owner_device",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "INDEX_NAME": "uq_ig_nurture_assignment_owner_device",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "idx_ig_nurture_logs_account",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "instagram_account_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "idx_ig_nurture_logs_account",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "created_at",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "idx_ig_nurture_logs_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "idx_ig_nurture_logs_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "idx_ig_nurture_logs_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "created_at",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "idx_ig_nurture_logs_owner_created",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "idx_ig_nurture_logs_owner_created",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "created_at",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "uq_ig_nurture_logs_owner_run",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "INDEX_NAME": "uq_ig_nurture_logs_owner_run",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "run_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "INDEX_NAME": "idx_job_account_daily_job_type",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "job_type",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "INDEX_NAME": "idx_job_account_daily_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "INDEX_NAME": "idx_job_account_daily_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "INDEX_NAME": "idx_job_account_daily_owner_device_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "report_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "INDEX_NAME": "uq_job_account_daily_owner_device_account_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "INDEX_NAME": "uq_job_account_daily_owner_device_account_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "INDEX_NAME": "uq_job_account_daily_owner_device_account_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "account_id",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "INDEX_NAME": "uq_job_account_daily_owner_device_account_date",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "report_date",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "idx_job_accounts_owner_web",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "idx_job_accounts_owner_web",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "job_web",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "idx_job_group_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "group_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "idx_job_live_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "live_status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "idx_job_type",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "job_type",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "job_accounts_device_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "job_accounts_locked_by",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "locked_by",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "job_accounts_owner_username_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "job_accounts_owner_username_status",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "job_accounts_status_locked_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "status",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "job_accounts_status_locked_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "locked_at",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "uq_job_owner_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "INDEX_NAME": "uq_job_owner_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "username",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "INDEX_NAME": "job_daily_stats_device_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "INDEX_NAME": "job_daily_stats_owner_username_stat_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "INDEX_NAME": "job_daily_stats_owner_username_stat_date",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "INDEX_NAME": "uq_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "INDEX_NAME": "uq_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "INDEX_NAME": "uq_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "INDEX_NAME": "uq_job_daily_owner_device_date_web",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "web",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "INDEX_NAME": "idx_machine_api_owner_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "INDEX_NAME": "idx_machine_api_owner_device",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "INDEX_NAME": "uq_machine_api_owner_device_key",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "INDEX_NAME": "uq_machine_api_owner_device_key",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "INDEX_NAME": "uq_machine_api_owner_device_key",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "config_key",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "INDEX_NAME": "idx_platform_machine_range",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "INDEX_NAME": "idx_platform_machine_range",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "platform",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "INDEX_NAME": "idx_platform_machine_range",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "INDEX_NAME": "uq_platform_machine_daily",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "INDEX_NAME": "uq_platform_machine_daily",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "platform",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "INDEX_NAME": "uq_platform_machine_daily",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "device_id",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "INDEX_NAME": "uq_platform_machine_daily",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "stat_date",
+      "SEQ_IN_INDEX": 4
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "INDEX_NAME": "task_key",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "task_key",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "idx_used_group_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "group_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "uq_used_owner_type_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "uq_used_owner_type_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "account_type",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "uq_used_owner_type_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "username",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "used_accounts_account_type",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "account_type",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "used_accounts_batch_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "batch_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "used_accounts_owner_username",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "used_accounts_owner_username_used_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "owner_username",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "used_accounts_owner_username_used_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "used_at",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "INDEX_NAME": "used_accounts_used_at",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "used_at",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_dispatcher_state",
+      "INDEX_NAME": "next_task_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "next_task_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_dispatcher_state",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "user_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "INDEX_NAME": "idx_user_dispatch_order",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "user_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "INDEX_NAME": "idx_user_dispatch_order",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "dispatch_order",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "INDEX_NAME": "idx_user_dispatch_order",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "task_id",
+      "SEQ_IN_INDEX": 3
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "INDEX_NAME": "task_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "task_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "INDEX_NAME": "uq_user_task_setting",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "user_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "INDEX_NAME": "uq_user_task_setting",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "task_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "INDEX_NAME": "task_id",
+      "NON_UNIQUE": 1,
+      "COLUMN_NAME": "task_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "INDEX_NAME": "uq_user_task",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "user_id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "INDEX_NAME": "uq_user_task",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "task_id",
+      "SEQ_IN_INDEX": 2
+    },
+    {
+      "TABLE_NAME": "users",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "id",
+      "SEQ_IN_INDEX": 1
+    },
+    {
+      "TABLE_NAME": "users",
+      "INDEX_NAME": "uq_users_username",
+      "NON_UNIQUE": 0,
+      "COLUMN_NAME": "username",
+      "SEQ_IN_INDEX": 1
+    }
+  ],
+  "constraints": [
+    {
+      "TABLE_NAME": "account_groups",
+      "CONSTRAINT_NAME": "account_groups_owner_username_account_type_name",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "account_groups",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "accounts",
+      "CONSTRAINT_NAME": "uq_accounts_owner_username",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "app_khang_daily_logs",
+      "CONSTRAINT_NAME": "uq_app_khang_owner_device_user_date",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "app_settings",
+      "CONSTRAINT_NAME": "uq_app_setting_owner_key",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "chrome_accounts",
+      "CONSTRAINT_NAME": "uq_chrome_owner_username",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "chrome_khang_daily_logs",
+      "CONSTRAINT_NAME": "uq_chrome_khang_owner_device_user_date",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "cross_target_batches",
+      "CONSTRAINT_NAME": "uq_cross_batch_request",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "cross_target_cycles",
+      "CONSTRAINT_NAME": "uq_cross_cycle_scope",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "cross_target_history",
+      "CONSTRAINT_NAME": "uq_cross_history_target",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "dashboard_devices",
+      "CONSTRAINT_NAME": "uq_dashboard_device_owner",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "device_health",
+      "CONSTRAINT_NAME": "uq_device_health_owner",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "device_task_capabilities",
+      "CONSTRAINT_NAME": "uq_device_task_capability",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "device_task_runs",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "email_otp_device_uses",
+      "CONSTRAINT_NAME": "uq_email_otp_use_order_device",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "email_otp_orders",
+      "CONSTRAINT_NAME": "uq_email_otp_owner_site_order",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "emailtick_mailboxes",
+      "CONSTRAINT_NAME": "uq_emailtick_public_id",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_accounts",
+      "CONSTRAINT_NAME": "uq_facebook_owner_kind_uid",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_friend_suggestions",
+      "CONSTRAINT_NAME": "uq_fb_friend_source_target",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_instagram_links",
+      "CONSTRAINT_NAME": "uq_fb_ig_link_owner_uids",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_job_daily_stats",
+      "CONSTRAINT_NAME": "uq_facebook_job_daily_owner_device_date_web",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_login_daily_logs",
+      "CONSTRAINT_NAME": "uq_facebook_login_owner_device_uid_date",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_assignments",
+      "CONSTRAINT_NAME": "uq_fb_nurture_assignment_owner_device",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_nurture_logs",
+      "CONSTRAINT_NAME": "uq_fb_nurture_logs_owner_run",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_page_claim_daily_stats",
+      "CONSTRAINT_NAME": "uq_fb_page_claim_owner_device_date",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_page_jobs",
+      "CONSTRAINT_NAME": "uq_facebook_page_job_owner_page",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_reports",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "facebook_reg_page_success_events",
+      "CONSTRAINT_NAME": "uq_fb_reg_page_success_owner_key",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "ghostinbox_mailboxes",
+      "CONSTRAINT_NAME": "uq_ghostinbox_public_id",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "hotmail_accounts",
+      "CONSTRAINT_NAME": "uq_hotmail_owner_email",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "instagram_accounts",
+      "CONSTRAINT_NAME": "uq_instagram_owner_kind_uid",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_claims",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "instagram_facebook_reg_results",
+      "CONSTRAINT_NAME": "uq_ig_fb_reg_result_claim_uid",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "instagram_job_account_daily_stats",
+      "CONSTRAINT_NAME": "uq_instagram_job_account_daily_owner_device_date",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "instagram_job_daily_stats",
+      "CONSTRAINT_NAME": "uq_instagram_job_daily_owner_device_date_web",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_assignments",
+      "CONSTRAINT_NAME": "uq_ig_nurture_assignment_owner_device",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "instagram_nurture_logs",
+      "CONSTRAINT_NAME": "uq_ig_nurture_logs_owner_run",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "job_account_daily_logs",
+      "CONSTRAINT_NAME": "uq_job_account_daily_owner_device_account_date",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "job_accounts",
+      "CONSTRAINT_NAME": "uq_job_owner_username",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "job_daily_stats",
+      "CONSTRAINT_NAME": "uq_job_daily_owner_device_date_web",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "machine_api_configs",
+      "CONSTRAINT_NAME": "uq_machine_api_owner_device_key",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "platform_machine_daily_stats",
+      "CONSTRAINT_NAME": "uq_platform_machine_daily",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "task_registry",
+      "CONSTRAINT_NAME": "task_key",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "used_accounts",
+      "CONSTRAINT_NAME": "uq_used_owner_type_username",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "user_dispatcher_state",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "user_dispatcher_state",
+      "CONSTRAINT_NAME": "user_dispatcher_state_ibfk_1",
+      "CONSTRAINT_TYPE": "FOREIGN KEY"
+    },
+    {
+      "TABLE_NAME": "user_dispatcher_state",
+      "CONSTRAINT_NAME": "user_dispatcher_state_ibfk_2",
+      "CONSTRAINT_TYPE": "FOREIGN KEY"
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "CONSTRAINT_NAME": "uq_user_task_setting",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "CONSTRAINT_NAME": "user_task_settings_ibfk_1",
+      "CONSTRAINT_TYPE": "FOREIGN KEY"
+    },
+    {
+      "TABLE_NAME": "user_task_settings",
+      "CONSTRAINT_NAME": "user_task_settings_ibfk_2",
+      "CONSTRAINT_TYPE": "FOREIGN KEY"
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "CONSTRAINT_NAME": "uq_user_task",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "CONSTRAINT_NAME": "user_tasks_ibfk_1",
+      "CONSTRAINT_TYPE": "FOREIGN KEY"
+    },
+    {
+      "TABLE_NAME": "user_tasks",
+      "CONSTRAINT_NAME": "user_tasks_ibfk_2",
+      "CONSTRAINT_TYPE": "FOREIGN KEY"
+    },
+    {
+      "TABLE_NAME": "users",
+      "CONSTRAINT_NAME": "PRIMARY",
+      "CONSTRAINT_TYPE": "PRIMARY KEY"
+    },
+    {
+      "TABLE_NAME": "users",
+      "CONSTRAINT_NAME": "uq_users_username",
+      "CONSTRAINT_TYPE": "UNIQUE"
+    }
+  ]
+}

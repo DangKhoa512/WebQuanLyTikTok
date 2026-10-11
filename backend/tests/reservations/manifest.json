@@ -1,0 +1,6 @@
+{
+  "scripts": [
+    "testCrossTargetEngineIntegration.js",
+    "testInstagramCrossFollowIntegration.js"
+  ]
+}

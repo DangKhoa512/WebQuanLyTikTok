@@ -1,0 +1,7 @@
+{
+  "scripts": [
+    "testCronActiveProtection.js",
+    "../tests/cron/failurePropagation.test.js",
+    "testCronDistributedLock.js"
+  ]
+}

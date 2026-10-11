@@ -14,6 +14,7 @@ router.use('/chrome-accounts', apiLimiter, require('./chrome'));
 
 // Stats — JWT required for all
 router.use('/stats',    apiLimiter, jwtAuth, require('./stats'));
+router.use('/system-health', apiLimiter, jwtAuth, require('./systemHealth'));
 router.use('/dashboard', apiLimiter, jwtAuth, require('./dashboard'));
 
 // Users — admin JWT required inside controller

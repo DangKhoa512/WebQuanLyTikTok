@@ -1,0 +1,7 @@
+{
+  "scripts": [
+    "testFacebookImportParser.js",
+    "testFacebookSelfLimit.js",
+    "testInstagramJobSettingsMock.js"
+  ]
+}

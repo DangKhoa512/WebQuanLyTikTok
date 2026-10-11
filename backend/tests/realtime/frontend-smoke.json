@@ -1,0 +1,62 @@
+[
+  {
+    "route": "/dashboard",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/accounts",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/chrome-accounts",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/jobs",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/facebook-reg",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/facebook-jobs",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/facebook-nurture",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/hotmails",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/email-otps",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/stats",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/machine-api-configs",
+    "console_errors": 0,
+    "rendered": true
+  },
+  {
+    "route": "/users",
+    "console_errors": 0,
+    "rendered": true
+  }
+]

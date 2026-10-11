@@ -1,0 +1,5030 @@
+{
+  "observed_at": "2026-10-11T13:11:02.154Z",
+  "note": "Static inventory is not an assertion that every path is dynamically tested",
+  "models": [
+    {
+      "model": "GhostInboxMailbox",
+      "table": "ghostinbox_mailboxes",
+      "columns": [
+        "id",
+        "mailbox_id",
+        "owner_username",
+        "email",
+        "provider_state",
+        "status",
+        "last_email_time",
+        "last_message_code",
+        "processed_message_codes",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_ghostinbox_public_id",
+          "unique": true,
+          "fields": [
+            "mailbox_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "ACTIVE",
+          "EXPIRED"
+        ]
+      }
+    },
+    {
+      "model": "EmailTickMailbox",
+      "table": "emailtick_mailboxes",
+      "columns": [
+        "id",
+        "mailbox_id",
+        "owner_username",
+        "email",
+        "mailbox_code",
+        "types",
+        "status",
+        "last_email_time",
+        "last_message_code",
+        "processed_message_codes",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_emailtick_public_id",
+          "unique": true,
+          "fields": [
+            "mailbox_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "CREATING",
+          "ACTIVE",
+          "ERROR",
+          "EXPIRED"
+        ]
+      }
+    },
+    {
+      "model": "CrossTargetCycle",
+      "table": "cross_target_cycles",
+      "columns": [
+        "id",
+        "owner_username",
+        "platform",
+        "action_type",
+        "source_account_id",
+        "scenario_id",
+        "cycle_id",
+        "legacy_imported"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_cross_cycle_scope",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "platform",
+            "action_type",
+            "source_account_id",
+            "scenario_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "CrossTargetBatch",
+      "table": "cross_target_batches",
+      "columns": [
+        "id",
+        "owner_username",
+        "platform",
+        "action_type",
+        "source_account_id",
+        "scenario_id",
+        "request_id",
+        "cycle_id",
+        "requested_count",
+        "available_count",
+        "issued_count",
+        "issued_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_cross_batch_request",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "platform",
+            "action_type",
+            "source_account_id",
+            "scenario_id",
+            "request_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "CrossTargetHistory",
+      "table": "cross_target_history",
+      "columns": [
+        "id",
+        "owner_username",
+        "platform",
+        "action_type",
+        "source_account_id",
+        "scenario_id",
+        "cycle_id",
+        "target_key",
+        "batch_id",
+        "status",
+        "issued_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_cross_history_target",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "platform",
+            "action_type",
+            "source_account_id",
+            "scenario_id",
+            "cycle_id",
+            "target_key"
+          ]
+        },
+        {
+          "name": "idx_cross_history_batch",
+          "unique": false,
+          "fields": [
+            "batch_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "ISSUED",
+          "SUCCESS",
+          "FAILED"
+        ]
+      }
+    },
+    {
+      "model": "Account",
+      "table": "accounts",
+      "columns": [
+        "id",
+        "raw_data",
+        "username",
+        "password",
+        "twofa",
+        "email",
+        "email_pass",
+        "cookie",
+        "token",
+        "refresh_token",
+        "client_id",
+        "local",
+        "proxy",
+        "device_id",
+        "owner_username",
+        "group_id",
+        "status",
+        "live_status",
+        "video_count",
+        "followers",
+        "following",
+        "reg_at",
+        "last_upload_at",
+        "khang_reported_at",
+        "last_live_check_at",
+        "fail_reason",
+        "note",
+        "locked_by",
+        "locked_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "accounts_status",
+          "unique": false,
+          "fields": [
+            "status"
+          ]
+        },
+        {
+          "name": "accounts_live_status",
+          "unique": false,
+          "fields": [
+            "live_status"
+          ]
+        },
+        {
+          "name": "accounts_device_id",
+          "unique": false,
+          "fields": [
+            "device_id"
+          ]
+        },
+        {
+          "name": "accounts_reg_at",
+          "unique": false,
+          "fields": [
+            "reg_at"
+          ]
+        },
+        {
+          "name": "accounts_status_live_status",
+          "unique": false,
+          "fields": [
+            "status",
+            "live_status"
+          ]
+        },
+        {
+          "name": "accounts_status_locked_by_locked_at",
+          "unique": false,
+          "fields": [
+            "status",
+            "locked_by",
+            "locked_at"
+          ]
+        },
+        {
+          "name": "accounts_locked_at",
+          "unique": false,
+          "fields": [
+            "locked_at"
+          ]
+        },
+        {
+          "name": "accounts_last_upload_at",
+          "unique": false,
+          "fields": [
+            "last_upload_at"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "ACC_LOGIN",
+          "LOGIN_THANH_CONG",
+          "ACC_DA_KHANG",
+          "ACC_CHUA_KHANG",
+          "ACC_DU_DK",
+          "ACC_DA_DUNG",
+          "ACC_DIE"
+        ],
+        "live_status": [
+          "unknown",
+          "live",
+          "die"
+        ]
+      }
+    },
+    {
+      "model": "ChromeAccount",
+      "table": "chrome_accounts",
+      "columns": [
+        "id",
+        "raw_data",
+        "username",
+        "password",
+        "twofa",
+        "email",
+        "email_pass",
+        "cookie",
+        "token",
+        "proxy",
+        "device_id",
+        "owner_username",
+        "group_id",
+        "status",
+        "live_status",
+        "video_count",
+        "followers",
+        "following",
+        "note",
+        "locked_by",
+        "locked_at",
+        "reg_at",
+        "khang_reported_at",
+        "last_live_check_at",
+        "fail_reason",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "chrome_accounts_status",
+          "unique": false,
+          "fields": [
+            "status"
+          ]
+        },
+        {
+          "name": "chrome_accounts_live_status",
+          "unique": false,
+          "fields": [
+            "live_status"
+          ]
+        },
+        {
+          "name": "chrome_accounts_device_id",
+          "unique": false,
+          "fields": [
+            "device_id"
+          ]
+        },
+        {
+          "name": "chrome_accounts_reg_at",
+          "unique": false,
+          "fields": [
+            "reg_at"
+          ]
+        },
+        {
+          "name": "chrome_accounts_status_live_status",
+          "unique": false,
+          "fields": [
+            "status",
+            "live_status"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "ACC_LOGIN",
+          "LOGIN_THANH_CONG",
+          "ACC_DA_KHANG",
+          "ACC_CHUA_KHANG",
+          "ACC_DU_DK",
+          "ACC_DA_DUNG",
+          "ACC_DIE"
+        ],
+        "live_status": [
+          "unknown",
+          "live",
+          "die"
+        ]
+      }
+    },
+    {
+      "model": "User",
+      "table": "users",
+      "columns": [
+        "id",
+        "username",
+        "password_hash",
+        "role",
+        "is_active",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [],
+      "enum_columns": {
+        "role": [
+          "admin",
+          "user"
+        ]
+      }
+    },
+    {
+      "model": "UsedAccount",
+      "table": "used_accounts",
+      "columns": [
+        "id",
+        "account_type",
+        "account_id",
+        "username",
+        "password",
+        "email",
+        "email_pass",
+        "owner_username",
+        "used_by",
+        "source_status",
+        "group_id",
+        "batch_id",
+        "used_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "used_accounts_owner_username",
+          "unique": false,
+          "fields": [
+            "owner_username"
+          ]
+        },
+        {
+          "name": "used_accounts_used_at",
+          "unique": false,
+          "fields": [
+            "used_at"
+          ]
+        },
+        {
+          "name": "used_accounts_account_type",
+          "unique": false,
+          "fields": [
+            "account_type"
+          ]
+        },
+        {
+          "name": "used_accounts_batch_id",
+          "unique": false,
+          "fields": [
+            "batch_id"
+          ]
+        },
+        {
+          "name": "used_accounts_owner_username_used_at",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "used_at"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "account_type": [
+          "app",
+          "chrome"
+        ]
+      }
+    },
+    {
+      "model": "AccountGroup",
+      "table": "account_groups",
+      "columns": [
+        "id",
+        "owner_username",
+        "account_type",
+        "job_type",
+        "name",
+        "note",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "account_groups_owner_username",
+          "unique": false,
+          "fields": [
+            "owner_username"
+          ]
+        },
+        {
+          "name": "account_groups_account_type",
+          "unique": false,
+          "fields": [
+            "account_type"
+          ]
+        },
+        {
+          "name": "account_groups_owner_username_account_type_name",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "account_type",
+            "name"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "account_type": [
+          "app",
+          "chrome",
+          "job",
+          "facebook_reg",
+          "facebook_job",
+          "instagram_reg",
+          "instagram_job"
+        ],
+        "job_type": [
+          "chrome",
+          "hotmail"
+        ]
+      }
+    },
+    {
+      "model": "JobAccount",
+      "table": "job_accounts",
+      "columns": [
+        "id",
+        "raw_data",
+        "username",
+        "password",
+        "email",
+        "email_pass",
+        "refresh_token",
+        "client_id",
+        "reg_at",
+        "owner_username",
+        "group_id",
+        "job_type",
+        "job_web",
+        "status",
+        "job_count",
+        "xu_count",
+        "today_job_date",
+        "today_job_count",
+        "live_status",
+        "video_count",
+        "followers",
+        "following",
+        "last_live_check_at",
+        "device_id",
+        "locked_by",
+        "locked_at",
+        "login_at",
+        "login_fail_count",
+        "last_login_fail_at",
+        "completed_at",
+        "fail_reason",
+        "note",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_job_owner_username",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "username"
+          ]
+        },
+        {
+          "name": "job_accounts_owner_username_status",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "status"
+          ]
+        },
+        {
+          "name": "job_accounts_status_locked_at",
+          "unique": false,
+          "fields": [
+            "status",
+            "locked_at"
+          ]
+        },
+        {
+          "name": "job_accounts_locked_by",
+          "unique": false,
+          "fields": [
+            "locked_by"
+          ]
+        },
+        {
+          "name": "job_accounts_device_id",
+          "unique": false,
+          "fields": [
+            "device_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "job_type": [
+          "chrome",
+          "hotmail"
+        ],
+        "job_web": [
+          "TDS",
+          "XSMM"
+        ],
+        "status": [
+          "ACCOUNT_CHAY",
+          "DANG_LAM",
+          "DUOI_50_JOB",
+          "FAIL_AVT",
+          "LOI_CAU_HINH",
+          "DA_CHAY_XONG",
+          "ACCOUNT_DIE"
+        ],
+        "live_status": [
+          "unknown",
+          "live",
+          "die"
+        ]
+      }
+    },
+    {
+      "model": "JobDailyStat",
+      "table": "job_daily_stats",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "stat_date",
+        "web",
+        "job_count",
+        "xu_count",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "job_daily_stats_device_id",
+          "unique": false,
+          "fields": [
+            "device_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "web": [
+          "TDS",
+          "XSMM"
+        ]
+      }
+    },
+    {
+      "model": "FacebookAccount",
+      "table": "facebook_accounts",
+      "columns": [
+        "id",
+        "kind",
+        "raw_data",
+        "uid",
+        "password",
+        "two_fa",
+        "cookies",
+        "token",
+        "email",
+        "email_pass",
+        "refresh_token",
+        "client_id",
+        "page_count",
+        "pages",
+        "last_page_check_at",
+        "page_token_status",
+        "page_token_error",
+        "owner_username",
+        "group_id",
+        "device_id",
+        "status",
+        "status_before_die",
+        "live_status",
+        "locked_by",
+        "locked_at",
+        "login_get_count",
+        "login_at",
+        "last_live_check_at",
+        "completed_at",
+        "reg_page_locked_by",
+        "reg_page_locked_at",
+        "last_reg_page_at",
+        "nurture_status",
+        "nurture_locked_by",
+        "nurture_locked_at",
+        "nurture_run_id",
+        "nurture_scenario_id",
+        "last_nurture_at",
+        "nurture_count",
+        "fail_reason",
+        "note",
+        "trashed_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_facebook_owner_kind_uid",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "kind",
+            "uid"
+          ]
+        },
+        {
+          "name": "facebook_accounts_owner_username_kind_status",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "kind",
+            "status"
+          ]
+        },
+        {
+          "name": "facebook_accounts_locked_by",
+          "unique": false,
+          "fields": [
+            "locked_by"
+          ]
+        },
+        {
+          "name": "facebook_accounts_device_id",
+          "unique": false,
+          "fields": [
+            "device_id"
+          ]
+        },
+        {
+          "name": "facebook_accounts_live_status",
+          "unique": false,
+          "fields": [
+            "live_status"
+          ]
+        },
+        {
+          "name": "idx_facebook_friend_pool",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "kind",
+            "status",
+            "id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "kind": [
+          "reg",
+          "job"
+        ],
+        "page_token_status": [
+          "unknown",
+          "live",
+          "die"
+        ],
+        "status": [
+          "CHO_LOGIN",
+          "DANG_LOGIN",
+          "DANG_LAM",
+          "LOGIN_THANH_CONG",
+          "LOGIN_FAIL",
+          "DA_CHAY_XONG",
+          "ACCOUNT_DIE"
+        ],
+        "live_status": [
+          "unknown",
+          "live",
+          "die"
+        ],
+        "nurture_status": [
+          "CHUA_NUOI",
+          "DANG_NUOI",
+          "DA_NUOI",
+          "NUOI_FAIL"
+        ]
+      }
+    },
+    {
+      "model": "InstagramAccount",
+      "table": "instagram_accounts",
+      "columns": [
+        "id",
+        "kind",
+        "raw_data",
+        "uid",
+        "password",
+        "two_fa",
+        "cookies",
+        "owner_username",
+        "group_id",
+        "device_id",
+        "status",
+        "live_status",
+        "post_count",
+        "followers",
+        "following",
+        "last_live_check_at",
+        "locked_by",
+        "locked_at",
+        "login_get_count",
+        "login_at",
+        "completed_at",
+        "nurture_status",
+        "nurture_locked_by",
+        "nurture_locked_at",
+        "nurture_run_id",
+        "nurture_scenario_id",
+        "last_nurture_at",
+        "nurture_count",
+        "fail_reason",
+        "note",
+        "trashed_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_instagram_owner_kind_uid",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "kind",
+            "uid"
+          ]
+        },
+        {
+          "name": "instagram_accounts_owner_username_kind_status",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "kind",
+            "status"
+          ]
+        },
+        {
+          "name": "instagram_accounts_owner_username_kind_trashed_at",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "kind",
+            "trashed_at"
+          ]
+        },
+        {
+          "name": "instagram_accounts_device_id",
+          "unique": false,
+          "fields": [
+            "device_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "kind": [
+          "reg",
+          "job"
+        ],
+        "status": [
+          "CHO_LOGIN",
+          "DANG_LOGIN",
+          "DANG_LAM",
+          "LOGIN_THANH_CONG",
+          "LOGIN_FAIL",
+          "DA_CHAY_XONG",
+          "ACCOUNT_DIE"
+        ],
+        "live_status": [
+          "unknown",
+          "live",
+          "die"
+        ],
+        "nurture_status": [
+          "CHUA_NUOI",
+          "DANG_NUOI",
+          "DA_NUOI",
+          "NUOI_FAIL"
+        ]
+      }
+    },
+    {
+      "model": "InstagramFacebookRegClaim",
+      "table": "instagram_facebook_reg_claims",
+      "columns": [
+        "id",
+        "owner_username",
+        "facebook_account_id",
+        "facebook_uid",
+        "device_id",
+        "status",
+        "locked_at",
+        "get_count",
+        "instagram_uid",
+        "email_order_id",
+        "fail_reason",
+        "completed_at",
+        "eligibility_reset_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "idx_ig_fb_reg_owner_status",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_ig_fb_reg_device_status",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_ig_fb_reg_account_status",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "facebook_account_id",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_ig_fb_reg_instagram_uid",
+          "unique": false,
+          "fields": [
+            "instagram_uid"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "DANG_REG",
+          "REG_XONG",
+          "REG_FAIL",
+          "CANCELLED"
+        ]
+      }
+    },
+    {
+      "model": "InstagramFacebookRegResult",
+      "table": "instagram_facebook_reg_results",
+      "columns": [
+        "id",
+        "owner_username",
+        "claim_id",
+        "facebook_account_id",
+        "facebook_uid",
+        "instagram_account_id",
+        "instagram_uid",
+        "device_id",
+        "reported_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_ig_fb_reg_result_claim_uid",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "claim_id",
+            "instagram_uid"
+          ]
+        },
+        {
+          "name": "idx_ig_fb_reg_result_facebook",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "facebook_account_id"
+          ]
+        },
+        {
+          "name": "idx_ig_fb_reg_result_instagram",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "instagram_uid"
+          ]
+        },
+        {
+          "name": "idx_ig_fb_reg_result_device",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "FacebookInstagramLink",
+      "table": "facebook_instagram_links",
+      "columns": [
+        "id",
+        "owner_username",
+        "facebook_account_id",
+        "facebook_uid",
+        "instagram_account_id",
+        "instagram_uid",
+        "device_id",
+        "report_count",
+        "first_reported_at",
+        "last_reported_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_fb_ig_link_owner_uids",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "facebook_uid",
+            "instagram_uid"
+          ]
+        },
+        {
+          "name": "idx_fb_ig_link_owner_device",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id"
+          ]
+        },
+        {
+          "name": "idx_fb_ig_link_facebook_account",
+          "unique": false,
+          "fields": [
+            "facebook_account_id"
+          ]
+        },
+        {
+          "name": "idx_fb_ig_link_instagram_account",
+          "unique": false,
+          "fields": [
+            "instagram_account_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "InstagramJobDailyStat",
+      "table": "instagram_job_daily_stats",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "stat_date",
+        "web",
+        "job_count",
+        "xu_count",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_instagram_job_daily_owner_device_date_web",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "stat_date",
+            "web"
+          ]
+        },
+        {
+          "name": "instagram_job_daily_stats_owner_username_stat_date_web",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "stat_date",
+            "web"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "web": [
+          "TTC",
+          "XSMM",
+          "NVC"
+        ]
+      }
+    },
+    {
+      "model": "InstagramJobAccountDailyStat",
+      "table": "instagram_job_account_daily_stats",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "stat_date",
+        "claimed_count",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_instagram_job_account_daily_owner_device_date",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "stat_date"
+          ]
+        },
+        {
+          "name": "instagram_job_account_daily_stats_owner_username_stat_date",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "stat_date"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "HotmailAccount",
+      "table": "hotmail_accounts",
+      "columns": [
+        "id",
+        "raw_data",
+        "email",
+        "password",
+        "owner_username",
+        "status",
+        "device_id",
+        "locked_by",
+        "locked_at",
+        "used_at",
+        "note",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_hotmail_owner_email",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "email"
+          ]
+        },
+        {
+          "name": "hotmail_accounts_owner_username_status",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "status"
+          ]
+        },
+        {
+          "name": "hotmail_accounts_locked_by",
+          "unique": false,
+          "fields": [
+            "locked_by"
+          ]
+        },
+        {
+          "name": "hotmail_accounts_device_id",
+          "unique": false,
+          "fields": [
+            "device_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "CHUA_SU_DUNG",
+          "DANG_SU_DUNG",
+          "DA_SU_DUNG"
+        ]
+      }
+    },
+    {
+      "model": "EmailOtpOrder",
+      "table": "email_otp_orders",
+      "columns": [
+        "id",
+        "owner_username",
+        "site",
+        "gmail",
+        "order_id",
+        "otp_history",
+        "use_count",
+        "status",
+        "source_device_id",
+        "locked_by",
+        "locked_at",
+        "last_used_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_email_otp_owner_site_order",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "site",
+            "order_id"
+          ]
+        },
+        {
+          "name": "idx_email_otp_owner_status",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_email_otp_gmail",
+          "unique": false,
+          "fields": [
+            "gmail"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "PENDING",
+          "PAUSED",
+          "DONE"
+        ]
+      }
+    },
+    {
+      "model": "EmailOtpDeviceUse",
+      "table": "email_otp_device_uses",
+      "columns": [
+        "id",
+        "owner_username",
+        "email_order_id",
+        "device_id",
+        "otp",
+        "source",
+        "used_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_email_otp_use_order_device",
+          "unique": true,
+          "fields": [
+            "email_order_id",
+            "device_id"
+          ]
+        },
+        {
+          "name": "idx_email_otp_use_owner_device",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "source": [
+          "PURCHASED",
+          "CLAIMED"
+        ]
+      }
+    },
+    {
+      "model": "AppSetting",
+      "table": "app_settings",
+      "columns": [
+        "id",
+        "owner_username",
+        "setting_key",
+        "setting_value",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_app_setting_owner_key",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "setting_key"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "MachineApiConfig",
+      "table": "machine_api_configs",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "config_key",
+        "config_value",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_machine_api_owner_device_key",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "config_key"
+          ]
+        },
+        {
+          "name": "idx_machine_api_owner_device",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "ChromeKhangDailyLog",
+      "table": "chrome_khang_daily_logs",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "username",
+        "status",
+        "report_date",
+        "reported_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_chrome_khang_owner_device_user_date",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "username",
+            "report_date"
+          ]
+        },
+        {
+          "name": "idx_chrome_khang_owner_device_date",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "report_date"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "ACC_DA_KHANG",
+          "ACC_CHUA_KHANG"
+        ]
+      }
+    },
+    {
+      "model": "AppKhangDailyLog",
+      "table": "app_khang_daily_logs",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "username",
+        "status",
+        "report_date",
+        "reported_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_app_khang_owner_device_user_date",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "username",
+            "report_date"
+          ]
+        },
+        {
+          "name": "idx_app_khang_owner_device_date",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "report_date"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "ACC_DA_KHANG",
+          "ACC_CHUA_KHANG"
+        ]
+      }
+    },
+    {
+      "model": "JobAccountDailyLog",
+      "table": "job_account_daily_logs",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "account_id",
+        "username",
+        "job_type",
+        "report_date",
+        "taken_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_job_account_daily_owner_device_account_date",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "account_id",
+            "report_date"
+          ]
+        },
+        {
+          "name": "idx_job_account_daily_owner_device_date",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "report_date"
+          ]
+        },
+        {
+          "name": "idx_job_account_daily_job_type",
+          "unique": false,
+          "fields": [
+            "job_type"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "job_type": [
+          "chrome",
+          "hotmail"
+        ]
+      }
+    },
+    {
+      "model": "FacebookPageJob",
+      "table": "facebook_page_jobs",
+      "columns": [
+        "id",
+        "owner_username",
+        "facebook_account_id",
+        "page_id",
+        "page_name",
+        "job_status",
+        "device_id",
+        "completed_at",
+        "last_report_at",
+        "is_active",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_facebook_page_job_owner_page",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "page_id"
+          ]
+        },
+        {
+          "name": "idx_facebook_page_job_account_status",
+          "unique": false,
+          "fields": [
+            "facebook_account_id",
+            "job_status"
+          ]
+        },
+        {
+          "name": "idx_facebook_page_job_owner_active",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "is_active"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "job_status": [
+          "CHUA_LAM",
+          "DANG_LAM",
+          "DA_LAM"
+        ]
+      }
+    },
+    {
+      "model": "FacebookJobDailyStat",
+      "table": "facebook_job_daily_stats",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "stat_date",
+        "web",
+        "job_count",
+        "xu_count",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_facebook_job_daily_owner_device_date_web",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "stat_date",
+            "web"
+          ]
+        },
+        {
+          "name": "facebook_job_daily_stats_owner_username_stat_date_web",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "stat_date",
+            "web"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "web": [
+          "TTC",
+          "XSMM",
+          "NVC"
+        ]
+      }
+    },
+    {
+      "model": "FacebookRegPageReport",
+      "table": "facebook_reg_page_reports",
+      "columns": [
+        "id",
+        "owner_username",
+        "facebook_account_id",
+        "uid",
+        "device_id",
+        "stat_date",
+        "previous_page_count",
+        "current_page_count",
+        "page_difference",
+        "pages_added",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "facebook_reg_page_reports_owner_username_stat_date",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "stat_date"
+          ]
+        },
+        {
+          "name": "facebook_reg_page_reports_owner_username_device_id_stat_date",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "stat_date"
+          ]
+        },
+        {
+          "name": "facebook_reg_page_reports_facebook_account_id_created_at",
+          "unique": false,
+          "fields": [
+            "facebook_account_id",
+            "created_at"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "FacebookRegPageSuccessEvent",
+      "table": "facebook_reg_page_success_events",
+      "columns": [
+        "id",
+        "owner_username",
+        "facebook_account_id",
+        "facebook_reg_page_report_id",
+        "uid",
+        "device_id",
+        "page_id",
+        "page_name",
+        "report_key",
+        "stat_date",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_fb_reg_page_success_owner_key",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "report_key"
+          ]
+        },
+        {
+          "name": "idx_fb_reg_page_success_device_date",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "stat_date"
+          ]
+        },
+        {
+          "name": "idx_fb_reg_page_success_account",
+          "unique": false,
+          "fields": [
+            "facebook_account_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "FacebookNurtureAssignment",
+      "table": "facebook_nurture_assignments",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "scenario_id",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_fb_nurture_assignment_owner_device",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id"
+          ]
+        },
+        {
+          "name": "idx_fb_nurture_assignment_owner_scenario",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "scenario_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "FacebookNurtureLog",
+      "table": "facebook_nurture_logs",
+      "columns": [
+        "id",
+        "owner_username",
+        "facebook_account_id",
+        "uid",
+        "device_id",
+        "scenario_id",
+        "run_id",
+        "status",
+        "started_at",
+        "completed_at",
+        "duration_seconds",
+        "message",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "idx_fb_nurture_logs_owner_created",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "created_at"
+          ]
+        },
+        {
+          "name": "idx_fb_nurture_logs_account",
+          "unique": false,
+          "fields": [
+            "facebook_account_id",
+            "created_at"
+          ]
+        },
+        {
+          "name": "idx_fb_nurture_logs_device",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "created_at"
+          ]
+        },
+        {
+          "name": "uq_fb_nurture_logs_owner_run",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "run_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "DA_NUOI",
+          "NUOI_FAIL"
+        ]
+      }
+    },
+    {
+      "model": "FacebookFriendSuggestion",
+      "table": "facebook_friend_suggestions",
+      "columns": [
+        "id",
+        "owner_username",
+        "source_account_id",
+        "source_uid",
+        "target_account_id",
+        "target_uid",
+        "run_id",
+        "delivered_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_fb_friend_source_target",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "source_account_id",
+            "target_uid"
+          ]
+        },
+        {
+          "name": "idx_fb_friend_run",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "source_account_id",
+            "run_id"
+          ]
+        },
+        {
+          "name": "idx_fb_friend_target",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "target_account_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "InstagramNurtureAssignment",
+      "table": "instagram_nurture_assignments",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "scenario_id",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_ig_nurture_assignment_owner_device",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id"
+          ]
+        },
+        {
+          "name": "idx_ig_nurture_assignment_owner_scenario",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "scenario_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "InstagramNurtureLog",
+      "table": "instagram_nurture_logs",
+      "columns": [
+        "id",
+        "owner_username",
+        "instagram_account_id",
+        "uid",
+        "device_id",
+        "scenario_id",
+        "run_id",
+        "status",
+        "started_at",
+        "completed_at",
+        "duration_seconds",
+        "message",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "idx_ig_nurture_logs_owner_created",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "created_at"
+          ]
+        },
+        {
+          "name": "idx_ig_nurture_logs_account",
+          "unique": false,
+          "fields": [
+            "instagram_account_id",
+            "created_at"
+          ]
+        },
+        {
+          "name": "idx_ig_nurture_logs_device",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "created_at"
+          ]
+        },
+        {
+          "name": "uq_ig_nurture_logs_owner_run",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "run_id"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "DA_NUOI",
+          "NUOI_FAIL"
+        ]
+      }
+    },
+    {
+      "model": "PlatformMachineDailyStat",
+      "table": "platform_machine_daily_stats",
+      "columns": [
+        "id",
+        "owner_username",
+        "platform",
+        "device_id",
+        "stat_date",
+        "live_count",
+        "die_count",
+        "report_count",
+        "last_reported_at",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_platform_machine_daily",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "platform",
+            "device_id",
+            "stat_date"
+          ]
+        },
+        {
+          "name": "idx_platform_machine_range",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "platform",
+            "stat_date"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "platform": [
+          "facebook",
+          "instagram"
+        ]
+      }
+    },
+    {
+      "model": "DeviceHealth",
+      "table": "device_health",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "status",
+        "alert_code",
+        "last_seen",
+        "unresponsive_since",
+        "detected_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_device_health_owner",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    },
+    {
+      "model": "DashboardDevice",
+      "table": "dashboard_devices",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "device_name",
+        "current_task",
+        "current_uid",
+        "reported_status",
+        "started_at",
+        "last_seen",
+        "last_error",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_dashboard_device_owner",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id"
+          ]
+        },
+        {
+          "name": "idx_dashboard_device_last_seen",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "last_seen"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "reported_status": [
+          "ONLINE",
+          "RUNNING",
+          "IDLE"
+        ]
+      }
+    },
+    {
+      "model": "DeviceTaskRun",
+      "table": "device_task_runs",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "task_type",
+        "priority",
+        "entity_type",
+        "entity_id",
+        "account_id",
+        "uid",
+        "username",
+        "page_id",
+        "status",
+        "locked_by",
+        "locked_at",
+        "completed_at",
+        "retry_count",
+        "error_code",
+        "error_message",
+        "payload",
+        "result",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "idx_device_task_run_device_status",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_device_task_run_entity",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "task_type",
+            "entity_type",
+            "entity_id",
+            "status"
+          ]
+        },
+        {
+          "name": "idx_device_task_run_timeout",
+          "unique": false,
+          "fields": [
+            "status",
+            "locked_at"
+          ]
+        }
+      ],
+      "enum_columns": {
+        "status": [
+          "RUNNING",
+          "REPORTING",
+          "SUCCESS",
+          "FAILED",
+          "RELEASED"
+        ]
+      }
+    },
+    {
+      "model": "DeviceTaskCapability",
+      "table": "device_task_capabilities",
+      "columns": [
+        "id",
+        "owner_username",
+        "device_id",
+        "task_type",
+        "enabled",
+        "created_at",
+        "updated_at"
+      ],
+      "missing_columns": [],
+      "indexes": [
+        {
+          "name": "uq_device_task_capability",
+          "unique": true,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "task_type"
+          ]
+        },
+        {
+          "name": "idx_device_task_capability_enabled",
+          "unique": false,
+          "fields": [
+            "owner_username",
+            "device_id",
+            "enabled"
+          ]
+        }
+      ],
+      "enum_columns": {}
+    }
+  ],
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/account-groups/",
+      "source": "backend/src/routes/accountGroups.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.listGroups);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/account-groups/",
+      "source": "backend/src/routes/accountGroups.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.createGroup);"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/account-groups/:id",
+      "source": "backend/src/routes/accountGroups.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateGroup);"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/account-groups/:id",
+      "source": "backend/src/routes/accountGroups.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.deleteGroup);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/reg-submit",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,      regLimiter, validate(schemas.regSubmit),   ctrl.regSubmit);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/get-upvideo",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,                 validate(schemas.getUpvideo),  ctrl.getUpvideo);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/upload-success",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,              validate(schemas.uploadSuccess),ctrl.uploadSuccess);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/upload-fail",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,                 validate(schemas.uploadFail),  ctrl.uploadFail);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/update-live",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,                 validate(schemas.updateLive),  ctrl.updateLive);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/get-account",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,     ctrl.getAccount);      // lấy LOGIN_THANH_CONG để xử lý kháng"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/phone-submit",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,    ctrl.phoneSubmit);     // báo DA_KHANG / CHUA_KHANG / về ACC_LOGIN"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/get-can-upvideo",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, ctrl.getCanUpvideo);   // lấy DA_KHANG/CHUA_KHANG chưa đủ video theo cài đặt"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/report-upload",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,   ctrl.reportUpload);    // báo đã upload xong"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/get-can-khang",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,   ctrl.getCanKhang);     // lấy CHUA_KHANG > 10 video để kháng"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/import",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, importAccounts);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/check-live",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, checkLive);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/promote-eligible",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, promoteEligible);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/bulk-action",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, bulkCtrl.bulkAction);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/bulk-get",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, bulkCtrl.bulkGet);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/copy-unused",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, bulkCtrl.copyUnused);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/bulk-delete",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, bulkCtrl.bulkDelete);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts/khang-daily-logs",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.getKhangDailyLogs);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts/",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.getAccounts);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts/:id",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.getAccountById);"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/accounts/:id",
+      "source": "backend/src/routes/accounts.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, validate(schemas.updateAccount), ctrl.updateAccount);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "source": "backend/src/routes/auth.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "loginLimiter, authCtrl.login);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "source": "backend/src/routes/auth.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, authCtrl.me);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/phone-submit",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,    ctrl.phoneSubmit);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/get-cho-login",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,   ctrl.getChoLogin);    // lấy acc Chờ Login"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/login-success",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,   ctrl.loginSuccess);   // báo login thành công"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/get-account",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,     ctrl.getAccount);     // lấy acc Login Thành Công → xử lý kháng"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/get-can-upvideo",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, ctrl.getCanUpvideo);  // lấy acc DA_KHANG/CHUA_KHANG chưa đủ video theo cài đặt"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/report-upload",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,   ctrl.reportUpload);   // báo đã upload video xong"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/get-can-khang",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth,   ctrl.getCanKhang);    // lấy acc CHUA_KHANG > 10 video để kháng"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/import",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.importChromeAccounts);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/check-live",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.checkLive);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/promote-eligible",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.promoteEligible);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/bulk-action",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.bulkAction);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/bulk-get",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.bulkGet);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chrome-accounts/bulk-delete",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.bulkDelete);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chrome-accounts/khang-daily-logs",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.getKhangDailyLogs);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chrome-accounts/",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.getAll);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chrome-accounts/:id",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.getById);"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/chrome-accounts/:id",
+      "source": "backend/src/routes/chrome.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.updateAccount);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/summary",
+      "source": "backend/src/routes/dashboard.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "controller.summary);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/device/heartbeat",
+      "source": "backend/src/routes/device.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.heartbeat);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/device/next-task",
+      "source": "backend/src/routes/device.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.nextTask);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/device/task/report",
+      "source": "backend/src/routes/device.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportDeviceTask);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/device/capabilities/:device_id",
+      "source": "backend/src/routes/device.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.getCapabilities);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/device/capabilities/:device_id",
+      "source": "backend/src/routes/device.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.updateCapabilities);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/email-otps/report",
+      "source": "backend/src/routes/emailOtp.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportFromPhone);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/email-otps/get",
+      "source": "backend/src/routes/emailOtp.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getForPhone);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/email-otps/report-done",
+      "source": "backend/src/routes/emailOtp.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportDone);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/email-otps/",
+      "source": "backend/src/routes/emailOtp.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.list);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/email-otps/",
+      "source": "backend/src/routes/emailOtp.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.createFromDashboard);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/email-otps/bulk-status",
+      "source": "backend/src/routes/emailOtp.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkStatus);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/email-otps/bulk-delete",
+      "source": "backend/src/routes/emailOtp.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkDelete);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/emailtick/new",
+      "source": "backend/src/routes/emailtick.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "express.json({limit:'2kb',strict:true}),controller.createMailbox);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/emailtick/code",
+      "source": "backend/src/routes/emailtick.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "controller.getCode);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/export/accounts",
+      "source": "backend/src/routes/export.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.exportAccounts);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/export/summary",
+      "source": "backend/src/routes/export.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, ctrl.exportSummary);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/nurture/targets",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, guardCross('NUOI_FACEBOOK', crossTargets.getTargets('FACEBOOK')));"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/nurture/targets/report",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, crossTargets.reportTargets('FACEBOOK'));"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/import-api",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.importFromApi);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/reg/report",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportRegOnly);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/job/get-account",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getJobForPhone);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/facebook/job/device-account-count",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.checkDeviceAccountCount);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/facebook/job/check-limit",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.checkDeviceAccountCount);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/facebook/job/device-accounts",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.listDeviceAccounts);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/job/get-login-success-account",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getLoginSuccessJobForPhone);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/job/report",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.report);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/job/page-report",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportPageJob);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/job/add-job",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.addFacebookJobCount);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/reg-page/get-account",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getRegPageAccount);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/reg-page/report-success",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportRegPageSuccess);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/reg-page/report",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportRegPage);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/nurture/get-account",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getNurtureAccount);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/nurture/report",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportNurtureAccount);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/check-page-token",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.checkPageToken);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/facebook/reg-page/stats",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.getRegPageStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/facebook/trash",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.listTrash);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/trash/restore",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.restoreTrash);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/trash/delete",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.deleteTrash);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/facebook/nurture/accounts",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.listNurtureAccounts);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/facebook/nurture/logs",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.listNurtureLogs);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/nurture/reset",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.resetNurtureAccounts);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/facebook/",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.list);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/facebook/:accountId/pages",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.getAccountPages);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/import",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.importFromDashboard);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/check-live",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.checkLive);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/check-pages",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.checkPages);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/pages/reset",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.resetPageJobs);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/bulk-get",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkGet);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/bulk-sync-to-job",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkSyncRegToJob);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/bulk-move-group",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkMoveGroup);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/bulk-action",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkAction);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/facebook/bulk-delete",
+      "source": "backend/src/routes/facebook.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkDelete);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hotmails/get",
+      "source": "backend/src/routes/hotmail.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getForPhone);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hotmails/report-used",
+      "source": "backend/src/routes/hotmail.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportUsed);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hotmails/",
+      "source": "backend/src/routes/hotmail.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.list);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hotmails/import",
+      "source": "backend/src/routes/hotmail.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.importFromDashboard);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hotmails/bulk-get",
+      "source": "backend/src/routes/hotmail.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkGet);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hotmails/bulk-delete",
+      "source": "backend/src/routes/hotmail.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkDelete);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/nurture/targets",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, guardCross('NUOI_INSTAGRAM', crossTargets.getTargets('INSTAGRAM')));"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/nurture/targets/report",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, crossTargets.reportTargets('INSTAGRAM'));"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/import-api",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.importApi);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/reg/report",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportRegOnly);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/instagram/check-cookies",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getCheckCookies);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/reg/facebook/get-account",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, facebookRegController.getAccount);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/reg/facebook/report-instagram",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, facebookRegController.reportInstagram);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/reg/facebook/finish",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, facebookRegController.finish);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/reg/facebook/report",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, facebookRegController.report);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/reg/facebook/release",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, facebookRegController.release);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/instagram/reg/facebook/device-status",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, facebookRegController.deviceStatus);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/reg/facebook/machines",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, facebookRegController.listMachines);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/reg/facebook/claims",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, facebookRegController.listClaims);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/reg/facebook/reset",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, facebookRegController.resetEligibility);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/job/report-facebook-instagrams",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportFacebookInstagramAccounts);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/job/facebook-sources",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.listFacebookInstagramSources);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/job/facebook-sources/:facebookUid/accounts",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.getFacebookInstagramAccounts);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/job/get-account",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getAccount);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/instagram/job/device-account-count",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.checkDeviceAccountCount);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/instagram/job/check-limit",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.checkDeviceAccountCount);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/instagram/job/device-accounts",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.listDeviceAccounts);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/job/get-login-success-account",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getLoginSuccess);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/job/report",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.report);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/job/add-job",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.addInstagramJobCount);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/job/login-cookies",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.loginCookies);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/nurture/get-account",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getNurtureAccount);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/nurture/report",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportNurtureAccount);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/nurture/accounts",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.listNurtureAccounts);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/nurture/logs",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.listNurtureLogs);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/nurture/reset",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.resetNurtureAccounts);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/trash",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.listTrash);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/trash/restore",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.restore);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/trash/delete",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.deleteTrash);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/check-live",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.checkLive);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.list);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/import",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.importDashboard);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/bulk-get",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkGet);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/bulk-sync-to-job",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkSync);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/bulk-move-group",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkMove);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/bulk-action",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkAction);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instagram/bulk-delete",
+      "source": "backend/src/routes/instagram.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkDelete);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/get-account",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.getForPhone);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/login-success",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.loginSuccess);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/login-fail",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.loginFail);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/add-job",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.addJobCount);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/report",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.reportResult);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/import-api",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.importAccountsApi);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/import",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.importAccounts);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/check-live",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.checkLive);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/bulk-get",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkGet);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/bulk-action",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkAction);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/bulk-delete",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.bulkDelete);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/",
+      "source": "backend/src/routes/jobs.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.getAll);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/machine-api-configs/device/:device_id/facebook-nurture/random",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, ctrl.getRandomNurtureScenario);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/machine-api-configs/device/:device_id/instagram-nurture/random",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, ctrl.getRandomInstagramNurtureScenario);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/machine-api-configs/device/:device_id",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, ctrl.getForDevice);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/machine-api-configs/",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.listConfigs);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/machine-api-configs/",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.saveConfigs);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/machine-api-configs/bulk-machines",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.bulkCreateMachines);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/machine-api-configs/bulk-delete-machines",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.bulkDeleteMachines);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/machine-api-configs/keys",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.addConfigKey);"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/machine-api-configs/keys/:config_key",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.renameConfigKey);"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/machine-api-configs/keys/:config_key",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.deleteConfigKey);"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/machine-api-configs/:device_id",
+      "source": "backend/src/routes/machineApiConfigs.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.deleteMachine);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/machine-status/report",
+      "source": "backend/src/routes/machineStatus.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.report);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/machine-status/device-accounts",
+      "source": "backend/src/routes/machineStatus.js",
+      "explicit_auth": "apiKeyAuth",
+      "handler": "apiKeyAuth, controller.deviceAccounts);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/machine-status/stats",
+      "source": "backend/src/routes/machineStatus.js",
+      "explicit_auth": "jwtAuth",
+      "handler": "jwtAuth, controller.stats);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/mail/new",
+      "source": "backend/src/routes/mail.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "express.json({limit:'2kb',strict:true}),controller.createMailbox);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/code",
+      "source": "backend/src/routes/mail.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "controller.getCode);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/eligibility",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getEligibility);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/eligibility",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateEligibility);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/chrome-khang-limit",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getChromeKhangLimit);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/chrome-khang-limit",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateChromeKhangLimit);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/chrome-khang-limits",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.listChromeKhangLimits);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/facebook-login-limit",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getFacebookLoginLimit);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/facebook-login-limit",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateFacebookLoginLimit);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/facebook-login-limits",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.listFacebookLoginLimits);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/instagram-job",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getInstagramJob);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/instagram-job",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateInstagramJob);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/instagram-login-limit",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getInstagramLoginLimit);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/instagram-login-limit",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateInstagramLoginLimit);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/instagram-login-limits",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.listInstagramLoginLimits);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/job-account-daily-limit",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getJobAccountDailyLimit);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/job-account-daily-limit",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateJobAccountDailyLimit);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/job-account-daily-limits",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.listJobAccountDailyLimits);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/machine-api-keys",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getMachineApiKeysSetting);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/machine-api-keys",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateMachineApiKeysSetting);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/facebook-check-proxies",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getFacebookCheckProxies);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/facebook-check-proxies",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateFacebookCheckProxies);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/instagram-check-cookies",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getInstagramCheckCookies);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/instagram-check-cookies",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateInstagramCheckCookies);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/instagram-check-cookies/check",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.checkInstagramCheckCookies);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/facebook-reg-page-wait",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getFacebookRegPageWait);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/facebook-reg-page-wait",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateFacebookRegPageWait);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/facebook-workflow",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getFacebookWorkflow);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/facebook-workflow",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateFacebookWorkflow);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/instagram-facebook-reg",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getInstagramFacebookReg);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/instagram-facebook-reg",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateInstagramFacebookReg);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/facebook-nurture",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getFacebookNurture);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/facebook-nurture",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateFacebookNurture);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/instagram-nurture",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getInstagramNurture);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/instagram-nurture",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateInstagramNurture);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/task-dispatcher",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getTaskDispatcher);"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/task-dispatcher",
+      "source": "backend/src/routes/settings.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateTaskDispatcher);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/job/daily",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getJobDailyStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/job/devices",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getJobDeviceStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/job",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getJobStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/facebook-job/daily",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getFacebookJobDailyStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/facebook-job/devices",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getFacebookJobDeviceStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/facebook-job",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getFacebookJobStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/instagram-job/daily",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getInstagramJobDailyStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/instagram-job/devices",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getInstagramJobDeviceStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/instagram-job",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getInstagramJobStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/daily",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getDailyStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/devices",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getDeviceStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stats/",
+      "source": "backend/src/routes/stats.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.getStats);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system-health/",
+      "source": "backend/src/routes/systemHealth.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "async(req,res,next)=>{try{"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-registry/",
+      "source": "backend/src/routes/taskRegistry.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "c.list);router.put('/mine',c.mine);router.put('/order',c.order);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-registry/",
+      "source": "backend/src/routes/taskRegistry.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "c.admin,c.create);"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/task-registry/:id",
+      "source": "backend/src/routes/taskRegistry.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "c.admin,c.update);router.post('/:id/archive',c.admin,c.archive);"
+    },
+    {
+      "method": "ALL",
+      "path": "/api/totp/generate",
+      "source": "backend/src/routes/totp.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "rateLimit({ windowMs: 60000, max: 60, standardHeaders: true, legacyHeaders: false,"
+    },
+    {
+      "method": "POST",
+      "path": "/api/totp/generate",
+      "source": "backend/src/routes/totp.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "express.json({ limit: '2kb', strict: true }), generate);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/used-accounts/",
+      "source": "backend/src/routes/usedAccounts.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.listUsedAccounts);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/used-accounts/bulk-delete",
+      "source": "backend/src/routes/usedAccounts.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.bulkDeleteUsedAccounts);"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/",
+      "source": "backend/src/routes/users.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.listUsers);"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/",
+      "source": "backend/src/routes/users.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.createUser);"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/users/:id",
+      "source": "backend/src/routes/users.js",
+      "explicit_auth": "inherited-or-controller",
+      "handler": "ctrl.updateUser);"
+    }
+  ],
+  "sources": [
+    {
+      "file": "backend/src/app.js",
+      "lines": 60,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/config/database.js",
+      "lines": 31,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/config/devices.js",
+      "lines": 5,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/config/emailtick.js",
+      "lines": 23,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/config/jwt.js",
+      "lines": 14,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/config/logger.js",
+      "lines": 48,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/controllers/accountController.js",
+      "lines": 393,
+      "raw_queries": 0,
+      "owner_references": 36
+    },
+    {
+      "file": "backend/src/controllers/accountGroupController.js",
+      "lines": 112,
+      "raw_queries": 0,
+      "owner_references": 13
+    },
+    {
+      "file": "backend/src/controllers/authController.js",
+      "lines": 58,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/controllers/bulkController.js",
+      "lines": 296,
+      "raw_queries": 0,
+      "owner_references": 9
+    },
+    {
+      "file": "backend/src/controllers/chromeController.js",
+      "lines": 851,
+      "raw_queries": 0,
+      "owner_references": 61
+    },
+    {
+      "file": "backend/src/controllers/crossTargetController.js",
+      "lines": 37,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/controllers/dashboardController.js",
+      "lines": 18,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/controllers/deviceController.js",
+      "lines": 196,
+      "raw_queries": 0,
+      "owner_references": 24
+    },
+    {
+      "file": "backend/src/controllers/emailOtpController.js",
+      "lines": 341,
+      "raw_queries": 0,
+      "owner_references": 30
+    },
+    {
+      "file": "backend/src/controllers/emailTickController.js",
+      "lines": 30,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/controllers/exportController.js",
+      "lines": 214,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/controllers/facebookController.js",
+      "lines": 2865,
+      "raw_queries": 0,
+      "owner_references": 218
+    },
+    {
+      "file": "backend/src/controllers/hotmailController.js",
+      "lines": 191,
+      "raw_queries": 0,
+      "owner_references": 24
+    },
+    {
+      "file": "backend/src/controllers/importController.js",
+      "lines": 244,
+      "raw_queries": 0,
+      "owner_references": 8
+    },
+    {
+      "file": "backend/src/controllers/instagramController.js",
+      "lines": 754,
+      "raw_queries": 0,
+      "owner_references": 153
+    },
+    {
+      "file": "backend/src/controllers/instagramFacebookRegController.js",
+      "lines": 862,
+      "raw_queries": 1,
+      "owner_references": 86
+    },
+    {
+      "file": "backend/src/controllers/jobController.js",
+      "lines": 941,
+      "raw_queries": 0,
+      "owner_references": 64
+    },
+    {
+      "file": "backend/src/controllers/liveCheckController.js",
+      "lines": 459,
+      "raw_queries": 0,
+      "owner_references": 5
+    },
+    {
+      "file": "backend/src/controllers/machineApiConfigController.js",
+      "lines": 434,
+      "raw_queries": 0,
+      "owner_references": 54
+    },
+    {
+      "file": "backend/src/controllers/machineStatusController.js",
+      "lines": 148,
+      "raw_queries": 3,
+      "owner_references": 18
+    },
+    {
+      "file": "backend/src/controllers/mailController.js",
+      "lines": 28,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/controllers/settingsController.js",
+      "lines": 486,
+      "raw_queries": 0,
+      "owner_references": 62
+    },
+    {
+      "file": "backend/src/controllers/statsController.js",
+      "lines": 122,
+      "raw_queries": 0,
+      "owner_references": 13
+    },
+    {
+      "file": "backend/src/controllers/taskRegistryController.js",
+      "lines": 19,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/controllers/totpController.js",
+      "lines": 11,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/controllers/usedAccountController.js",
+      "lines": 224,
+      "raw_queries": 0,
+      "owner_references": 9
+    },
+    {
+      "file": "backend/src/controllers/userController.js",
+      "lines": 77,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/cron/scheduler.js",
+      "lines": 57,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/middleware/apiKeyAuth.js",
+      "lines": 30,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/middleware/errorHandler.js",
+      "lines": 36,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/middleware/jwtAuth.js",
+      "lines": 45,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/middleware/loginLimiter.js",
+      "lines": 18,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/middleware/rateLimiter.js",
+      "lines": 29,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/middleware/taskAcquirePermission.js",
+      "lines": 14,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/middleware/validator.js",
+      "lines": 90,
+      "raw_queries": 0,
+      "owner_references": 5
+    },
+    {
+      "file": "backend/src/models/Account.js",
+      "lines": 156,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/models/AccountGroup.js",
+      "lines": 48,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/AppKhangDailyLog.js",
+      "lines": 53,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/AppSetting.js",
+      "lines": 38,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/models/ChromeAccount.js",
+      "lines": 69,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/models/ChromeKhangDailyLog.js",
+      "lines": 53,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/CrossTargetBatch.js",
+      "lines": 20,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/models/CrossTargetCycle.js",
+      "lines": 16,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/models/CrossTargetHistory.js",
+      "lines": 22,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/models/DashboardDevice.js",
+      "lines": 27,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/DeviceHealth.js",
+      "lines": 14,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/models/DeviceTaskCapability.js",
+      "lines": 22,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/DeviceTaskRun.js",
+      "lines": 42,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/EmailOtpDeviceUse.js",
+      "lines": 23,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/models/EmailOtpOrder.js",
+      "lines": 33,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/EmailTickMailbox.js",
+      "lines": 15,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/models/FacebookAccount.js",
+      "lines": 213,
+      "raw_queries": 0,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/models/FacebookFriendSuggestion.js",
+      "lines": 34,
+      "raw_queries": 0,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/models/FacebookInstagramLink.js",
+      "lines": 28,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/FacebookJobDailyStat.js",
+      "lines": 57,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/FacebookNurtureAssignment.js",
+      "lines": 41,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/FacebookNurtureLog.js",
+      "lines": 33,
+      "raw_queries": 0,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/models/FacebookPageJob.js",
+      "lines": 32,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/FacebookRegPageReport.js",
+      "lines": 32,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/FacebookRegPageSuccessEvent.js",
+      "lines": 27,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/GhostInboxMailbox.js",
+      "lines": 14,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/models/HotmailAccount.js",
+      "lines": 34,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/index.js",
+      "lines": 45,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/models/InstagramAccount.js",
+      "lines": 50,
+      "raw_queries": 0,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/models/InstagramFacebookRegClaim.js",
+      "lines": 31,
+      "raw_queries": 0,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/models/InstagramFacebookRegResult.js",
+      "lines": 27,
+      "raw_queries": 0,
+      "owner_references": 5
+    },
+    {
+      "file": "backend/src/models/InstagramJobAccountDailyStat.js",
+      "lines": 21,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/InstagramJobDailyStat.js",
+      "lines": 22,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/InstagramNurtureAssignment.js",
+      "lines": 20,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/InstagramNurtureLog.js",
+      "lines": 30,
+      "raw_queries": 0,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/models/JobAccount.js",
+      "lines": 173,
+      "raw_queries": 0,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/models/JobAccountDailyLog.js",
+      "lines": 56,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/JobDailyStat.js",
+      "lines": 53,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/models/MachineApiConfig.js",
+      "lines": 46,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/PlatformMachineDailyStat.js",
+      "lines": 25,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/UsedAccount.js",
+      "lines": 80,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/models/User.js",
+      "lines": 37,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/accountGroups.js",
+      "lines": 11,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/accounts.js",
+      "lines": 41,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/auth.js",
+      "lines": 14,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/chrome.js",
+      "lines": 30,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/dashboard.js",
+      "lines": 8,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/device.js",
+      "lines": 14,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/emailOtp.js",
+      "lines": 17,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/emailtick.js",
+      "lines": 14,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/export.js",
+      "lines": 11,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/facebook.js",
+      "lines": 50,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/hotmail.js",
+      "lines": 17,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/index.js",
+      "lines": 39,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/instagram.js",
+      "lines": 53,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/jobs.js",
+      "lines": 25,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/machineApiConfigs.js",
+      "lines": 22,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/machineStatus.js",
+      "lines": 11,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/mail.js",
+      "lines": 13,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/settings.js",
+      "lines": 43,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/stats.js",
+      "lines": 20,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/systemHealth.js",
+      "lines": 9,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/taskRegistry.js",
+      "lines": 9,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/totp.js",
+      "lines": 20,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/usedAccounts.js",
+      "lines": 10,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/routes/users.js",
+      "lines": 10,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/server.js",
+      "lines": 1018,
+      "raw_queries": 92,
+      "owner_references": 74
+    },
+    {
+      "file": "backend/src/services/accountService.js",
+      "lines": 365,
+      "raw_queries": 0,
+      "owner_references": 19
+    },
+    {
+      "file": "backend/src/services/activeTaskProtection.js",
+      "lines": 10,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/services/apiHealthMetrics.js",
+      "lines": 13,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/cronHealthService.js",
+      "lines": 18,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/services/cronLockService.js",
+      "lines": 15,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/crossTargetService.js",
+      "lines": 74,
+      "raw_queries": 0,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/services/dashboardService.js",
+      "lines": 203,
+      "raw_queries": 4,
+      "owner_references": 23
+    },
+    {
+      "file": "backend/src/services/deviceMonitoringService.js",
+      "lines": 35,
+      "raw_queries": 0,
+      "owner_references": 9
+    },
+    {
+      "file": "backend/src/services/deviceRegistrationService.js",
+      "lines": 33,
+      "raw_queries": 1,
+      "owner_references": 8
+    },
+    {
+      "file": "backend/src/services/deviceStatusService.js",
+      "lines": 18,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/services/deviceTaskTypes.js",
+      "lines": 9,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/emailTickMailboxService.js",
+      "lines": 41,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/services/emailTickService.js",
+      "lines": 57,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/facebookFriendSuggestionService.js",
+      "lines": 23,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/services/facebookJobStatService.js",
+      "lines": 51,
+      "raw_queries": 2,
+      "owner_references": 8
+    },
+    {
+      "file": "backend/src/services/facebookWorkflowService.js",
+      "lines": 115,
+      "raw_queries": 0,
+      "owner_references": 14
+    },
+    {
+      "file": "backend/src/services/instagramCrossTargetService.js",
+      "lines": 28,
+      "raw_queries": 0,
+      "owner_references": 1
+    },
+    {
+      "file": "backend/src/services/instagramFacebookLinkService.js",
+      "lines": 62,
+      "raw_queries": 0,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/services/instagramJobStatService.js",
+      "lines": 37,
+      "raw_queries": 2,
+      "owner_references": 8
+    },
+    {
+      "file": "backend/src/services/jobDailyStatService.js",
+      "lines": 36,
+      "raw_queries": 1,
+      "owner_references": 4
+    },
+    {
+      "file": "backend/src/services/legacyTaskAdapter.js",
+      "lines": 78,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/services/mailOtpService.js",
+      "lines": 36,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/mailProviders/GhostInboxProvider.js",
+      "lines": 116,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/mailService.js",
+      "lines": 45,
+      "raw_queries": 0,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/services/roundRobinService.js",
+      "lines": 47,
+      "raw_queries": 2,
+      "owner_references": 2
+    },
+    {
+      "file": "backend/src/services/schedulerState.js",
+      "lines": 43,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/settingsService.js",
+      "lines": 556,
+      "raw_queries": 0,
+      "owner_references": 61
+    },
+    {
+      "file": "backend/src/services/statsService.js",
+      "lines": 845,
+      "raw_queries": 25,
+      "owner_references": 27
+    },
+    {
+      "file": "backend/src/services/systemHealthService.js",
+      "lines": 31,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "backend/src/services/taskDispatcherService.js",
+      "lines": 285,
+      "raw_queries": 0,
+      "owner_references": 11
+    },
+    {
+      "file": "backend/src/services/taskEligibilityService.js",
+      "lines": 132,
+      "raw_queries": 1,
+      "owner_references": 10
+    },
+    {
+      "file": "backend/src/services/taskRegistryPolicy.js",
+      "lines": 30,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/taskRegistryService.js",
+      "lines": 92,
+      "raw_queries": 2,
+      "owner_references": 5
+    },
+    {
+      "file": "backend/src/services/taskReportService.js",
+      "lines": 47,
+      "raw_queries": 0,
+      "owner_references": 5
+    },
+    {
+      "file": "backend/src/services/taskTransactionContext.js",
+      "lines": 17,
+      "raw_queries": 2,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/totpService.js",
+      "lines": 34,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/services/usageHistoryService.js",
+      "lines": 59,
+      "raw_queries": 0,
+      "owner_references": 6
+    },
+    {
+      "file": "backend/src/utils/checkLiveUtils.js",
+      "lines": 190,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/utils/instagramCheckLiveUtils.js",
+      "lines": 502,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/utils/instagramCookieCheckUtils.js",
+      "lines": 208,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/utils/instagramLoginUtils.js",
+      "lines": 308,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/utils/nurtureActionUtils.js",
+      "lines": 47,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/utils/owner.js",
+      "lines": 26,
+      "raw_queries": 0,
+      "owner_references": 10
+    },
+    {
+      "file": "backend/src/utils/response.js",
+      "lines": 38,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "backend/src/utils/totp.js",
+      "lines": 34,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/App.jsx",
+      "lines": 68,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/AccountGroupPicker.jsx",
+      "lines": 158,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/CommonSettingsPanel.jsx",
+      "lines": 36,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/crossFollowConfig.js",
+      "lines": 26,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/FacebookNurtureSettings.jsx",
+      "lines": 381,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/FacebookSettingsPanel.jsx",
+      "lines": 30,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/ImportModal.jsx",
+      "lines": 222,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/InstagramFacebookRegClaims.jsx",
+      "lines": 245,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/InstagramFacebookSources.jsx",
+      "lines": 73,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/InstagramNurtureSettings.jsx",
+      "lines": 322,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/InstagramSettingsPanel.jsx",
+      "lines": 192,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/Layout.jsx",
+      "lines": 149,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/Pagination.jsx",
+      "lines": 52,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/PlatformTabs.jsx",
+      "lines": 12,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/ProtectedRoute.jsx",
+      "lines": 18,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/RegToolbar.jsx",
+      "lines": 81,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/ScenarioSettings.jsx",
+      "lines": 21,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/SettingsData.jsx",
+      "lines": 27,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/SettingsFields.jsx",
+      "lines": 33,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/SettingsPrimitives.jsx",
+      "lines": 37,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/SettingsSubTabs.jsx",
+      "lines": 27,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/SocialPlatformSwitch.jsx",
+      "lines": 8,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/StatCard.jsx",
+      "lines": 14,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/StatsPlatformSwitch.jsx",
+      "lines": 38,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/StatusBadge.jsx",
+      "lines": 28,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/SystemHealthPanel.jsx",
+      "lines": 24,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/TaskDispatcherSettings.jsx",
+      "lines": 9,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/TaskRegistrySettings.jsx",
+      "lines": 80,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/TikTokSettingsPanel.jsx",
+      "lines": 28,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/components/Toast.jsx",
+      "lines": 38,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/main.jsx",
+      "lines": 11,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/AccountDetail.jsx",
+      "lines": 282,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/AccountList.jsx",
+      "lines": 897,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/ChromeAccountList.jsx",
+      "lines": 841,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/ChromeKhangStats.jsx",
+      "lines": 184,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/Dashboard.jsx",
+      "lines": 191,
+      "raw_queries": 0,
+      "owner_references": 3
+    },
+    {
+      "file": "frontend/src/pages/EmailOtpAccounts.jsx",
+      "lines": 164,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/Export.jsx",
+      "lines": 273,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/FacebookAccounts.jsx",
+      "lines": 1022,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/FacebookJobStats.jsx",
+      "lines": 287,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/FacebookNurture.jsx",
+      "lines": 232,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/FacebookRegStats.jsx",
+      "lines": 147,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/HotmailAccounts.jsx",
+      "lines": 189,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/InstagramAccounts.jsx",
+      "lines": 271,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/InstagramJobStats.jsx",
+      "lines": 38,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/JobAccounts.jsx",
+      "lines": 728,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/Login.jsx",
+      "lines": 197,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/MachineApiConfigs.jsx",
+      "lines": 638,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/ProxySettings.jsx",
+      "lines": 505,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/Stats.jsx",
+      "lines": 525,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/UsedAccounts.jsx",
+      "lines": 592,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/pages/Users.jsx",
+      "lines": 206,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/services/api.js",
+      "lines": 307,
+      "raw_queries": 0,
+      "owner_references": 8
+    },
+    {
+      "file": "frontend/src/services/authService.js",
+      "lines": 56,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/services/checkLiveRunner.js",
+      "lines": 58,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/services/checkLiveSettings.js",
+      "lines": 15,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/services/clipboard.js",
+      "lines": 29,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/services/dashboardTaskRegistry.js",
+      "lines": 3,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/services/eligibilitySettings.js",
+      "lines": 22,
+      "raw_queries": 0,
+      "owner_references": 0
+    },
+    {
+      "file": "frontend/src/services/taskRegistryApi.js",
+      "lines": 10,
+      "raw_queries": 0,
+      "owner_references": 0
+    }
+  ]
+}

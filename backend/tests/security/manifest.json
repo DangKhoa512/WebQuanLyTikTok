@@ -1,0 +1,9 @@
+{
+  "scripts": [
+    "../tests/security/errorLogging.test.js",
+    "../tests/security/apiKeyFailure.test.js",
+    "../tests/security/productionJwt.test.js",
+    "testLegacyPhoneAuth.js",
+    "../tests/security/userValidation.test.js"
+  ]
+}
