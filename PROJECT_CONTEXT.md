@@ -504,3 +504,21 @@ User requested stopping VPS deployment and committing/pushing completed Device M
 - Ghi chú này thay semantics cũ ở sectionTaskRegistry (APIlegacychặnOFF). Chưa commit/push/deploy lượt sửa này.
 
 Additional verification: testTaskRegistryIntegration.js --legacy PASS; testRoundRobinIntegration.js PASS (50 concurrent requests, Page16). Syntax and git diff --check PASS.
+
+## 53. Instagram credentials riêng + lazy detail (2026-10-12)
+
+- Đọc attachment f5754bd4 và Lua user. Bỏ suy đoán/khôi phục hexadecimal/sessionid, literal Lua "%%3A" không phải encoding đúng. Lua helper mới giữ cookie và trả bearer ở return thứ2, không log secrets; chưa test iPhone/tweak/active-account identity.
+- Thêm instagramCredentials/instagramCredentialService/instagramCredentialMigration; model nullable token/token_updated_at, optional AES256GCM cho cookie/token/raw_data bằng INSTAGRAM_CREDENTIAL_ENCRYPTION_KEY (blank mặc định, không .env thật changes/backfill).
+- /instagram/job/report mở rộng cookie/token; không status thì credentials-only, có status giữ report cũ. /import-api hỗ trợ structuredexistingcredential và pipepayload+optionaltoken. Empty không xóa, validation trước write, sync RegJob không wipe trường rỗng.
+- JWT owner-only GET /instagram/accounts/:id/credentials?field=cookies|token, no-store/auditmetadata. Default list/trash/nurture SQLexclude credentials/rawdata/full data; UI COOKIES+TOKEN buttons/modalfullvalue, khônglocalStorage/logvalues.
+- Manual migration script add2columns/idempotent/advisorylock. Phải migrate trước backend mới, chưa deploy/DBthật write/seed/commit/push. Không Heartbeat/Dispatcher/Jobworkflow changes.
+- Tests:14groups --ui PASS DBtạm/Chrome,1000list~90ms; Registry/RoundRobin50concurrent/Page16 PASS; frontendbuildPASS warningchunkcũ. Chưa testLua/Instagramcredentialsvalidthật. Evidence backend/tests/instagram-credentials/results.json; doc INSTAGRAM_CREDENTIALS.md.
+
+## 54. Sửa lỗi 500 do thiếu schema Instagram local (2026-10-12)
+
+Sau ảnh Internal Server Error, read-only describeTable xác nhận DB local thiếu token/token_updated_at. Đã chạy migrateInstagramCredentials.js --apply trên DB local, chỉ thêm hai cột nullable, không seed/xóa/ghi đè account. Kiểm tra read-only controller list/listTrash/listNurtureAccounts đều success200, row có presence flags nhưng không cookies/token. Chưa migration/deploy VPS, chưa commit/push. Section53 ghi trạng thái trước lượt migration local này.
+
+## 55. Chuẩn hóa signature session theo mẫu user (2026-10-12)
+
+User cung cấp cặp input/output cụ thể, yêu cầu Instagram Job đáp ứng. Bổ sung normalization hẹp trong validateCookies: chỉ signature 0X1.0FDAB1AP-1042 / 0X0P+0 / 0X1.FB5D8CE8P-1042, ds_user_id khớp UID đầu session, các phần auth bắt đầu bằng chữ/_/-; không chứa marker khác. Chuyển 3 marker thành %3A, giữ numeric segment ngay sau marker0 (ví dụ17), phần auth kể cả "-" và "_". Header xuất dấu "; " và ";" cuối. Chuỗi đã %3A không encode lại. Pattern khác, prefix UID mismatch hoặc phần auth bắt đầu số không được tự sửa, giữ cảnh báo. Chưa xác minh nguồn gây float (cần tweak/string.format code), chưa xác minh session live.
+API structured save và parseLine pipe dùng giá trị đã normalize; không bulk rewrite DB cũ. Test15groups --ui PASS DBtạm, gồm signature/unknown/id-mismatch/idempotence/pipe; dùng fixtures không dữ liệu thật user. Các account đã lưu phải gửi lại cookie để cập nhật. Chưa commit/push/deploy.

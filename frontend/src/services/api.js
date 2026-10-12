@@ -233,6 +233,7 @@ export const facebookApi = {
 };
 
 export const instagramApi = {
+  getCredential: (id,field) => api.get('/instagram/accounts/'+id+'/credentials',{params:{field}}),
   getAll: (params) => api.get('/instagram', { params }),
   getFacebookRegMachines: (params) => api.get('/instagram/reg/facebook/machines', { params }),
   getFacebookRegClaims: (params) => api.get('/instagram/reg/facebook/claims', { params }),

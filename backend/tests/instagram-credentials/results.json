@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-12T13:47:46.686Z",
+  "results": [
+    {
+      "test": "additive migration twice preserves existing account",
+      "status": "PASS"
+    },
+    {
+      "test": "legacy cookies only report preserves status and lock",
+      "status": "PASS"
+    },
+    {
+      "test": "cookies and token separate, encoded values unchanged",
+      "status": "PASS"
+    },
+    {
+      "test": "partial/empty updates preserve existing credentials",
+      "status": "PASS"
+    },
+    {
+      "test": "hex patterns preserved and warning returned",
+      "status": "PASS"
+    },
+    {
+      "test": "user-confirmed hexadecimal signature normalizes without losing segments",
+      "status": "PASS"
+    },
+    {
+      "test": "invalid input atomic, old data preserved",
+      "status": "PASS"
+    },
+    {
+      "test": "import endpoint accepts structured credentials without status mutation",
+      "status": "PASS"
+    },
+    {
+      "test": "owner/device isolation, active auth, exact detail no-store",
+      "status": "PASS"
+    },
+    {
+      "test": "1000-account list excludes secrets and raw/full data at SQL projection",
+      "status": "PASS"
+    },
+    {
+      "test": "legacy pipe import and status report still work",
+      "status": "PASS"
+    },
+    {
+      "test": "legacy pipe payload accepts optional token; bulk sync does not erase existing credentials",
+      "status": "PASS"
+    },
+    {
+      "test": "optional AES-GCM storage and legacy plaintext remain readable",
+      "status": "PASS"
+    },
+    {
+      "test": "Chrome table hides credentials; modal shows exact strings and clears on close",
+      "status": "PASS"
+    },
+    {
+      "test": "audit contains metadata only",
+      "status": "PASS"
+    }
+  ],
+  "real_instagram_token_verified": false
+}

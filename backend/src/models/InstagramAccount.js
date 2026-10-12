@@ -1,14 +1,17 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const credential = require('../services/instagramCredentials');
 
 const InstagramAccount = sequelize.define('InstagramAccount', {
   id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
   kind: { type: DataTypes.ENUM('reg', 'job'), allowNull: false, defaultValue: 'job' },
-  raw_data: { type: DataTypes.TEXT('long'), allowNull: false },
+  raw_data: { type: DataTypes.TEXT('long'), allowNull: false, get(){return credential.unseal(this.getDataValue('raw_data'));}, set(value){this.setDataValue('raw_data',credential.seal(value));} },
   uid: { type: DataTypes.STRING(255), allowNull: false },
   password: { type: DataTypes.STRING(255), allowNull: true },
   two_fa: { type: DataTypes.TEXT, allowNull: true },
-  cookies: { type: DataTypes.TEXT('long'), allowNull: true },
+  cookies: { type: DataTypes.TEXT('long'), allowNull: true, get(){return credential.unseal(this.getDataValue('cookies'));}, set(value){this.setDataValue('cookies',credential.seal(value));} },
+  token: { type: DataTypes.TEXT('long'), allowNull: true, get(){return credential.unseal(this.getDataValue('token'));}, set(value){this.setDataValue('token',credential.seal(value));} },
+  token_updated_at: { type: DataTypes.DATE, allowNull: true },
   owner_username: { type: DataTypes.STRING(100), allowNull: false, defaultValue: 'admin' },
   group_id: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
   device_id: { type: DataTypes.STRING(255), allowNull: true },

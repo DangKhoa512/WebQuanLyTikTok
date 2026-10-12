@@ -1,3 +1,5 @@
+const igCredentials=require('../services/instagramCredentials');
+const igCredentialService=require('../services/instagramCredentialService');
 const { allocateInstagramScenarioTargets } = require('../services/instagramCrossTargetService');
 const { Op } = require('sequelize');
 const { randomUUID } = require('crypto');
@@ -44,6 +46,7 @@ const parseLine = (line) => {
     else if (!parsed.two_fa && looksLikeTwoFa(value)) parsed.two_fa = value.replace(/\s+/g, '');
     else if (!parsed.cookies && /[=;]/.test(value)) parsed.cookies = value;
   }
+  if(parsed.cookies)parsed.cookies=igCredentials.validateCookies(parsed.cookies).value;
   return parsed;
 };
 const format = (account) => [account.uid, account.password, account.two_fa, account.cookies].map((v) => v == null || v === '' ? 'null' : String(v)).join('|');
@@ -67,10 +70,10 @@ const resolveGroup = async ({ owner_username, kind, group_id, group_name }) => {
 const syncRegToJob = async (source, { toWaitingLogin = false } = {}) => {
   const data = serialize(source);
   const now = new Date();
-  const defaults = { raw_data: data.raw_data, uid: data.uid, password: data.password, two_fa: data.two_fa, cookies: data.cookies, owner_username: data.owner_username, kind: 'job', group_id: null, device_id: toWaitingLogin ? null : data.device_id, status: toWaitingLogin ? 'CHO_LOGIN' : 'LOGIN_THANH_CONG', live_status: data.live_status || 'unknown', login_at: toWaitingLogin ? null : now };
+  const defaults = { raw_data: data.raw_data, uid: data.uid, password: data.password, two_fa: data.two_fa, cookies: data.cookies, token:data.token||null, token_updated_at:data.token_updated_at||null, owner_username: data.owner_username, kind: 'job', group_id: null, device_id: toWaitingLogin ? null : data.device_id, status: toWaitingLogin ? 'CHO_LOGIN' : 'LOGIN_THANH_CONG', live_status: data.live_status || 'unknown', login_at: toWaitingLogin ? null : now };
   const [account, created] = await InstagramAccount.unscoped().findOrCreate({ where: { owner_username: data.owner_username, kind: 'job', uid: data.uid }, defaults });
   if (!created) {
-    const update = { raw_data: data.raw_data, password: data.password, two_fa: data.two_fa, cookies: data.cookies };
+    const update = { raw_data: data.raw_data, password: data.password, two_fa: data.two_fa, ...(data.cookies?{cookies:data.cookies}:{}), ...(data.token?{token:data.token,token_updated_at:data.token_updated_at}:{}) };
     if (toWaitingLogin) {
       Object.assign(update, { status: 'CHO_LOGIN', device_id: null, locked_by: null, locked_at: null, login_get_count: 0, completed_at: null, login_at: null, fail_reason: null, trashed_at: null });
     } else if (account.status === 'CHO_LOGIN') {
@@ -80,19 +83,19 @@ const syncRegToJob = async (source, { toWaitingLogin = false } = {}) => {
   }
   return { account, created };
 };
-const importRows = async ({ text, owner_username, kind, status, group_id, device_id, syncToJob = true, jobSyncMode = 'login_success' }) => {
+const importRows = async ({ text, owner_username, kind, status, group_id, device_id, syncToJob = true, jobSyncMode = 'login_success', credentialValues = {} }) => {
   const lines = String(text || '').split(/[\r\n]+/).map((line) => line.trim()).filter(Boolean);
   const result = { total: lines.length, created: 0, updated: 0, invalid: 0, job_created: 0, job_updated: 0 };
   for (const line of lines) {
     const parsed = parseLine(line);
     if (!parsed) { result.invalid += 1; continue; }
-    const defaults = { ...parsed, owner_username, kind, status, group_id };
+    const defaults = { ...parsed, ...credentialValues, owner_username, kind, status, group_id };
     if (device_id) defaults.device_id = device_id;
     if (kind === 'reg' && status === 'LOGIN_THANH_CONG') defaults.login_at = new Date();
     const [account, created] = await InstagramAccount.unscoped().findOrCreate({ where: { owner_username, kind, uid: parsed.uid }, defaults });
     if (created) result.created += 1;
     else {
-      await account.update({ raw_data: parsed.raw_data, uid: parsed.uid, password: parsed.password ?? account.password, ...(parsed.two_fa ? { two_fa: parsed.two_fa } : {}), ...(parsed.cookies ? { cookies: parsed.cookies } : {}), status, group_id: group_id ?? account.group_id, ...(device_id ? { device_id } : {}), ...(kind === 'reg' && status === 'LOGIN_THANH_CONG' ? { login_at: new Date() } : {}), ...(kind === 'reg' && status === 'CHO_LOGIN' ? { login_at: null } : {}) });
+      await account.update({ raw_data: parsed.raw_data, uid: parsed.uid, password: parsed.password ?? account.password, ...(parsed.two_fa ? { two_fa: parsed.two_fa } : {}), ...(parsed.cookies ? { cookies: parsed.cookies } : {}), ...credentialValues, status, group_id: group_id ?? account.group_id, ...(device_id ? { device_id } : {}), ...(kind === 'reg' && status === 'LOGIN_THANH_CONG' ? { login_at: new Date() } : {}), ...(kind === 'reg' && status === 'CHO_LOGIN' ? { login_at: null } : {}) });
       result.updated += 1;
     }
     if (syncToJob && kind === 'reg' && status === 'LOGIN_THANH_CONG') {
@@ -141,7 +144,7 @@ const list = async (req, res, next) => {
     else if (sortBy === 'cookies') order = [[sequelize.literal("CASE WHEN cookies IS NULL OR TRIM(cookies)='' OR LOWER(TRIM(cookies))='null' THEN 1 ELSE 0 END"),direction],['id','DESC']];
     else if (sortBy) order = [[sortBy,direction],['id','DESC']];
     const [{ rows, count }, counts, trash_count] = await Promise.all([
-      InstagramAccount.findAndCountAll({ where, order, limit, offset: (page - 1) * limit }),
+      InstagramAccount.findAndCountAll({ attributes:igCredentialService.safeAttributes, where, order, limit, offset: (page - 1) * limit }),
       InstagramAccount.findAll({ attributes: ['status',[sequelize.fn('COUNT',sequelize.col('id')),'count']], where: countWhere, group: ['status'], raw: true }),
       kind === 'job' ? InstagramAccount.unscoped().count({ where: { owner_username, kind: 'job', trashed_at: { [Op.ne]: null } } }) : 0,
     ]);
@@ -150,7 +153,7 @@ const list = async (req, res, next) => {
       const machineRows = await InstagramAccount.findAll({ attributes: ['device_id',[sequelize.fn('COUNT',sequelize.col('id')),'total'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='CHO_LOGIN' THEN 1 ELSE 0 END")),'waiting_login'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='DANG_LOGIN' THEN 1 ELSE 0 END")),'logging_in'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='LOGIN_THANH_CONG' THEN 1 ELSE 0 END")),'login_success'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='DANG_LAM' THEN 1 ELSE 0 END")),'working'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status='DA_CHAY_XONG' THEN 1 ELSE 0 END")),'done'],[sequelize.fn('SUM',sequelize.literal("CASE WHEN status IN ('LOGIN_FAIL','ACCOUNT_DIE') THEN 1 ELSE 0 END")),'failed'],[sequelize.fn('MAX',sequelize.col('updated_at')),'last_updated_at']], where: { owner_username, kind: 'job' }, group: ['device_id'], raw: true });
       machine_stats = machineRows.filter((row) => nullify(row.device_id)).map((row) => ({ ...row, total: Number(row.total)||0, waiting_login:Number(row.waiting_login)||0, logging_in:Number(row.logging_in)||0, login_success:Number(row.login_success)||0, working:Number(row.working)||0, done:Number(row.done)||0, failed:Number(row.failed)||0, pages:0 })).sort((a,b)=>String(a.device_id).localeCompare(String(b.device_id),'vi',{numeric:true}));
     }
-    const accountRows = rows.map(serialize);
+    const accountRows = rows.map(igCredentialService.safeSerialize);
     if (kind === 'job' && accountRows.length) {
       const instagramUids = [...new Set(accountRows.map((row) => String(row.uid || '').toLowerCase()).filter(Boolean))];
       const linkRows = await FacebookInstagramLink.findAll({
@@ -190,7 +193,7 @@ const list = async (req, res, next) => {
 };
 
 const importDashboard = async (req,res,next) => { try { const owner_username=ownerFromAdmin(req); const kind=normalizeKind(req.body.kind); const status=normalizeStatus(req.body.status,kind==='job'?'CHO_LOGIN':'LOGIN_THANH_CONG'); const group_id=await resolveGroup({owner_username,kind,...req.body}); return success(res,await importRows({text:req.body.text,owner_username,kind,status,group_id}),'Import Instagram thanh cong'); } catch(err){next(err);} };
-const importApi = async (req,res,next) => { try { const owner_username=ownerFromRequest(req); const kind=normalizeKind(req.body.kind||req.query.kind,'reg'); const status=normalizeStatus(req.body.status||req.query.status,kind==='job'?'CHO_LOGIN':'LOGIN_THANH_CONG'); const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may); const group_id=await resolveGroup({owner_username,kind,...req.body,...req.query}); return success(res,await importRows({text:req.body.text||req.body.data||req.body.accounts||req.body.account,owner_username,kind,status,group_id,device_id}),'Nhan account Instagram thanh cong'); } catch(err){next(err);} };
+const importApi = async (req,res,next) => { try { const owner_username=ownerFromRequest(req); const kind=normalizeKind(req.body.kind||req.query.kind,'reg'); const status=normalizeStatus(req.body.status||req.query.status,kind==='job'?'CHO_LOGIN':'LOGIN_THANH_CONG'); const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may); const group_id=await resolveGroup({owner_username,kind,...req.body,...req.query}); return success(res,await importRows({text:req.body.text||req.body.data||req.body.accounts||req.body.account,owner_username,kind,status,group_id,device_id,credentialValues:igCredentials.patch(req.body).values}),'Nhan account Instagram thanh cong'); } catch(err){next(err);} };
 
 const reportRegOnly = async (req,res,next) => {
   try {
@@ -357,7 +360,7 @@ const getLoginSuccess = async (req, res, next) => {
     next(err);
   }
 };
-const report = async(req,res,next)=>{try{const owner_username=ownerFromRequest(req);const uid=nullify(req.body.uid||req.query.uid||req.body.username);const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may);if(!uid)return error(res,'Can truyen tai khoan',400);if(!device_id)return error(res,'Can truyen device_id',400);const account=await InstagramAccount.findOne({where:{owner_username,kind:'job',uid,...(device_id?{[Op.or]:[{locked_by:device_id},{device_id}]}:{})},order:[['id','DESC']]});if(!account)return error(res,'Khong tim thay Instagram',404);const status=normalizeStatus(req.body.status||req.query.status,'LOGIN_THANH_CONG');if(account.locked_by&&device_id&&account.locked_by!==device_id)return error(res,'Account dang lock boi '+account.locked_by,409);const update={status};if(device_id)update.device_id=device_id;if(status==='LOGIN_THANH_CONG'){update.login_at=new Date();update.locked_by=null;update.locked_at=null;update.login_get_count=0;}else if(status==='DANG_LAM'){update.locked_by=device_id||account.device_id;update.locked_at=new Date();}else if(FINAL_STATUSES.includes(status)){update.locked_by=null;update.locked_at=null;update.completed_at=new Date();}if(status==='ACCOUNT_DIE')update.live_status='die';await account.update(update);return success(res,{account:serialize(account)},'Bao cao Instagram thanh cong');}catch(err){next(err);}};
+const report = async(req,res,next)=>{try{const owner_username=ownerFromRequest(req);const uid=nullify(req.body.uid||req.query.uid||req.body.username);const device_id=nullify(req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may);if(!uid)return error(res,'Can truyen tai khoan',400);if(!device_id)return error(res,'Can truyen device_id',400);const account=await InstagramAccount.findOne({where:{owner_username,kind:'job',uid,...(device_id?{[Op.or]:[{locked_by:device_id},{device_id}]}:{})},order:[['id','DESC']]});if(!account)return error(res,'Khong tim thay Instagram',404);const status=normalizeStatus(req.body.status||req.query.status,'LOGIN_THANH_CONG');if(account.locked_by&&device_id&&account.locked_by!==device_id)return error(res,'Account dang lock boi '+account.locked_by,409);const checked=igCredentials.patch(req.body);const update={status,...checked.values};if(device_id)update.device_id=device_id;if(status==='LOGIN_THANH_CONG'){update.login_at=new Date();update.locked_by=null;update.locked_at=null;update.login_get_count=0;}else if(status==='DANG_LAM'){update.locked_by=device_id||account.device_id;update.locked_at=new Date();}else if(FINAL_STATUSES.includes(status)){update.locked_by=null;update.locked_at=null;update.completed_at=new Date();}if(status==='ACCOUNT_DIE')update.live_status='die';await account.update(update);if(Object.keys(checked.values).length)require('../config/logger').info('Instagram credentials updated',{owner_username,account_id:account.id,fields:Object.keys(checked.values).filter(k=>k!=='token_updated_at'),warning_codes:checked.warnings});return success(res,{account:serialize(account),warnings:checked.warnings},'Bao cao Instagram thanh cong');}catch(err){next(err);}};
 
 const vietnamToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const addInstagramJobCount = async (req,res,next) => {
@@ -466,12 +469,12 @@ const listNurtureAccounts = async(req,res,next) => {
     const where={owner_username,kind:'job',status:'LOGIN_THANH_CONG'};const nurtureStatus=String(req.query.status||'').trim().toUpperCase();if(NURTURE_STATUSES.includes(nurtureStatus))where.nurture_status=nurtureStatus;
     const q=nullify(req.query.q);if(q)where[Op.or]=[{uid:{[Op.like]:'%'+q+'%'}},{device_id:{[Op.like]:'%'+q+'%'}}];
     const [{rows,count},countRows,settings]=await Promise.all([
-      InstagramAccount.findAndCountAll({where,order:[[sequelize.literal("CASE nurture_status WHEN 'DANG_NUOI' THEN 0 WHEN 'CHUA_NUOI' THEN 1 WHEN 'NUOI_FAIL' THEN 2 ELSE 3 END"),'ASC'],['last_nurture_at','DESC'],['id','DESC']],limit,offset:(page-1)*limit}),
+      InstagramAccount.findAndCountAll({attributes:igCredentialService.safeAttributes,where,order:[[sequelize.literal("CASE nurture_status WHEN 'DANG_NUOI' THEN 0 WHEN 'CHUA_NUOI' THEN 1 WHEN 'NUOI_FAIL' THEN 2 ELSE 3 END"),'ASC'],['last_nurture_at','DESC'],['id','DESC']],limit,offset:(page-1)*limit}),
       InstagramAccount.findAll({attributes:['nurture_status',[sequelize.fn('COUNT',sequelize.col('id')),'count']],where:{owner_username,kind:'job',status:'LOGIN_THANH_CONG'},group:['nurture_status'],raw:true}),
       getInstagramNurtureSettings(owner_username),
     ]);
     const status_counts=Object.fromEntries(NURTURE_STATUSES.map((item)=>[item,0]));countRows.forEach((row)=>{status_counts[row.nurture_status||'CHUA_NUOI']=Number(row.count)||0;});
-    return success(res,{accounts:rows.map(serialize),status_counts,cooldown_hours:settings.cooldown_hours,pagination:{page,limit,total:count,totalPages:Math.ceil(count/limit)||1}},'Lay danh sach Instagram Nuoi thanh cong');
+    return success(res,{accounts:rows.map(igCredentialService.safeSerialize),status_counts,cooldown_hours:settings.cooldown_hours,pagination:{page,limit,total:count,totalPages:Math.ceil(count/limit)||1}},'Lay danh sach Instagram Nuoi thanh cong');
   }catch(err){next(err);}
 };
 const listNurtureLogs = async(req,res,next) => {
@@ -725,7 +728,7 @@ const bulkMove=async(req,res,next)=>{try{const ids=idsFrom(req);const kind=norma
 const bulkAction=async(req,res,next)=>{try{const ids=idsFrom(req);const status=normalizeStatus(req.body.status||req.body.action,'');if(!ids.length||!status)return error(res,'Du lieu khong hop le',400);const update={status};if(['CHO_LOGIN','LOGIN_THANH_CONG'].includes(status)){update.locked_by=null;update.locked_at=null;update.login_get_count=0;update.completed_at=null;}if(FINAL_STATUSES.includes(status)){update.locked_by=null;update.locked_at=null;update.completed_at=new Date();}if(status==='ACCOUNT_DIE')update.live_status='die';const [affected]=await InstagramAccount.update(update,{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),nurture_status:{[Op.ne]:'DANG_NUOI'}}});return success(res,{affected},'Da doi trang thai Instagram');}catch(err){next(err);}};
 const bulkDelete=async(req,res,next)=>{try{const ids=idsFrom(req),owner_username=ownerFromAdmin(req);const rows=await InstagramAccount.findAll({where:{id:{[Op.in]:ids},owner_username}});const jobIds=rows.filter((r)=>r.kind==='job').map((r)=>r.id),regIds=rows.filter((r)=>r.kind==='reg').map((r)=>r.id);let trashed=0,deleted=0;if(jobIds.length)[trashed]=await InstagramAccount.update({trashed_at:new Date(),locked_by:null,locked_at:null},{where:{id:{[Op.in]:jobIds},owner_username}});if(regIds.length)deleted=await InstagramAccount.destroy({where:{id:{[Op.in]:regIds},owner_username}});return success(res,{trashed,deleted},'Da xoa Instagram');}catch(err){next(err);}};
 
-const listTrash=async(req,res,next)=>{try{const owner_username=ownerFromAdmin(req),page=Math.max(Number(req.query.page)||1,1),limit=Math.min(Math.max(Number(req.query.limit)||50,1),2000);const where={owner_username,kind:'job',trashed_at:{[Op.ne]:null}};const q=nullify(req.query.q);if(q)where[Op.or]=[{uid:{[Op.like]:'%'+q+'%'}},{device_id:{[Op.like]:'%'+q+'%'}}];const direction=String(req.query.sort_order).toLowerCase()==='asc'?'ASC':'DESC';let order=[['trashed_at','DESC'],['id','DESC']];if(req.query.sort_by==='device_id')order=[[sequelize.fn('CHAR_LENGTH',sequelize.col('device_id')),direction],['device_id',direction]];else if(req.query.sort_by==='trashed_at')order=[['trashed_at',direction]];const result=await InstagramAccount.unscoped().findAndCountAll({where,order,limit,offset:(page-1)*limit});return success(res,{accounts:result.rows.map(serialize),pagination:{page,limit,total:result.count,totalPages:Math.ceil(result.count/limit)||1}},'Lay thung rac Instagram');}catch(err){next(err);}};
+const listTrash=async(req,res,next)=>{try{const owner_username=ownerFromAdmin(req),page=Math.max(Number(req.query.page)||1,1),limit=Math.min(Math.max(Number(req.query.limit)||50,1),2000);const where={owner_username,kind:'job',trashed_at:{[Op.ne]:null}};const q=nullify(req.query.q);if(q)where[Op.or]=[{uid:{[Op.like]:'%'+q+'%'}},{device_id:{[Op.like]:'%'+q+'%'}}];const direction=String(req.query.sort_order).toLowerCase()==='asc'?'ASC':'DESC';let order=[['trashed_at','DESC'],['id','DESC']];if(req.query.sort_by==='device_id')order=[[sequelize.fn('CHAR_LENGTH',sequelize.col('device_id')),direction],['device_id',direction]];else if(req.query.sort_by==='trashed_at')order=[['trashed_at',direction]];const result=await InstagramAccount.unscoped().findAndCountAll({attributes:igCredentialService.safeAttributes,where,order,limit,offset:(page-1)*limit});return success(res,{accounts:result.rows.map(igCredentialService.safeSerialize),pagination:{page,limit,total:result.count,totalPages:Math.ceil(result.count/limit)||1}},'Lay thung rac Instagram');}catch(err){next(err);}};
 const restore=async(req,res,next)=>{try{const ids=idsFrom(req);const [restored]=await InstagramAccount.unscoped().update({trashed_at:null,status:'CHO_LOGIN',locked_by:null,locked_at:null,login_get_count:0},{where:{id:{[Op.in]:ids},owner_username:ownerFromAdmin(req),kind:'job',trashed_at:{[Op.ne]:null}}});return success(res,{restored},'Khoi phuc Instagram thanh cong');}catch(err){next(err);}};
 const deleteTrash=async(req,res,next)=>{
   const transaction=await sequelize.transaction();
@@ -751,3 +754,17 @@ module.exports={list,importDashboard,reportFacebookInstagramAccounts,listFaceboo
 const taskAcquirePermission=require('../middleware/taskAcquirePermission');
 module.exports.getLoginSuccess=taskAcquirePermission('INSTAGRAM_JOB',module.exports.getLoginSuccess);
 module.exports.getNurtureAccount=taskAcquirePermission('NUOI_INSTAGRAM',module.exports.getNurtureAccount);
+
+const credentialsReport=async(req,res,next)=>{
+ try{
+  const deviceId=req.body.device_id||req.body.device||req.body.phone||req.body.may||req.query.device_id||req.query.device||req.query.phone||req.query.may;
+  if(typeof deviceId!=='string'||!deviceId.trim())return error(res,'Can truyen device_id',400);
+  return success(res,await igCredentialService.update(ownerFromRequest(req),{...req.body,uid:req.body.uid||req.body.username||req.query.uid||req.query.username},{deviceId:deviceId.trim(),kind:normalizeKind(req.body.kind,'job')}),'Instagram credentials updated');
+ }catch(e){if(e.statusCode)return error(res,e.message,e.statusCode);next(e);}
+};
+const credentialDetail=async(req,res,next)=>{try{res.set('Cache-Control','no-store');return success(res,await igCredentialService.detail(ownerFromAdmin(req),req.params.id,req.query.field));}catch(e){if(e.statusCode)return error(res,e.message,e.statusCode);next(e);}};
+const originalImportApi=importApi,originalReport=report;
+const hasCredentials=req=>Object.prototype.hasOwnProperty.call(req.body||{},'cookies')||Object.prototype.hasOwnProperty.call(req.body||{},'token');
+module.exports.credentialDetail=credentialDetail;
+module.exports.importApi=(req,res,next)=>hasCredentials(req)&&(req.body.uid||req.body.username)?credentialsReport(req,res,next):originalImportApi(req,res,next);
+module.exports.report=(req,res,next)=>hasCredentials(req)&&!req.body.status&&!req.query.status?credentialsReport(req,res,next):originalReport(req,res,next);

@@ -25,7 +25,9 @@
     "migrate:device-manager": "node scripts/migrateDeviceManager.js --apply",
     "test:device-manager": "node scripts/testDeviceManager.js",
     "device-manager:broker": "node scripts/startDeviceBroker.js",
-    "test:device-manager:ui": "node scripts/testDeviceManager.js --ui"
+    "test:device-manager:ui": "node scripts/testDeviceManager.js --ui",
+    "migrate:instagram-credentials": "node scripts/migrateInstagramCredentials.js --apply",
+    "test:instagram-credentials": "node scripts/testInstagramCredentials.js"
   },
   "dependencies": {
     "axios": "^1.16.1",
