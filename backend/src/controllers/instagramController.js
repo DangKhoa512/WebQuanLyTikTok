@@ -97,7 +97,7 @@ const importRows = async ({ text, owner_username, kind, status, group_id, device
     const [account, created] = await InstagramAccount.unscoped().findOrCreate({ where: { owner_username, kind, uid: parsed.uid }, defaults });
     if (created) result.created += 1;
     else {
-      await account.update({ raw_data: parsed.raw_data, uid: parsed.uid, password: parsed.password ?? account.password, ...(parsed.two_fa ? { two_fa: parsed.two_fa } : {}), ...(parsed.cookies ? { cookies: parsed.cookies } : {}), ...credentialValues, status, group_id: group_id ?? account.group_id, ...(device_id ? { device_id } : {}), ...(kind === 'reg' && status === 'LOGIN_THANH_CONG' ? { login_at: new Date() } : {}), ...(kind === 'reg' && status === 'CHO_LOGIN' ? { login_at: null } : {}) });
+      await account.update({ raw_data: parsed.raw_data, uid: parsed.uid, password: parsed.password ?? account.password, ...(parsed.two_fa ? { two_fa: parsed.two_fa } : {}), ...(parsed.cookies ? { cookies: parsed.cookies } : {}), ...(parsed.token ? { token: parsed.token, token_updated_at: parsed.token_updated_at } : {}), ...credentialValues, status, group_id: group_id ?? account.group_id, ...(device_id ? { device_id } : {}), ...(kind === 'reg' && status === 'LOGIN_THANH_CONG' ? { login_at: new Date() } : {}), ...(kind === 'reg' && status === 'CHO_LOGIN' ? { login_at: null } : {}) });
       result.updated += 1;
     }
     if (syncToJob && kind === 'reg' && status === 'LOGIN_THANH_CONG') {

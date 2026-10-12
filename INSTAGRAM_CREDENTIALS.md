@@ -119,3 +119,5 @@ Backend chỉ coi token payload là dữ liệu đối chiếu, không phải ch
 - Token-only không tự ghiCookie; khôngtoken thì không mở rộng normalize signature chưa biết.
 - Response warning SESSION_RECOVERED_FROM_IGT_PAYLOAD; audit chỉmetadata.
 Test16groups --ui PASS fixtures, chưa xác minh token/session vớiInstagram. Không đổi migration hoặc Task.
+
+2026-10-13: fixed existing-account pipe import to persist parsed token/token_updated_at; omission retains old token. 17 groups --ui PASS on disposable DB. No new migration; not deployed.

@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-12T16:32:40.284Z",
+  "date": "2026-10-12T17:06:00.461Z",
   "results": [
     {
       "test": "additive migration twice preserves existing account",
@@ -43,6 +43,10 @@
     },
     {
       "test": "1000-account list excludes secrets and raw/full data at SQL projection",
+      "status": "PASS"
+    },
+    {
+      "test": "existing account pipe import updates token and preserves it when omitted",
       "status": "PASS"
     },
     {

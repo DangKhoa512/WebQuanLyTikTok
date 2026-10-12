@@ -347,6 +347,15 @@ const check = async (name, fn) => {
       console.log("LIST_1000_LOCAL_MS=" + String(Date.now() - started));
     },
   );
+  await check("existing account pipe import updates token and preserves it when omitted",async()=>{
+    const endpoint="/instagram/import-api";
+    const send=(suffix)=>request(endpoint,{phone:true,body:{kind:"job",device_id:"FixturePhone",data:account.uid+"|pass|null|"+cookie+suffix}});
+    const supplied="Bearer IGT:2:fixture-replacement";
+    const r=await send("|"+supplied);assert.equal(r.status,200);assert.equal(r.json.data.updated,1);
+    let row=await Account.findByPk(account.id);assert.equal(row.token,supplied);assert(row.token_updated_at);
+    await send("");row=await Account.findByPk(account.id);assert.equal(row.token,supplied);
+    await update({token});
+  });
   await check("legacy pipe import and status report still work", async () => {
     const r = await request("/instagram/import-api", {
       phone: true,
