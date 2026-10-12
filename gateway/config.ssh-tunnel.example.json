@@ -1,0 +1,16 @@
+{
+  "transport": "ssh_tunnel",
+  "ssh_tunnel": {
+    "host": "VPS_SSH_IP",
+    "port": 33194,
+    "username": "mmo_gateway",
+    "host_fingerprint": "REPLACE_WITH_VERIFIED_SHA256_HEX"
+  },
+  "max_connections": 5,
+  "lan_networks": {
+    "1": [
+      "192.168.1.0/24"
+    ]
+  },
+  "journal_path": "./gateway-journal.json"
+}

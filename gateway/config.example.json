@@ -1,0 +1,13 @@
+{
+  "server_url": "wss://YOUR_DOMAIN/device-ws/gateway",
+  "max_connections": 5,
+  "lan_networks": {
+    "1": [
+      "192.168.1.0/24"
+    ],
+    "2": [
+      "10.10.0.0/24"
+    ]
+  },
+  "journal_path": "./gateway-journal.json"
+}

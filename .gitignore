@@ -28,3 +28,6 @@ mysql_data/
 
 # Local UI verification screenshots
 /artifacts/
+
+/gateway/config.json
+/gateway/gateway-journal.json*

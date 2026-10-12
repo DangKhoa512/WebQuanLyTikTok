@@ -60,6 +60,35 @@ services:
     networks:
       - app_net
 
+  # Opt-in after backup, manual migration, key and HTTPS origin configuration.
+  device_broker:
+    profiles: ["device-manager"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["node", "scripts/startDeviceBroker.js"]
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DB_HOST: mysql
+      NODE_ENV: production
+      DEVICE_MANAGER_ENABLED: "true"
+      DEVICE_MANAGER_SSH_ENABLED: "true"
+      DEVICE_MANAGER_WS_PORT: "3001"
+    expose:
+      - "3001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const s=require('net').connect(3001,'127.0.0.1');s.setTimeout(3000);s.on('connect',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));s.on('timeout',()=>process.exit(1));"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - app_net
+
   # ── Nginx (serves frontend + reverse proxy to backend) ─────────────────────
   nginx:
     build:
@@ -68,7 +97,7 @@ services:
     container_name: tiktok_nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8080:80"
       - "443:443"
     depends_on:
       backend:

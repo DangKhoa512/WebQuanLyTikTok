@@ -1,0 +1,67 @@
+{
+  "backend": {
+    "counts": {
+      "info": 0,
+      "low": 0,
+      "moderate": 9,
+      "high": 7,
+      "critical": 1,
+      "total": 17
+    },
+    "packages": [
+      "axios",
+      "body-parser",
+      "brace-expansion",
+      "braces",
+      "chokidar",
+      "express",
+      "form-data",
+      "joi",
+      "moment",
+      "morgan",
+      "mysql2",
+      "node-cron",
+      "nodemon",
+      "proxy-addr",
+      "qs",
+      "sequelize",
+      "uuid"
+    ]
+  },
+  "frontend": {
+    "counts": {
+      "info": 0,
+      "low": 1,
+      "moderate": 5,
+      "high": 7,
+      "critical": 0,
+      "total": 13
+    },
+    "packages": [
+      "@babel/core",
+      "@remix-run/router",
+      "axios",
+      "baseline-browser-mapping",
+      "browserslist",
+      "esbuild",
+      "form-data",
+      "nanoid",
+      "postcss",
+      "react-router",
+      "react-router-dom",
+      "source-map-js",
+      "vite"
+    ]
+  },
+  "gateway": {
+    "counts": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "packages": []
+  }
+}

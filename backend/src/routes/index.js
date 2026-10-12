@@ -25,6 +25,7 @@ router.use('/task-registry',apiLimiter,jwtAuth,require('./taskRegistry'));
 router.use('/settings', apiLimiter, jwtAuth, require('./settings'));
 router.use('/machine-api-configs', apiLimiter, require('./machineApiConfigs'));
 router.use('/machine-status', apiLimiter, require('./machineStatus'));
+router.use('/device-manager', apiLimiter, require('../middleware/deviceManagerReady'), (req,res,next)=>require('./deviceManager')(req,res,next));
 router.use('/device', apiLimiter, require('./device'));
 router.use('/jobs', apiLimiter, require('./jobs'));
 router.use('/facebook', apiLimiter, require('./facebook'));

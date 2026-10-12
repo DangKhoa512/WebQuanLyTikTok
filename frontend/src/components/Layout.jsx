@@ -24,7 +24,7 @@ const NAV = [
   { to: '/hotmails',        icon: '📧', label: 'Hotmail' },
   { to: '/email-otps',      icon: '✉️', label: 'Email OTP' },
   { to: '/stats',           icon: '📈', label: 'Thống kê'   },
-  { to: '/chrome-khang-stats', icon: '📊', label: 'Trạng Thái Máy' },
+  { to: '/chrome-khang-stats', icon: '📊', label: 'Quản lý thiết bị' },
   { to: '/machine-api-configs', icon: '\uD83D\uDD0C', label: 'API M\u00e1y' },
   { to: '/proxy-settings',  icon: '⚙️', label: 'Cài đặt'    },
   { to: '/users',           icon: '👤', label: 'Cấp user', adminOnly: true },

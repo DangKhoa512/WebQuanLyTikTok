@@ -19,6 +19,8 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy our nginx config
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx/device-ws.conf /etc/nginx/snippets/device-ws.conf
+COPY nginx/device-manager-https.conf.example /etc/nginx/examples/device-manager-https.conf.example
 
 EXPOSE 80 443
 

@@ -1,0 +1,31 @@
+{
+  "yaml_parse": "PASS",
+  "legacy_services_identical": true,
+  "mysql_volume_identical": true,
+  "default_services": [
+    "mysql",
+    "backend",
+    "nginx"
+  ],
+  "broker_ports_published": false,
+  "broker_profile": "device-manager",
+  "http_existing_config_identical_except_ws_426": true,
+  "nginx_version_tested": "1.27.5 Windows native",
+  "nginx_http_syntax": "PASS",
+  "nginx_ws_snippet_syntax": "PASS",
+  "nginx_https_example_syntax": "PASS with disposable test certificate",
+  "docker_engine_validation": "NOT_RUN: Docker CLI not installed",
+  "deployment": "NOT_RUN",
+  "db_changes": "NONE",
+  "known_web_url": "http://vn1.ip3s.net:45473",
+  "tls_probe_same_port": "FAILED curl TLS handshake exit 35; no certificate bypass",
+  "port_mapping": {
+    "public_http": 45473,
+    "vps_http": 8080,
+    "container_http": 80,
+    "public_admin_ssh": 33194,
+    "vps_admin_ssh": 22
+  },
+  "nginx_http_hostport_change": "80 to 8080 per user screenshot",
+  "port_change_check": "PASS: all other service and volume settings unchanged"
+}

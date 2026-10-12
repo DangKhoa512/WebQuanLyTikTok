@@ -1,0 +1,147 @@
+{
+  "results": [
+    {
+      "test": "Schema guard rejects missing columns or tenant FK before enabling management",
+      "status": "PASS"
+    },
+    {
+      "test": "Migration twice preserves legacy last_seen/status/task",
+      "status": "PASS"
+    },
+    {
+      "test": "Group create/edit/delete/bulk move and owner protection",
+      "status": "PASS"
+    },
+    {
+      "test": "LAN CRUD, occupied delete requires explicit unassign, same IP independent",
+      "status": "PASS"
+    },
+    {
+      "test": "Private IP first/same/new + offline/running invariants",
+      "status": "PASS"
+    },
+    {
+      "test": "Private/public/loopback/multicast/unspecified/invalid + spoof/missing auth/device rejected",
+      "status": "PASS"
+    },
+    {
+      "test": "SQL combined filters + group counts + own-only devices",
+      "status": "PASS"
+    },
+    {
+      "test": "Permission deny at backend; grants use existing admin + AppSetting",
+      "status": "PASS"
+    },
+    {
+      "test": "Gateway token hash/non-retrieval; mapping owner and fresh-only status",
+      "status": "PASS"
+    },
+    {
+      "test": "Encrypted credentials at rest; no frontend disclosure",
+      "status": "PASS"
+    },
+    {
+      "test": "Gateway invalid authentication rejected; actual reverse connection online",
+      "status": "PASS"
+    },
+    {
+      "test": "Automatic Gateway reconnect after backend socket close",
+      "status": "PASS"
+    },
+    {
+      "test": "Actual mock SSH check + AutoTouch process/script distinction",
+      "status": "PASS"
+    },
+    {
+      "test": "Host-key mismatch blocks and does not become online",
+      "status": "PASS"
+    },
+    {
+      "test": "SSH authentication failure is tracked without leaking credentials",
+      "status": "PASS"
+    },
+    {
+      "test": "Respring/Reboot confirmation/RUNNING warning and mock-only execution",
+      "status": "PASS"
+    },
+    {
+      "test": "Bulk routes both LANs, partial failure, queue concurrency and duplicate idempotency",
+      "status": "PASS"
+    },
+    {
+      "test": "Bulk SSH check/Respring/Reboot split by LAN with mock commands only",
+      "status": "PASS"
+    },
+    {
+      "test": "Wrong gateway-LAN mapping cannot be assigned by backend",
+      "status": "PASS"
+    },
+    {
+      "test": "Response lost after enqueue: retry same request_id executes once",
+      "status": "PASS"
+    },
+    {
+      "test": "Gateway cannot route unapproved LAN/subnet; private IP duplicates remain independent",
+      "status": "PASS"
+    },
+    {
+      "test": "Terminal real mock connect/input/output/resize/disconnect; one-use ticket",
+      "status": "PASS"
+    },
+    {
+      "test": "Concurrent browser sessions across two users and gateways remain isolated",
+      "status": "PASS"
+    },
+    {
+      "test": "Terminal permission denied and expired session ends without task effects",
+      "status": "PASS"
+    },
+    {
+      "test": "Gateway disconnect/reconnect remains separate from Device heartbeat",
+      "status": "PASS"
+    },
+    {
+      "test": "Heartbeat response remains unchanged after management models load",
+      "status": "PASS"
+    },
+    {
+      "test": "Permission revocation rejects queued SSH",
+      "status": "PASS"
+    },
+    {
+      "test": "SSH handshake timeout is tracked against mock blackhole only",
+      "status": "PASS"
+    },
+    {
+      "test": "Feature off/HTTPS/origin fail closed; no automatic model loading at app startup",
+      "status": "PASS"
+    },
+    {
+      "test": "Active terminal closes when permission is revoked",
+      "status": "PASS"
+    },
+    {
+      "test": "Gateway queue full rejects extra job; broker command timeout is UNKNOWN, never resets task",
+      "status": "PASS"
+    },
+    {
+      "test": "Duplicate destructive request and explicit safe retry",
+      "status": "PASS"
+    },
+    {
+      "test": "Migration adds foreign keys to existing device table",
+      "status": "PASS"
+    },
+    {
+      "test": "Performance SQL list 10/50/100/200/500/1000 devices on disposable DB",
+      "status": "PASS"
+    },
+    {
+      "test": "Actual rollback/reapply preserves 1000 devices and running task",
+      "status": "PASS"
+    }
+  ],
+  "mock_ssh": true,
+  "real_reboot_respring": false,
+  "ssh_authentications": 22
+}

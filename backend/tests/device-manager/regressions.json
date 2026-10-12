@@ -1,0 +1,25 @@
+{
+  "scope": "separate targeted runs, not entire audit suite",
+  "results": [
+    {
+      "script": "testDeviceMonitoring.js",
+      "status": "PASS"
+    },
+    {
+      "script": "testRoundRobinIntegration.js",
+      "status": "PASS"
+    },
+    {
+      "script": "testTaskResumeLoginState.js",
+      "status": "PASS"
+    },
+    {
+      "script": "testFacebookSelfLimit.js",
+      "status": "PASS"
+    },
+    {
+      "script": "testLegacyPhoneAuth.js",
+      "status": "PASS"
+    }
+  ]
+}

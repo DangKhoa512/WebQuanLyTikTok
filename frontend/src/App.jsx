@@ -12,6 +12,7 @@ import ChromeAccountList from './pages/ChromeAccountList';
 import Users             from './pages/Users';
 import UsedAccounts      from './pages/UsedAccounts';
 import JobAccounts       from './pages/JobAccounts';
+import DeviceManager from './pages/DeviceManager';
 import ChromeKhangStats  from './pages/ChromeKhangStats';
 import MachineApiConfigs from './pages/MachineApiConfigs';
 import FacebookAccounts from './pages/FacebookAccounts';
@@ -45,7 +46,8 @@ export default function App() {
             <Route path="stats"          element={<Stats />} />
             <Route path="proxy-settings"   element={<ProxySettings />} />
             <Route path="chrome-accounts"  element={<ChromeAccountList />} />
-            <Route path="chrome-khang-stats" element={<ChromeKhangStats />} />
+            <Route path="chrome-khang-stats" element={<DeviceManager />} />
+            <Route path="machine-account-stats" element={<ChromeKhangStats />} />
             <Route path="machine-api-configs" element={<MachineApiConfigs />} />
             <Route path="jobs"             element={<JobAccounts />} />
             <Route path="facebook-reg"     element={<FacebookAccounts kind="reg" />} />
