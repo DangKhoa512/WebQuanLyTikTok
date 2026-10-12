@@ -495,3 +495,12 @@ HTTPS check trong deviceManagerSecurity.js va routes/deviceManager.js cung dung 
 ## 51. Commit handoff (2026-10-12)
 
 User requested stopping VPS deployment and committing/pushing completed Device Manager, Gateway and SSH tunnel work. Production remains undeployed; migration/module enable/TLS remain manual prerequisites. Phone Private IP endpoint is POST /api/device/network/report, x-api-key owner auth, body device_id/private_ip only; production HTTPS required, module/schema guard required. HTTP-only current VPS cannot call it successfully until HTTPS is configured (426). IP report never updates heartbeat last_seen. Verified tests and known limitations are in sections47-50 and Device Manager reports.
+
+## 52. Task switches chỉ điều khiển Dispatcher (2026-10-12)
+
+- Theo yêu cầu mới, API riêng ngoài luồng vẫn được phép chạy khi tác vụ cá nhân/hệ thống tắt. taskAcquirePermission chỉ kiểm tra Registry khi req.dispatch_transaction do Dispatcher gắn nội bộ; request HTTP/body không thể bật context này. Các wrapper/controller/routes hiện hữu giữ nguyên.
+- /api/device/next-task tiếp tục chọn enabled hệ thống + enabled user, capabilities, eligibility và Round-Robin. Không sửa resume, cooldown, domain lock, owner hoặc API report; chạy riêng không tự tạo DeviceTaskRun mới.
+- TestTaskRegistryIntegration trên DB tạm PASS: sáu API standalone không bị403 bởi task switchOFF, PageJob trả account đủ điều kiện khi personal/globalOFF, owner spoof không đổi account; DispatcherOFF không cấp, ON cấp, concurrency/resume/report/history giữ nguyên.
+- Ghi chú này thay semantics cũ ở sectionTaskRegistry (APIlegacychặnOFF). Chưa commit/push/deploy lượt sửa này.
+
+Additional verification: testTaskRegistryIntegration.js --legacy PASS; testRoundRobinIntegration.js PASS (50 concurrent requests, Page16). Syntax and git diff --check PASS.

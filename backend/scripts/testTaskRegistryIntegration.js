@@ -141,8 +141,19 @@ let db,server,created=false;
  app.use('/api/settings',require('../src/middleware/jwtAuth'),require('../src/routes/settings'));
  const settingsResponse=await fetch('http://127.0.0.1:'+server.address().port+'/api/settings/task-dispatcher',{method:'PUT',headers:{Authorization:'Bearer '+token(user),'Content-Type':'application/json'},body:JSON.stringify({user_id:admin.id,lock_timeout_minutes:51,max_retry:4})});assert.equal(settingsResponse.status,200);assert.equal((await require('../src/services/settingsService').getTaskDispatcherSettings(user.username)).max_retry,4);assert.equal((await require('../src/services/settingsService').getTaskDispatcherSettings(admin.username)).max_retry,3);
  app.use('/api/facebook',require('../src/routes/facebook'));app.use('/api/instagram',require('../src/routes/instagram'));
- for(const endpoint of ['/facebook/job/get-login-success-account','/facebook/reg-page/get-account','/facebook/nurture/get-account','/instagram/job/get-login-success-account','/instagram/nurture/get-account','/instagram/reg/facebook/get-account']){const response=await fetch('http://127.0.0.1:'+server.address().port+'/api'+endpoint,{method:'POST',headers:{'x-api-key':user.username,'Content-Type':'application/json'},body:JSON.stringify({device_id:'UNASSIGNED_LEGACY_TEST',owner_username:admin.username})});assert.equal(response.status,403,'Legacy acquisition must enforce user settings: '+endpoint);}
- console.log('TASK_REGISTRY_LEGACY_API_OK: six legacy acquisition endpoints deny OFF tasks; response contracts unchanged when permitted');
+ for(const endpoint of ['/facebook/job/get-login-success-account','/facebook/reg-page/get-account','/facebook/nurture/get-account','/instagram/job/get-login-success-account','/instagram/nurture/get-account','/instagram/reg/facebook/get-account']){const response=await fetch('http://127.0.0.1:'+server.address().port+'/api'+endpoint,{method:'POST',headers:{'x-api-key':user.username,'Content-Type':'application/json'},body:JSON.stringify({device_id:'UNASSIGNED_LEGACY_TEST',owner_username:admin.username})});assert.notEqual(response.status,403,'Standalone acquisition must not enforce task switches: '+endpoint);assert(response.status<500,'Legacy handler must run without internal errors: '+endpoint);}
+ console.log('TASK_REGISTRY_LEGACY_API_OK: six standalone acquisition endpoints accept OFF tasks; dispatcher still filters task switches');
+
+ const standaloneDevice='STANDALONE_PAGE_JOB';
+ const standaloneFb=await require('../src/models/FacebookAccount').create({owner_username:user.username,uid:'standalone_page_fb',raw_data:'isolated',kind:'job',device_id:standaloneDevice,status:'LOGIN_THANH_CONG',live_status:'live'});
+ await require('../src/models/FacebookPageJob').create({owner_username:user.username,facebook_account_id:standaloneFb.id,page_id:'900000000099',job_status:'CHUA_LAM',is_active:true});
+ const standaloneRequest=async()=>fetch('http://127.0.0.1:'+server.address().port+'/api/facebook/job/get-login-success-account',{method:'POST',headers:{'x-api-key':user.username,'Content-Type':'application/json'},body:JSON.stringify({device_id:standaloneDevice,owner_username:admin.username})});
+ const standaloneResponse=await standaloneRequest();assert.equal(standaloneResponse.status,200);assert.equal((await standaloneResponse.json()).data.account.uid,standaloneFb.uid);
+ const standaloneTask=(await registry.list()).find(t=>t.task_key==='PAGE_JOB');
+ await registry.update(standaloneTask.id,{enabled:false});
+ const globalOffResponse=await standaloneRequest();assert.equal(globalOffResponse.status,200);assert.equal((await globalOffResponse.json()).data.account.uid,standaloneFb.uid);
+ await registry.update(standaloneTask.id,{enabled:true});
+ console.log('STANDALONE_PAGE_JOB_OK: eligible account returned with personal/global task OFF; spoof owner ignored');
  const deviceUrl='http://127.0.0.1:'+server.address().port+'/api/device/next-task';
  const deviceResponse=await fetch(deviceUrl,{method:'POST',headers:{'x-api-key':user.username,'Content-Type':'application/json'},body:JSON.stringify({device_id:'IDENTITY_TEST',owner_username:admin.username,user_id:admin.id,capabilities:['PAGE_JOB']})});
  assert.equal(deviceResponse.status,200);assert.equal((await deviceResponse.json()).has_task,false);
