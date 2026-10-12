@@ -42,11 +42,13 @@ const parseLine = (line) => {
   if (!uid) return null;
   const parsed = { raw_data: String(line).trim(), uid, password: parts[1], two_fa: null, cookies: null };
   for (const value of parts.slice(2).filter(Boolean)) {
-    if (!parsed.cookies && looksLikeCookies(value)) parsed.cookies = value;
+    if (/^Bearer /.test(value)) parsed.token = value;
+    else if (!parsed.cookies && (looksLikeCookies(value)||/^ds_user_id\d+;/.test(value))) parsed.cookies = value;
     else if (!parsed.two_fa && looksLikeTwoFa(value)) parsed.two_fa = value.replace(/\s+/g, '');
     else if (!parsed.cookies && /[=;]/.test(value)) parsed.cookies = value;
   }
-  if(parsed.cookies)parsed.cookies=igCredentials.validateCookies(parsed.cookies).value;
+  const checkedCredentials=igCredentials.patch(parsed);
+  Object.assign(parsed,checkedCredentials.values);
   return parsed;
 };
 const format = (account) => [account.uid, account.password, account.two_fa, account.cookies].map((v) => v == null || v === '' ? 'null' : String(v)).join('|');

@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-12T13:47:46.686Z",
+  "date": "2026-10-12T16:32:40.284Z",
   "results": [
     {
       "test": "additive migration twice preserves existing account",
@@ -23,6 +23,10 @@
     },
     {
       "test": "user-confirmed hexadecimal signature normalizes without losing segments",
+      "status": "PASS"
+    },
+    {
+      "test": "IGT payload recovery validates exact UID/session and supports pipe token",
       "status": "PASS"
     },
     {

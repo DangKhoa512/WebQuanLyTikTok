@@ -97,6 +97,97 @@ function validateToken(value) {
     throw fail("token", "expected Bearer token without control characters");
   return value;
 }
+
+function recoverFromIgt(cookie, token) {
+  if (
+    typeof cookie !== "string" ||
+    !/sessionid=[^;]*0x[0-9a-f.]+p[+-]?\d+/i.test(cookie) ||
+    typeof token !== "string" ||
+    !token.startsWith("Bearer IGT:2:")
+  )
+    return { value: cookie, recovered: false };
+  validateToken(token);
+  const encoded = token.slice("Bearer IGT:2:".length);
+  if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(encoded))
+    throw fail("token", "invalid IGT payload");
+  const clean = encoded.replace(/-/g, "+").replace(/_/g, "/"),
+    bytes = Buffer.from(clean, "base64");
+  if (bytes.toString("base64").replace(/=+$/, "") !== clean.replace(/=+$/, ""))
+    throw fail("token", "invalid IGT base64");
+  let payload;
+  try {
+    payload = JSON.parse(bytes.toString("utf8"));
+  } catch {
+    throw fail("token", "IGT payload must be JSON");
+  }
+  if (
+    !payload ||
+    typeof payload.ds_user_id !== "string" ||
+    !/^\d+$/.test(payload.ds_user_id) ||
+    typeof payload.sessionid !== "string"
+  )
+    throw fail("token", "IGT UID/session missing");
+  const segments = payload.sessionid.split(/%3a/i);
+  if (
+    segments.length !== 4 ||
+    segments[0] !== payload.ds_user_id ||
+    !/^\d+$/.test(segments[2]) ||
+    ![segments[1], segments[3]].every((v) => /^[A-Za-z0-9_-]+$/.test(v))
+  )
+    throw fail("token", "unverified IGT session structure");
+  const hex = "0[xX][0-9A-Fa-f]+(?:\\.[0-9A-Fa-f]+)?[pP][+-]\\d+";
+  const pattern = new RegExp(
+    "^" +
+      segments[0] +
+      hex +
+      segments[1] +
+      "0[xX]0[pP]\\+0" +
+      segments[2] +
+      hex +
+      segments[3] +
+      "$",
+  );
+  let found = false,
+    uidFound = false;
+  const parts = cookie
+    .split(";")
+    .map((part, i, array) => {
+      const text = part.trim();
+      if (!text) {
+        if (i === array.length - 1) return null;
+        throw fail("cookies", "empty cookie");
+      }
+      const malformed = text.match(/^ds_user_id(\d+)$/);
+      if (malformed) {
+        if (uidFound || malformed[1] !== payload.ds_user_id)
+          throw fail("cookies", "IGT UID mismatch");
+        uidFound = true;
+        return "ds_user_id=" + payload.ds_user_id;
+      }
+      const at = text.indexOf("=");
+      if (at < 1) throw fail("cookies", "expected name=value");
+      const name = text.slice(0, at),
+        value = text.slice(at + 1);
+      if (name.toLowerCase() === "ds_user_id") {
+        if (uidFound || value !== payload.ds_user_id)
+          throw fail("cookies", "IGT UID mismatch");
+        uidFound = true;
+      }
+      if (name.toLowerCase() === "sessionid") {
+        if (found || !pattern.test(value))
+          throw fail("cookies", "IGT session mismatch");
+        found = true;
+        return name + "=" + payload.sessionid;
+      }
+      return text;
+    })
+    .filter(Boolean);
+  if (!found || !uidFound) throw fail("cookies", "IGT cookie fields missing");
+  const result = parts.join("; ") + ";";
+  validateCookies(result);
+  return { value: result, recovered: true };
+}
+
 function patch(input = {}) {
   const values = {},
     warnings = [];
@@ -109,7 +200,10 @@ function patch(input = {}) {
     )
       continue;
     if (field === "cookies") {
-      const checked = validateCookies(value);
+      const recovery = recoverFromIgt(value, input.token);
+      const checked = validateCookies(recovery.value);
+      if (recovery.recovered)
+        warnings.push("SESSION_RECOVERED_FROM_IGT_PAYLOAD");
       values.cookies = checked.value;
       warnings.push(...checked.warnings);
     } else {

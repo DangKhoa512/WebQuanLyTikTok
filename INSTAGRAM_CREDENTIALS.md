@@ -105,3 +105,17 @@ Chỉ normalize nếu ds_user_id khớp UID đầu session và cấu trúc các 
 Không chứng minh đây là rác bộ nhớ hoặc session mới đăng nhập thành công; chưa có code tweak gốc để kết luận nguyên nhân. Không normalize từ một regex generic có thể ăn mất phần số.
 Áp dụng khi nhận API structured và import pipe. Dữ liệu cũ không tự rewrite; gửi lại cookie để cập nhật.
 Test cuối15groups --ui PASS với fixtures, không ghi cookie/token thật vào repo. Header đã chuẩn giữ nguyên và không double encode.
+
+## Khôi phục từ IGT payload cho marker thay đổi (2026-10-12)
+Khi gửi Cookie có hexadecimal float, gửi kèm Token IGT2 trong cùng request hoặc cột pipe cuối:
+username|password|2fa|cookies|Bearer IGT:2:<BASE64_JSON>
+
+Backend chỉ coi token payload là dữ liệu đối chiếu, không phải chứng minh Instagram đã xác thực:
+- strict base64/base64url → JSON, ds_user_id stringnumeric, sessionid4segments dùng %3A.
+- Cookie raw phải khớp UID + mọi phần session trongpayload, chỉ khác3markershexfloat.
+- Lấy nguyên sessionid payload, giữ nguyên %3A/case; không xóa regexgeneric.
+- Có thể sửa ds_user_id<digits> thiếu "=" khi numericUID khớp payload. Các lỗiCookie khác vẫnreject.
+- Mismatch/malformedpayload trả400, không mấtCookie/Tokencũ.
+- Token-only không tự ghiCookie; khôngtoken thì không mở rộng normalize signature chưa biết.
+- Response warning SESSION_RECOVERED_FROM_IGT_PAYLOAD; audit chỉmetadata.
+Test16groups --ui PASS fixtures, chưa xác minh token/session vớiInstagram. Không đổi migration hoặc Task.

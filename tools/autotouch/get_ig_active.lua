@@ -21,7 +21,7 @@ local source=getToken()
 if not source then alert("Khong lay duoc du lieu xac thuc");return nil end
 local line=source:match("[^\r\n]+") or source
 local bearer=line:match("(Bearer IGT:2:[^|%s]+)")
-local ds=line:match("ds_user_id=(%d+)")
+local ds=line:match("ds_user_id=(%d+)") or line:match("ds_user_id(%d+);")
 local session=line:match("sessionid=([^|;\r\n]+)")
 if not bearer or not ds or not session then
  alert("Nguon khong co du cookie/token. Khong tu khoi phuc sessionid.")

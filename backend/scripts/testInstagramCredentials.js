@@ -185,6 +185,66 @@ const check = async (name, fn) => {
       );
     },
   );
+
+  await check(
+    "IGT payload recovery validates exact UID/session and supports pipe token",
+    async () => {
+      const originalCredentials = await Account.findByPk(account.id);
+      const raw =
+        "ds_user_id123456;sessionid=1234560X1.1679E1BP-1042FixturePart0X0P+020X1.FB5D8CE8P-10429FixtureTail-_";
+      const session = "123456%3AFixturePart%3A2%3A9FixtureTail-_";
+      const expected = "ds_user_id=123456; sessionid=" + session + ";";
+      const makeToken = (uid, value) =>
+        "Bearer IGT:2:" +
+        Buffer.from(
+          JSON.stringify({ ds_user_id: uid, sessionid: value }),
+        ).toString("base64");
+      const realShape = makeToken("123456", session);
+      const r = await update({ cookies: raw, token: realShape });
+      assert.equal(r.status, 200);
+      assert.deepEqual(r.json.data.warnings, [
+        "SESSION_RECOVERED_FROM_IGT_PAYLOAD",
+      ]);
+      assert.equal((await Account.findByPk(account.id)).cookies, expected);
+      const before = await Account.findByPk(account.id);
+      for (const invalid of [
+        makeToken("654321", session.replace("123456", "654321")),
+        makeToken("123456", session.replace("FixturePart", "Different")),
+        "Bearer IGT:2:not_valid_json",
+      ]) {
+        assert.equal(
+          (await update({ cookies: raw, token: invalid })).status,
+          400,
+        );
+        assert.equal(
+          (await Account.findByPk(account.id)).cookies,
+          before.cookies,
+        );
+        assert.equal((await Account.findByPk(account.id)).token, before.token);
+      }
+      const validation = require("../src/services/instagramCredentials");
+      assert.equal(
+        validation.patch({
+          cookies: raw.replace("ds_user_id123456", "ds_user_id=123456"),
+          token: realShape,
+        }).values.cookies,
+        expected,
+      );
+      const pipe = await request("/instagram/import-api", {
+        phone: true,
+        body: {
+          kind: "job",
+          device_id: "FixturePhone",
+          data: "igt_pipe|pass|null|" + raw + "|" + realShape,
+        },
+      });
+      assert.equal(pipe.status, 200);
+      const row = await Account.findOne({ where: { uid: "igt_pipe" } });
+      assert.equal(row.cookies, expected);
+      assert.equal(row.token, realShape);
+      await update({ cookies: cookie, token: originalCredentials.token });
+    },
+  );
   await check("invalid input atomic, old data preserved", async () => {
     const before = (await Account.findByPk(account.id)).cookies;
     for (const value of [
@@ -261,7 +321,7 @@ const check = async (name, fn) => {
     "1000-account list excludes secrets and raw/full data at SQL projection",
     async () => {
       await Account.bulkCreate(
-        Array.from({ length: 998 }, (_, i) => ({
+        Array.from({ length: 997 }, (_, i) => ({
           owner_username: a.username,
           kind: "job",
           uid: "fixture-" + i,
