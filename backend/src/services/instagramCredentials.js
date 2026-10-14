@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const csrfService = require("./instagramCsrfService");
 const fail = (field, reason) =>
   Object.assign(
     new Error("INVALID_INSTAGRAM_" + field.toUpperCase() + ": " + reason),
@@ -213,6 +214,17 @@ function patch(input = {}) {
   }
   return { values, warnings };
 }
+
+async function patchAndEnrich(input = {}, options = {}) {
+  const checked = patch(input);
+  if (!checked.values.cookies) return checked;
+  const enriched = await csrfService.enrich(checked.values.cookies, options);
+  if (enriched.warning) checked.warnings.push(enriched.warning);
+  if (enriched.cookies !== checked.values.cookies) {
+    checked.values.cookies = validateCookies(enriched.cookies).value;
+  }
+  return checked;
+}
 const PREFIX = "igenc:v1:";
 function key() {
   const source = process.env.INSTAGRAM_CREDENTIAL_ENCRYPTION_KEY;
@@ -248,4 +260,11 @@ function unseal(value) {
     "utf8",
   );
 }
-module.exports = { validateCookies, validateToken, patch, seal, unseal };
+module.exports = {
+  validateCookies,
+  validateToken,
+  patch,
+  patchAndEnrich,
+  seal,
+  unseal,
+};

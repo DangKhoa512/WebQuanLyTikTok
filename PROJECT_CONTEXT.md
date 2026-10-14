@@ -531,3 +531,15 @@ Test16groups --ui PASS DBtạm/Chrome, gồmvariant marker/numericsegment2/taild
 ## 57. Token pipe cho account đã tồn tại (2026-10-13)
 
 Sau báo cáo user không nhận Token, xác nhận parseLine đã nhận token nhưng importRows nhánh update thiếu parsed.token/token_updated_at. Bổ sung patch chỉ khi parsed.token không rỗng; không đổi owner/status/cooldown logic. Test17groups --ui PASS DBtạm/Chrome, thêm existingaccount pipe update và omission preserves. Không lưu dữ liệu thật user, không migration mới/DBproduction writes. Chưa commit/push/deploy.
+
+## 58. Tự lấy csrftoken cho cookie Instagram từ phone (2026-10-14)
+
+Thêm instagramCsrfService: sau validate/normalize, các luồng phone import-api, reg/report và job/report có cookie thiếu csrftoken sẽ GET URL Instagram cố định `/accounts/login/`, gửi cookie hiện có và lấy csrftoken từ Set-Cookie/HTML. Token hợp lệ được nối vào header cookie chuẩn trước khi lưu; cookie đã có csrftoken không gọi mạng và giữ nguyên. Request nằm ngoài transaction/row lock, timeout mặc định8giây qua INSTAGRAM_CSRF_FETCH_TIMEOUT_MS, bật mặc định qua INSTAGRAM_CSRF_FETCH_ENABLED. Không log credential/CSRF.
+
+Lấy CSRF là best-effort để không làm mất account khi Instagram timeout/chặn: response warning CSRF_TOKEN_FETCHED, CSRF_TOKEN_NOT_RECEIVED hoặc CSRF_TOKEN_FETCH_FAILED; hai lỗi sau vẫn lưu cookie đã làm sạch. Không backfill account cũ, không đổi schema/owner/task/lock/status semantics. Test credentials17groups PASS trên DB tạm với axios stub, gồm job/report, import pipe, đã có token không gọi lại và failure giữ cookie; không gọi Instagram thật, không DB production write. Syntax các file sửa và git diff --check PASS. Chưa commit/push/deploy.
+
+## 59. Import Instagram giao diện web tự lấy csrftoken (2026-10-14)
+
+Bật enrichCsrf cho importDashboard (POST /api/instagram/import, JWT owner). Import pipe trên web dùng cùng validate/normalize và lấy CSRF best-effort như phone, áp dụng cả tạo mới và cập nhật account. Cookie có csrftoken không gọi mạng; lỗi lấy token vẫn lưu cookie và trả credential_warnings. Không đổi schema/owner/status/dispatcher hoặc backfill.
+
+Kiểm thử testInstagramCredentials.js: 17 nhóm PASS trên DB tạm biệt lập, thêm web import tạo mới khi fetch lỗi, cập nhật lấy token thành công và giữ cookie đã có token không gọi mạng. HTTP Instagram giả lập, không dùng dữ liệu thật hoặc gọi Instagram thật. Node syntax và git diff --check PASS. Chưa commit/push/deploy.

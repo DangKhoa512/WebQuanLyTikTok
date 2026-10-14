@@ -6,7 +6,8 @@ async function update(owner, input, { deviceId, kind = "job" } = {}) {
   const uid = input.uid || input.username;
   if (typeof uid !== "string" || !uid.trim())
     throw Object.assign(new Error("ACCOUNT_UID_REQUIRED"), { statusCode: 400 });
-  const checked = validation.patch(input);
+  // Keep the network request outside the row-locking transaction.
+  const checked = await validation.patchAndEnrich(input);
   return db.transaction(async (transaction) => {
     const account = await Account.findOne({
       where: { owner_username: owner, kind, uid: uid.trim() },

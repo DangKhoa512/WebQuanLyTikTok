@@ -1,8 +1,12 @@
 {
-  "date": "2026-10-12T17:06:00.461Z",
+  "date": "2026-10-14T03:16:11.652Z",
   "results": [
     {
       "test": "additive migration twice preserves existing account",
+      "status": "PASS"
+    },
+    {
+      "test": "missing csrftoken is fetched once and appended without exposing cookies",
       "status": "PASS"
     },
     {
@@ -59,10 +63,6 @@
     },
     {
       "test": "optional AES-GCM storage and legacy plaintext remain readable",
-      "status": "PASS"
-    },
-    {
-      "test": "Chrome table hides credentials; modal shows exact strings and clears on close",
       "status": "PASS"
     },
     {

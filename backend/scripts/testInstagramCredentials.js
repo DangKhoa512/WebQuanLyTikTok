@@ -3,6 +3,10 @@ const assert = require("assert"),
   crypto = require("crypto"),
   fs = require("fs");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+// External Instagram requests are opt-in inside this isolated test. Individual
+// cases below use a deterministic request stub.
+process.env.INSTAGRAM_CSRF_FETCH_ENABLED = "false";
+process.env.INSTAGRAM_CSRF_FETCH_TIMEOUT_MS = "8000";
 const { Sequelize } = require("sequelize");
 const original = process.env.DB_NAME,
   name =
@@ -102,6 +106,99 @@ const check = async (name, fn) => {
       body: { uid: account.uid, device_id: "FixturePhone", ...body },
     });
   const token = "Bearer IGT:2:fixture_opaque_token";
+  const csrf = "FixtureCsrfToken_1234567890";
+  await check(
+    "missing csrftoken is fetched once and appended without exposing cookies",
+    async () => {
+      const axios = require("axios");
+      const originalGet = axios.get;
+      let calls = 0;
+      process.env.INSTAGRAM_CSRF_FETCH_ENABLED = "true";
+      axios.get = async (url, config) => {
+        calls += 1;
+        assert.equal(url, "https://www.instagram.com/accounts/login/");
+        assert.equal(config.headers.Cookie, cookie);
+        assert.equal(config.timeout, 8000);
+        return {
+          status: 200,
+          headers: { "set-cookie": [`csrftoken=${csrf}; Path=/; Secure`] },
+          data: "",
+        };
+      };
+      try {
+        const fetched = await update({ cookies: cookie });
+        assert.equal(fetched.status, 200);
+        assert(fetched.json.data.warnings.includes("CSRF_TOKEN_FETCHED"));
+        assert.equal(
+          (await Account.findByPk(account.id)).cookies,
+          cookie.replace(/;$/, "; csrftoken=" + csrf + ";"),
+        );
+
+        const imported = await request("/instagram/import-api", {
+          phone: true,
+          body: {
+            kind: "job",
+            device_id: "FixturePhone",
+            data: "csrf_import_fixture|pass|null|" + cookie,
+            token,
+          },
+        });
+        assert.equal(imported.status, 200);
+        assert(
+          imported.json.data.credential_warnings.includes(
+            "CSRF_TOKEN_FETCHED",
+          ),
+        );
+        assert.equal(
+          (
+            await Account.findOne({ where: { uid: "csrf_import_fixture" } })
+          ).cookies,
+          cookie.replace(/;$/, "; csrftoken=" + csrf + ";"),
+        );
+
+        const withCsrf = cookie.replace(/;$/, "; csrftoken=AlreadyPresent123;");
+        await update({ cookies: withCsrf });
+        assert.equal(calls, 2);
+        assert.equal((await Account.findByPk(account.id)).cookies, withCsrf);
+
+        axios.get = async () => {
+          throw new Error("synthetic timeout");
+        };
+        const failed = await update({ cookies: cookie });
+        assert.equal(failed.status, 200);
+        assert(failed.json.data.warnings.includes("CSRF_TOKEN_FETCH_FAILED"));
+        assert.equal((await Account.findByPk(account.id)).cookies, cookie);
+        const webFailed = await request("/instagram/import", {
+          body: { kind: "job", text: "web_csrf_fixture|pass|null|" + cookie },
+        });
+        assert.equal(webFailed.status, 200);
+        assert(webFailed.json.data.credential_warnings.includes("CSRF_TOKEN_FETCH_FAILED"));
+        assert.equal((await Account.findOne({ where: { uid: "web_csrf_fixture", owner_username: a.username } })).cookies, cookie);
+        axios.get = async () => {
+          calls += 1;
+          return { headers: { "set-cookie": [`csrftoken=${csrf}; Path=/`] }, data: "" };
+        };
+        const webUpdated = await request("/instagram/import", {
+          body: { kind: "job", text: "web_csrf_fixture|pass|null|" + cookie },
+        });
+        assert.equal(webUpdated.status, 200);
+        assert.equal(webUpdated.json.data.updated, 1);
+        assert(webUpdated.json.data.credential_warnings.includes("CSRF_TOKEN_FETCHED"));
+        assert.equal((await Account.findOne({ where: { uid: "web_csrf_fixture", owner_username: a.username } })).cookies, cookie.replace(/;$/, "; csrftoken=" + csrf + ";"));
+        const callsBeforeExisting = calls;
+        const webExisting = await request("/instagram/import", {
+          body: { kind: "job", text: "web_csrf_fixture|pass|null|" + withCsrf },
+        });
+        assert.equal(webExisting.status, 200);
+        assert.equal(calls, callsBeforeExisting);
+        assert.equal((await Account.findOne({ where: { uid: "web_csrf_fixture", owner_username: a.username } })).cookies, withCsrf);
+        await Account.destroy({ where: { uid: "web_csrf_fixture", owner_username: a.username } });
+      } finally {
+        axios.get = originalGet;
+        process.env.INSTAGRAM_CSRF_FETCH_ENABLED = "false";
+      }
+    },
+  );
   await check(
     "legacy cookies only report preserves status and lock",
     async () => {
@@ -559,7 +656,7 @@ const check = async (name, fn) => {
     const all = JSON.stringify(logs);
     assert(all.includes("Instagram credential viewed"));
     assert(all.includes("Instagram credentials updated"));
-    for (const secret of [cookie, token, "fixture-second", "must-not-save"])
+    for (const secret of [cookie, token, csrf, "fixture-second", "must-not-save"])
       assert(!all.includes(secret));
   });
   fs.mkdirSync(path.resolve(__dirname, "../tests/instagram-credentials"), {

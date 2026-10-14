@@ -121,3 +121,16 @@ Backend chỉ coi token payload là dữ liệu đối chiếu, không phải ch
 Test16groups --ui PASS fixtures, chưa xác minh token/session vớiInstagram. Không đổi migration hoặc Task.
 
 2026-10-13: fixed existing-account pipe import to persist parsed token/token_updated_at; omission retains old token. 17 groups --ui PASS on disposable DB. No new migration; not deployed.
+
+## Tự bổ sung csrftoken khi phone hoặc giao diện web gửi cookie (2026-10-14)
+
+Các API phone và import giao diện web nhận Instagram credentials sẽ kiểm tra cookie sau bước validate/normalize. Nếu cookie chưa có `csrftoken`, backend gửi một GET cố định tới `https://www.instagram.com/accounts/login/` với cookie hiện có, đọc `csrftoken` từ header `Set-Cookie` hoặc HTML rồi ghép vào cookie trước khi lưu.
+
+- Áp dụng cho `/api/instagram/import` (giao diện web, JWT), `/api/instagram/import-api`, `/api/instagram/reg/report` và `/api/instagram/job/report` khi request có cookie.
+- Cookie đã có `csrftoken` được giữ nguyên và không phát sinh request ra Instagram.
+- Request chạy trước transaction khóa account. Không log cookie, token hoặc giá trị CSRF.
+- Đây là best-effort: `CSRF_TOKEN_FETCHED` nghĩa là đã ghép thành công; `CSRF_TOKEN_NOT_RECEIVED` hoặc `CSRF_TOKEN_FETCH_FAILED` nghĩa là account vẫn được lưu bằng cookie đã làm sạch nhưng Instagram không cấp token trong lần gọi đó.
+- Với import/reg, các mã nằm trong `data.credential_warnings`; với Job report/cập nhật credentials, chúng nằm trong `data.warnings`.
+- Không tự backfill dữ liệu cũ. Account cũ cần import lại hoặc gửi lại cookie qua một API phone nêu trên.
+- `INSTAGRAM_CSRF_FETCH_ENABLED=true` mặc định bật; `INSTAGRAM_CSRF_FETCH_TIMEOUT_MS=8000`, chỉ chấp nhận 1.000–30.000 ms. URL đích cố định trong code để tránh request tùy ý.
+- Kiểm thử dùng HTTP stub và DB test biệt lập; không gửi fixture/cookie thật ra Internet.
