@@ -118,7 +118,7 @@ const check = async (name, fn) => {
         calls += 1;
         assert.equal(url, "https://www.instagram.com/accounts/login/");
         assert.equal(config.headers.Cookie, cookie);
-        assert.equal(config.timeout, 8000);
+        assert(config.timeout > 0 && config.timeout <= 8000);
         return {
           status: 200,
           headers: { "set-cookie": [`csrftoken=${csrf}; Path=/; Secure`] },
@@ -176,7 +176,7 @@ const check = async (name, fn) => {
         assert.equal((await Account.findOne({ where: { uid: "web_csrf_fixture", owner_username: a.username } })).cookies, cookie);
         axios.get = async () => {
           calls += 1;
-          return { headers: { "set-cookie": [`csrftoken=${csrf}; Path=/`] }, data: "" };
+          return { status: 200, headers: { "set-cookie": [`csrftoken=${csrf}; Path=/`] }, data: "" };
         };
         const webUpdated = await request("/instagram/import", {
           body: { kind: "job", text: "web_csrf_fixture|pass|null|" + cookie },
@@ -199,6 +199,119 @@ const check = async (name, fn) => {
       }
     },
   );
+  await check("CSRF redirects and HTTP failures are classified without leaking credentials", async () => {
+    const service = require('../src/services/instagramCsrfService');
+    const run = request => service.enrich(cookie, { enabled: true, request, proxyUrl: 'http://127.0.0.1:12345' });
+    const redirectToken = await run(async () => ({ status: 302, headers: { location: '/', 'set-cookie': [`csrftoken=${csrf}; Path=/`] } }));
+    assert(redirectToken.fetched);
+    let calls = 0;
+    const followed = await run(async (url, config) => {
+      assert(config.httpsAgent);assert.equal(config.proxy,false);assert.equal(config.maxRedirects,0);
+      assert.equal(config.headers.Cookie,cookie);
+      calls++;
+      if(calls===1)return {status:302,headers:{location:'/'}};
+      assert.equal(url,'https://www.instagram.com/');
+      return {status:200,headers:{},data:JSON.stringify({csrf_token:csrf})};
+    });
+    assert(followed.fetched);assert.equal(calls,2);
+    for(const [status,warning] of [[429,'CSRF_RATE_LIMITED'],[403,'CSRF_ACCESS_DENIED'],[407,'CSRF_PROXY_AUTH_REQUIRED'],[503,'CSRF_HTTP_ERROR'],[200,'CSRF_TOKEN_NOT_RECEIVED']]){
+      const result=await run(async()=>({status,headers:{},data:''}));
+      assert.equal(result.warning,warning);assert.equal(result.http_status,status);assert.equal(result.cookies,cookie);
+    }
+    for(const [location,warning] of [[undefined,'CSRF_REDIRECT_BLOCKED'],['https://example.com/','CSRF_REDIRECT_BLOCKED'],['http://www.instagram.com/','CSRF_REDIRECT_BLOCKED'],['/challenge/','CSRF_CHALLENGE_REQUIRED']]){
+      let count=0;
+      const result=await run(async()=>{count++;return {status:302,headers:{location,'set-cookie':[`csrftoken=${csrf};`]}};});
+      assert.equal(result.warning,warning);assert.equal(count,1);assert.equal(result.cookies,cookie);
+    }
+    calls=0;
+    const loop=await run(async()=>{calls++;return {status:302,headers:{location:'/'}};});
+    assert.equal(loop.warning,'CSRF_REDIRECT_LIMIT');assert.equal(calls,3);
+    const timeout=await run(async()=>{throw Object.assign(new Error('synthetic'),{code:'ETIMEDOUT'});});
+    assert.equal(timeout.warning,'CSRF_FETCH_TIMEOUT');
+    const oversized = await run(async (_, config) => {
+      assert.equal(config.maxContentLength, 8 * 1024 * 1024);
+      throw Object.assign(new Error('maxContentLength size exceeded'), { code: 'ERR_BAD_RESPONSE' });
+    });
+    assert.equal(oversized.warning, 'CSRF_RESPONSE_TOO_LARGE');
+    for(const [code,warning] of [['ENOTFOUND','CSRF_DNS_FAILED'],['ECONNREFUSED','CSRF_CONNECTION_REFUSED'],['ECONNRESET','CSRF_CONNECTION_RESET'],['EPROTO','CSRF_TLS_FAILED']]){
+      let count=0;
+      const result=await run(async()=>{
+        if(++count===1)return {status:302,headers:{location:'/'}};
+        throw Object.assign(new Error('synthetic-secret-must-not-leak'),{code});
+      });
+      assert.equal(result.warning,warning);
+      assert.equal(result.http_status,null);
+      assert.equal(result.previous_http_status,302);
+      assert.equal(result.request_stage,'redirect');
+      assert(!JSON.stringify(result).includes('synthetic-secret-must-not-leak'));
+    }
+  });
+  await check("owner proxy routing and missing CSRF backfill preserve newer credentials", async () => {
+    const settings = require('../src/services/settingsService');
+    const axios = require('axios');
+    const originalGet = axios.get;
+    const originalCookie = (await Account.findByPk(account.id)).cookies;
+    const csrfService = require('../src/services/instagramCsrfService');
+    let calls = 0;
+    const endpoint = '/instagram/csrf/fetch-missing';
+    try {
+      assert.equal((await request(endpoint, { body: { ids: [account.id] } })).status, 400);
+      await settings.saveFacebookCheckProxySettings(a.username, { proxies: ['127.0.0.1:12345'] });
+      await settings.saveFacebookCheckProxySettings(b.username, { proxies: ['127.0.0.1:23456'] });
+      axios.get = async (url, config) => {
+        calls++;
+        assert(config.httpsAgent);
+        assert.equal(config.httpsAgent.proxy.port, '12345');
+        assert.equal(config.proxy, false);
+        assert.equal(config.maxRedirects, 0);
+        return { status: 200, headers: { 'set-cookie': [`csrftoken=${csrf}; Path=/`] }, data: '' };
+      };
+      await Account.findByPk(account.id).then(row => row.update({ cookies: cookie }));
+      let response = await request(endpoint, { body: { ids: [account.id] } });
+      assert.equal(response.status, 200);
+      assert.equal(response.json.data.success, 1);
+      assert(!JSON.stringify(response.json).includes(csrf));
+      let row = await Account.findByPk(account.id);
+      assert(csrfService.cookieValue(row.cookies, 'csrftoken'));
+      assert.equal(row.status, originalStatus);
+      assert.equal(+row.locked_at, originalLock);
+      const count = calls;
+      response = await request(endpoint, { body: { ids: [account.id] } });
+      assert.equal(response.json.data.skipped, 1);
+      assert.equal(calls, count);
+      response = await request(endpoint, { user: b, body: { ids: [account.id] } });
+      assert.deepEqual(response.json.data.results, []);
+      assert.equal(calls, count);
+      assert.equal((await request(endpoint, { body: { ids: ['1'] } })).status, 400);
+      assert.equal((await request(endpoint, { body: { ids: [1,2,3,4,5,6] } })).status, 400);
+      process.env.INSTAGRAM_CSRF_FETCH_ENABLED = 'true';
+      await update({ cookies: cookie });
+      assert.equal(calls, count + 1);
+      await settings.saveFacebookCheckProxySettings(a.username, { proxies: ['invalid'] });
+      const invalid = await update({ cookies: cookie });
+      assert(invalid.json.data.warnings.includes('CSRF_PROXY_INVALID'));
+      assert.equal(calls, count + 1);
+      await settings.saveFacebookCheckProxySettings(a.username, { proxies: ['127.0.0.1:12345'] });
+      axios.get = async () => { throw new Error('synthetic proxy timeout'); };
+      response = await request(endpoint, { body: { ids: [account.id] } });
+      assert.equal(response.json.data.failed, 1);
+      assert.equal((await Account.findByPk(account.id)).cookies, cookie);
+      const newer = cookie.replace('fixtureAb', 'newerFixture');
+      axios.get = async () => {
+        await Account.findByPk(account.id).then(row => row.update({ cookies: newer }));
+        return { status: 200, headers: { 'set-cookie': [`csrftoken=${csrf}; Path=/`] } };
+      };
+      response = await request(endpoint, { body: { ids: [account.id] } });
+      assert.equal(response.json.data.results[0].reason, 'COOKIE_CHANGED');
+      assert.equal((await Account.findByPk(account.id)).cookies, newer);
+    } finally {
+      axios.get = originalGet;
+      process.env.INSTAGRAM_CSRF_FETCH_ENABLED = 'false';
+      await settings.saveFacebookCheckProxySettings(a.username, { proxies: [] });
+      await settings.saveFacebookCheckProxySettings(b.username, { proxies: [] });
+      await Account.findByPk(account.id).then(row => row.update({ cookies: originalCookie }));
+    }
+  });
   await check(
     "legacy cookies only report preserves status and lock",
     async () => {
@@ -647,6 +760,26 @@ const check = async (name, fn) => {
           );
           assert(!saved.includes(cookie));
           assert(!saved.includes(token));
+          await browser.findElement(By.xpath('//section[@role="dialog"]//button[text()="Đóng"]')).click();
+          const axios = require('axios'), originalGet = axios.get;
+          const settings = require('../src/services/settingsService');
+          await settings.saveFacebookCheckProxySettings(a.username, { proxies: ['127.0.0.1:12345'] });
+          axios.get = async (_, config) => {
+            assert(config.httpsAgent);
+            return { status: 200, headers: { 'set-cookie': [`csrftoken=${csrf}; Path=/`] } };
+          };
+          try {
+            await browser.findElement(By.css('input[placeholder="username, May1..."]')).sendKeys('fixture_account');
+            await browser.wait(async()=>await browser.executeScript('return document.querySelectorAll("tr.ig-row").length===1;'),10000);
+            await browser.findElement(By.css('tr.ig-row input[type=checkbox]')).click();
+            await browser.findElement(By.xpath('//button[text()="Lấy CSRF thiếu đã chọn"]')).click();
+            await browser.wait(async()=>await browser.executeScript('return document.body.textContent.includes("Đã bổ sung token");'),15000);
+            assert.equal(require('../src/services/instagramCsrfService').cookieValue((await Account.findByPk(account.id)).cookies,'csrftoken'),csrf);
+            assert(!(await browser.getPageSource()).includes(csrf));
+          } finally {
+            axios.get = originalGet;
+            await settings.saveFacebookCheckProxySettings(a.username, { proxies: [] });
+          }
         } finally {
           await browser.quit();
         }

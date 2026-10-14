@@ -543,3 +543,29 @@ Lấy CSRF là best-effort để không làm mất account khi Instagram timeout
 Bật enrichCsrf cho importDashboard (POST /api/instagram/import, JWT owner). Import pipe trên web dùng cùng validate/normalize và lấy CSRF best-effort như phone, áp dụng cả tạo mới và cập nhật account. Cookie có csrftoken không gọi mạng; lỗi lấy token vẫn lưu cookie và trả credential_warnings. Không đổi schema/owner/status/dispatcher hoặc backfill.
 
 Kiểm thử testInstagramCredentials.js: 17 nhóm PASS trên DB tạm biệt lập, thêm web import tạo mới khi fetch lỗi, cập nhật lấy token thành công và giữ cookie đã có token không gọi mạng. HTTP Instagram giả lập, không dùng dữ liệu thật hoặc gọi Instagram thật. Node syntax và git diff --check PASS. Chưa commit/push/deploy.
+## 60. CSRF Instagram ưu tiên proxy + bổ sung cookie cũ (2026-10-14)
+
+Theo yêu cầu user, giữ fetch trên VPS nhưng chọn luân phiên proxy pool web của owner (getFacebookCheckProxySettings, Cài đặt chung/Proxy). Tự bổ sung ở phone import/reg/job và web import dùng proxy khi có; chưa cấu hình giữ direct, cấu hình sai/proxy lỗi/settings lỗi không fallback direct. Chỉ nhận HTTP200, không theo redirect. Không đổi owner/schema/task/status.
+
+Thêm JWT POST /api/instagram/csrf/fetch-missing, tối đa5 IDs/request, proxy bắt buộc, network tuần tự ngoài transaction, row lock recheck cookie+token chống ghi đè dữ liệu mới. Bỏ qua already-present/no-cookie, trả metadata không secret/no-store; manual vẫn chạy khi auto flag OFF. Web Reg/Job có nút cho đã chọn hoặc trang hiện tại, chia batch5/progress/result. Không backfill tự động toàn DB.
+
+TestInstagramCredentials --ui PASS19groups trên DB tạm/Chrome với HTTP stub: owner proxy agent/no direct fallback/invalid settings, backfill success/skip/failure/owner/strictIDs/race, UI encrypted-cookie save/no leaks. Build frontend PASS sau chạy ngoài sandbox (lần đầu esbuild bị chặn đọc thư mục cha), cảnh báo chunk lớn cũ. Backend syntax/git diff --check PASS. Không gửi account thật/Instagram thật, không DBproduction writes/seed/migration/deploy. 3b4ff4b đã push trước lượt này; thay đổi proxy/backfill hiện chưa commit/push.
+## 61. Rà soát CSRF sau ảnh lỗi (2026-10-14)
+
+Ảnh user: ID29 không nhận token, ID28/30 đã có token. Phát hiện code chỉ nhậnHTTP200 nên bỏ lỡ Set-Cookie trên302 và gộp mọi HTTP lỗi thành NOT_RECEIVED. Sửa đọc token redirect hợp lệ; tối đa2follow HTTPS exactInstagramhosts, giữproxy/cookie, deadlinechung, khôngdomainoutside/HTTP/missingLocation/challenge/checkpoint/suspended. Không retry khi429/challenge. Phân loại HTTP429/401/403/407/other, timeout, redirectlimit và no-token; web hiện username/HTTPstatus, khôngURL/credential. Không suy ra nguyên nhân account29 thật từ ảnh.
+
+TestInstagramCredentials --ui PASS20groups trênDBtạm/Chrome/HTTPstub, thêmredirectcookie/HTML/blocked/challenge/loop/errors/timeout. FrontendbuildPASS (chunkwarningcũ), syntax/diffPASS. Không gọiInstagram/proxythật, khôngDBthậtwrites. Chưacommit/push/deploy. Phần này thay mô tả chỉHTTP200/khôngredirect ởsection60.
+## 62. Phân biệt lỗi kết nối sau redirect CSRF (2026-10-14)
+
+Ảnh mới có failure +HTTP302: code giữ status của phản hồi trước khi request kế tiếp throw. Sửa resetHTTP trước mỗi request, trả previous_http_status/request_stage, phân loại DNS/refused/reset/TLS/timeout bằng whitelist mã lỗi, không rawerror/URL. Web hiển thị sau chuyển hướng + chưa nhậnHTTPmới/trướcđó302. Không suy ra proxy chết hay accountcheckpoint từ ảnh. TestInstagramCredentials --ui PASS20groups mở rộng redirect rồi4networkerrors/noerrorleak, frontendbuild/syntax/diffPASS. Không gọiproxy/Instagramthật/ghiDBthật, chưacommit/push/deploy.
+## 63. Chẩn đoán CSRF với dữ liệu local (2026-10-14)
+
+User yêu cầu test dữ liệu local. Thêm scripts/diagnoseInstagramCsrf.js: mặc định chỉ đọc DB, kiểm tra presence/format/proxy metadata; --live mới gọi mạng, không ghi DB hoặc in credential/raw error/body. Kiểm tra local read-only và syntax PASS, không đưa dữ liệu tài khoản thật vào tài liệu. Request sandbox gặp EACCES; automatic approval review từ chối escalation gọi Instagram qua proxy với cookie account thật vì cần xác nhận xuất credential cụ thể. Chưa có kết quả Instagram/proxy thật, chưa lưu CSRF vào DB; cần user xác nhận hành động này trước khi thử lại. Không bypass hoặc retry sau rejection.
+## 64. Xác định và sửa giới hạn HTML CSRF bằng thử nghiệm thật (2026-10-14)
+
+User xác nhận cho phép gửi cookie account được chỉ định qua proxy đã lưu tớiInstagram đểdiagnose, khôngghiDB. Lần đầu302 rồi ERR_BAD_RESPONSE/maxContentLength1MB. Sau tăng8MB, lầnthửlại302→200 HTML~1.35MB, fetchedtrue. Khôngin/lưucredential/proxy/body vàooutput hoặc tài liệu. Thêm CSRF_RESPONSE_TOO_LARGE để phân biệt oversize với proxyfailure. User có thể bấm lấyCSRF trênUI sau backendreload; diagnose chưa lưu token vàoDB.
+
+TestInstagramCredentials --ui PASS20groups DBtạm/Chrome, thêm kiểm tra8MB và oversizeclassification; frontendbuildPASS/cảnhbáochunkcũ, syntax/diffPASS. Chưacommit/push/deploy. Xác nhận cụ thể của user giải quyết blocker auto-review ởsection63; không nghiệm thu toàn bộ account/proxy.
+## 65. Bàn giao GitHub CSRF proxy (2026-10-14)
+
+User yêu cầu commit/push toàn bộ phần CSRF ưu tiên proxy, bulk bổ sung token, username/HTTP diagnostics và sửa giới hạnHTML8MB. Kiểm tra đã chạy:20groups --ui PASS, frontendbuild/syntax/diffPASS; chẩn đoánInstagramthật qua proxy lấytoken thànhcông nhưng khôngghiDB. Không đưa .env thật/log/artifacts/credential vào commit; chưadeployVPS, không cầnmigrationmới.

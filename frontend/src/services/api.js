@@ -240,6 +240,7 @@ export const instagramApi = {
   resetFacebookRegEligibility: (data) => api.post('/instagram/reg/facebook/reset', data),
   addJob: (device_id, web, jobs = 0, xu = 0) => api.post('/instagram/job/add-job', { device_id, web, jobs, xu }),
   loginCookies: (ids, proxyOffset = 0) => api.post('/instagram/job/login-cookies', { ids, proxy_offset: proxyOffset }, { timeout: 900_000 }),
+  fetchMissingCsrf: (ids) => api.post('/instagram/csrf/fetch-missing', { ids }, { timeout: 180_000 }),
   getFacebookInstagramSources: (params) => api.get('/instagram/job/facebook-sources', { params }),
   getFacebookInstagramAccounts: (facebookUid) => api.get('/instagram/job/facebook-sources/' + encodeURIComponent(facebookUid) + '/accounts'),
   import: (text, kind = 'job', status = 'CHO_LOGIN', group_id = null) => api.post('/instagram/import', { text, kind, status, group_id }),

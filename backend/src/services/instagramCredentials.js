@@ -219,6 +219,9 @@ async function patchAndEnrich(input = {}, options = {}) {
   const checked = patch(input);
   if (!checked.values.cookies) return checked;
   const enriched = await csrfService.enrich(checked.values.cookies, options);
+  checked.csrf_metadata = { http_status: enriched.http_status || null,
+    previous_http_status: enriched.previous_http_status || null,
+    request_stage: enriched.request_stage || null };
   if (enriched.warning) checked.warnings.push(enriched.warning);
   if (enriched.cookies !== checked.values.cookies) {
     checked.values.cookies = validateCookies(enriched.cookies).value;

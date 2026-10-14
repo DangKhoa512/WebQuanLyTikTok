@@ -19,7 +19,7 @@ export default function CommonSettingsPanel({ model, setters, busy, registryRef,
   return <div className="settings-platform-panel"><SettingsSubTabs id="common" tabs={tabs} activeTab={activeTab} onChange={setActiveTab} label="Cài đặt chung" />
     {panel('overview',<SettingsOverview title="Tổng quan cài đặt chung" description="Cấu hình dùng chung cho hệ thống và công cụ check." onEdit={setActiveTab} items={[
       {id:'dispatcher',title:'Điều phối tác vụ',value:`${ownEnabledCount ?? Object.values(model.taskDispatcher.tasks || {}).filter((task) => task.enabled !== false).length} tác vụ đang bật`,description:`Timeout ${model.taskDispatcher.lock_timeout_minutes} phút · Retry ${model.taskDispatcher.max_retry}.`},
-      {id:'proxy',title:'Proxy',value:`${proxyCount} proxy`,description:'Danh sách proxy check Facebook.'},
+      {id:'proxy',title:'Proxy',value:`${proxyCount} proxy`,description:'Proxy check Facebook/Instagram và lấy csrftoken Instagram.'},
       {id:'check',title:'Tham số check',value:`${model.concurrency} luồng`,description:`${model.delayMs} ms giữa batch · ${model.batchSize} account/lượt.`}
     ]} />)}
     <fieldset className="settings-workspace" disabled={busy}>

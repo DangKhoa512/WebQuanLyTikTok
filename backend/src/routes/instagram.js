@@ -4,6 +4,7 @@ const facebookRegController = require('../controllers/instagramFacebookRegContro
 const jwtAuth = require('../middleware/jwtAuth');
 const apiKeyAuth = require('../middleware/apiKeyAuth');
 const router = express.Router();
+router.post('/csrf/fetch-missing', jwtAuth, require('../controllers/instagramCsrfController').fetchMissing);
 router.get('/accounts/:id/credentials', jwtAuth, controller.credentialDetail);
 const crossTargets = require('../controllers/crossTargetController');
 const guardCross = require('../middleware/taskAcquirePermission');

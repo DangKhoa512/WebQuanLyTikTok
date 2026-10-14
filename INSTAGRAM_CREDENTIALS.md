@@ -1,6 +1,6 @@
 # Instagram Cookies + Token (2026-10-12)
 
-Thay đổi local, chưa commit/push/deploy. Không sửa Heartbeat, Task Dispatcher hoặc cách chạy Instagram Job.
+Phần CSRF phone/web đã commit và push tại 3b4ff4b. Phần ưu tiên proxy và bổ sung CSRF cho cookie cũ dưới đây là thay đổi local chưa commit/push/deploy. Không sửa Heartbeat, Task Dispatcher hoặc cách chạy Instagram Job.
 
 ## API
 POST /api/instagram/job/report giữ endpoint và các trường cũ, mở rộng cookies/token.
@@ -134,3 +134,18 @@ Các API phone và import giao diện web nhận Instagram credentials sẽ ki�
 - Không tự backfill dữ liệu cũ. Account cũ cần import lại hoặc gửi lại cookie qua một API phone nêu trên.
 - `INSTAGRAM_CSRF_FETCH_ENABLED=true` mặc định bật; `INSTAGRAM_CSRF_FETCH_TIMEOUT_MS=8000`, chỉ chấp nhận 1.000–30.000 ms. URL đích cố định trong code để tránh request tùy ý.
 - Kiểm thử dùng HTTP stub và DB test biệt lập; không gửi fixture/cookie thật ra Internet.
+
+## Ưu tiên proxy và lấy CSRF cho cookie cũ (2026-10-14)
+
+- Luồng tự bổ sung khi phone gửi cookie hoặc import web đọc proxy pool của chính owner tại Cài đặt → Cài đặt chung → Proxy (cấu hình dùng chung check Facebook/Instagram). Proxy được luân phiên; không dùng proxy của user khác. Nếu chưa cấu hình proxy, luồng tự bổ sung giữ cách gọi trực tiếp từ VPS. Nếu có cấu hình nhưng không có proxy hợp lệ, hoặc proxy lỗi, không fallback sang IP VPS; vẫn lưu cookie và trả warning. Lỗi đọc settings trả CSRF_PROXY_SETTINGS_FAILED. Không có retry tự động.
+- Request khởi đầu ở HTTPS cố định, tổng timeout cũ; đọc token từ HTTP 200 hoặc redirect hợp lệ. Theo tối đa 2 redirect HTTPS chỉ tới instagram.com/www.instagram.com (cùng proxy), dừng challenge/checkpoint/suspended, domain ngoài hoặc redirect không hợp lệ. Không log proxy credentials/cookie/token.
+- Nút “Lấy CSRF thiếu đã chọn” hoặc “Lấy CSRF thiếu trang này” trên danh sách Instagram Reg/Job gọi POST `/api/instagram/csrf/fetch-missing` với JWT và `{ids:[1,2]}`. Mỗi request tối đa 5 ID số nguyên dương, web chia batch tuần tự và hiện tiến độ/kết quả. Chỉ xử lý account thuộc owner đang đăng nhập, chưa vào thùng rác; không quét toàn bộ DB.
+- Thao tác thủ công bắt buộc proxy hợp lệ, không chạy trực tiếp bằng IP VPS; có thể chạy kể cả khi INSTAGRAM_CSRF_FETCH_ENABLED=false (flag này chỉ tắt luồng tự bổ sung). Bỏ qua account chưa có cookie hoặc đã có CSRF. Cookie không hợp lệ hoặc fetch lỗi không bị ghi đè.
+- Network ngoài transaction; khi lưu khóa row và đối chiếu lại cookie/token trước request. Cookie/token thay đổi hoặc account bị xóa trong lúc chờ thì bỏ qua COOKIE_CHANGED. Chỉ cập nhật cookies, giữ status/owner/lock/task/token; hỗ trợ getter/setter mã hóa hiện có. Response no-store chỉ chứa ID/status/reason/count, không chứa credentials.
+- Kiểm thử `node backend/scripts/testInstagramCredentials.js --ui`: 19 nhóm PASS trên DB test biệt lập và Chrome; thêm proxy owner/agent/no-fallback, manual fetch/success/skip/failure/owner/ID validation/cookie race, encrypted cookie qua UI. Build frontend PASS (cảnh báo chunk lớn hiện có); syntax/diff PASS. Chưa thử proxy hoặc Instagram thật, chưa deploy; không cần migration mới.
+
+Rà soát ảnh lỗi ngày 2026-10-14: sửa bỏ lỡ Set-Cookie trên HTTP302, thêm redirect giới hạn cùng proxy như trên. Phân biệt HTTP429 (CSRF_RATE_LIMITED), 401/403 (CSRF_ACCESS_DENIED), 407 (CSRF_PROXY_AUTH_REQUIRED), HTTP khác, challenge, timeout và phản hồi không có token. Kết quả web hiện username + HTTP status, không chứa URL redirect hoặc credentials. Test20groups --ui PASS gồm redirect token/HTML, domain outside/HTTP/missing Location, challenge/no retry, loop limit, HTTP errors và timeout. Không xác định nguyên nhân thật account29 chỉ từ ảnh, chưa gọi Instagram/proxy thật. Build/syntax/diff PASS.
+
+Ảnh tiếp theo hiển thị fetch failure cùng HTTP302: mã302 là phản hồi trước đó, không phải HTTP của request lỗi sau redirect. Đã tách http_status/previous_http_status/request_stage, phân loại DNS/connection refused/reset/TLS/timeout bằng mã lỗi cho phép, không trả raw error hoặc URL. Web ghi “sau chuyển hướng” và “Chưa nhận HTTP mới; trước đó 302”. Test20groups --ui mở rộng PASS cho redirect rồi DNS/refused/reset/TLS, no raw error leaks; build/syntax/diff PASS. Chưa xác định nguyên nhân kết nối thực tế hoặc deploy.
+
+Sau xác nhận cụ thể của user, chẩn đoán read-only bằng cookie/proxy local tới Instagram thật xác định lỗi ERR_BAD_RESPONSE do maxContentLength 1MB. Trang sau redirect có HTML khoảng1.35MB. Đã tăng giới hạn hữu hạn8MB và thêm CSRF_RESPONSE_TOO_LARGE (không còn gộp thành lỗi proxy). Thử lại thật qua proxy nhận302→200 và lấyCSRF thành công; không ghiDB hoặc in/lưu cookie/token/body/proxycredential. Test20groups --ui hồi quyPASS + oversize classification; frontendbuild/syntax/diffPASS. Chưacommit/push/deploy. Điều này supersede giới hạn chưa test thật ở các ghi chú trước, không xác nhận mọi account/proxy đều thành công.

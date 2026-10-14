@@ -88,6 +88,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
   const [sort,setSort]=useState({field:'login_at',direction:'desc'}),[selected,setSelected]=useState(new Set()),[loading,setLoading]=useState(false),[importing,setImporting]=useState(false);
   const [checking,setChecking]=useState(false),[checkProgress,setCheckProgress]=useState(null);
   const [loggingCookies,setLoggingCookies]=useState(false),[loginCookieResults,setLoginCookieResults]=useState([]);
+  const [fetchingCsrf,setFetchingCsrf]=useState(false),[csrfProgress,setCsrfProgress]=useState(null),[csrfResults,setCsrfResults]=useState([]);
   const [trash,setTrash]=useState(false),[trashCount,setTrashCount]=useState(0),[machineView,setMachineView]=useState(false),[facebookSourceView,setFacebookSourceView]=useState(false);
   const [bulkStatus,setBulkStatus]=useState(''),[bulkGroup,setBulkGroup]=useState('');
   const [regView,setRegView]=useState('accounts');
@@ -102,6 +103,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
   const toggleAll=()=>setSelected((s)=>{const n=new Set(s);rows.forEach((r)=>all?n.delete(r.id):n.add(r.id));return n;});
   const action=async(fn,confirmText)=>{if(!ids.length)return toast.warn('Chọn account trước');if(confirmText&&!confirm(confirmText))return;try{const r=await fn();toast.success(r.message);reset();load();}catch(e){toast.error(e.message);}};
   const handleCheckLive=async()=>{
+    if(fetchingCsrf)return;
     const targetIds=ids.length?ids:rows.map((row)=>row.id);
     if(!targetIds.length)return toast.warn('Không có account Instagram để kiểm tra');
     setChecking(true);setCheckProgress({done:0,total:targetIds.length,live:0,die:0,unknown:0});
@@ -115,7 +117,24 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
     }catch(e){toast.error(e.message||'Check live Instagram thất bại');}
     finally{setChecking(false);setCheckProgress(null);}
   };
+  const handleFetchCsrf=async()=>{
+    const targetIds=ids.length?ids:rows.map(row=>row.id);
+    if(!targetIds.length)return;
+    setFetchingCsrf(true);setCsrfResults([]);setCsrfProgress({done:0,total:targetIds.length});
+    const results=[];
+    try{
+      for(let index=0;index<targetIds.length;index+=5){
+        const response=await instagramApi.fetchMissingCsrf(targetIds.slice(index,index+5));
+        results.push(...(response.data?.results||[]));
+        setCsrfResults([...results]);
+        setCsrfProgress({done:Math.min(index+5,targetIds.length),total:targetIds.length});
+      }
+      toast.success(`CSRF: ${results.filter(r=>r.status==='success').length} thành công, ${results.filter(r=>r.status==='skipped').length} bỏ qua, ${results.filter(r=>r.status==='failed').length} thất bại`);
+    }catch(e){toast.error(e.message||'Không lấy được csrftoken');}
+    finally{setFetchingCsrf(false);setCsrfProgress(null);await load();}
+  };
   const handleLoginCookies=async()=>{
+    if(fetchingCsrf)return;
     if(!ids.length)return toast.warn('Chọn account Instagram trước');
     if(!confirm('Request sẽ login '+ids.length+' account qua proxy và lưu cookie mới. Tiếp tục?'))return;
     setLoggingCookies(true);setLoginCookieResults([]);
@@ -242,6 +261,7 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
           <div style={{display:'flex',alignItems:'center',gap:'.5rem',fontSize:'.85rem',color:'#cbd5e1'}}><span>Instagram</span><span style={{color:'#f9a8d4',fontWeight:800}}>session</span><span style={{color:'#93c5fd',fontWeight:800}}>account</span></div>
           <div style={{flex:1}} />
           {!trash && <button className="btn btn-sm" style={{background:'#0ea5e9',color:'#fff'}} disabled={checking||loading||!rows.length} onClick={handleCheckLive}>{checking?`Đang check ${checkProgress?.done||0}/${checkProgress?.total||0}`:(ids.length?'Check live đã chọn':'Check live trang này')}</button>}
+          {!trash && <button className="btn btn-secondary btn-sm" disabled={fetchingCsrf||checking||loggingCookies||loading||!rows.length} onClick={handleFetchCsrf}>{fetchingCsrf?`Đang lấy CSRF ${csrfProgress?.done||0}/${csrfProgress?.total||0}`:(ids.length?'Lấy CSRF thiếu đã chọn':'Lấy CSRF thiếu trang này')}</button>}
           {ids.length>0 && <span style={{background:'#ec4899',borderRadius:20,color:'#fff',padding:'.25rem .75rem',fontWeight:800,fontSize:'.82rem'}}>{ids.length} đã chọn</span>}
           {!trash && ids.length>0 && <>
             {!isReg && <button className="btn btn-sm" style={{background:'#ec4899',color:'#fff'}} disabled={loggingCookies} onClick={handleLoginCookies}>{loggingCookies?'Đang login '+loginCookieResults.length+'/'+ids.length:'Login lấy cookie'}</button>}            {isReg && <button className="btn btn-sm" style={{background:'#8b5cf6',color:'#fff'}} onClick={()=>action(()=>instagramApi.bulkSyncToJob(ids),'Chuyển sang Instagram Job?')}>Chuyển sang Instagram Job</button>}
@@ -254,6 +274,10 @@ export default function InstagramAccounts({ kind = 'job', platformSwitch = null,
           {ids.length>0 && <button className="btn btn-secondary btn-sm" onClick={reset}>✕ Bỏ chọn</button>}
         </div>
 
+        {csrfResults.length>0 && <div className="card" style={{marginBottom:'1rem'}}>
+          <div className="card-header"><h3>Kết quả lấy csrftoken</h3><button className="btn btn-secondary btn-sm" disabled={fetchingCsrf} onClick={()=>setCsrfResults([])}>Đóng</button></div>
+          <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th>TÀI KHOẢN</th><th>KẾT QUẢ</th><th>LÝ DO</th><th>HTTP</th></tr></thead><tbody>{csrfResults.map(r=><tr key={r.id}><td>{r.uid||r.id}</td><td>{r.status==='success'?'Thành công':r.status==='skipped'?'Bỏ qua':'Thất bại'}</td><td>{({CSRF_TOKEN_FETCHED:'Đã bổ sung token',ALREADY_PRESENT:'Đã có token',NO_COOKIE:'Chưa có cookie',COOKIE_CHANGED:'Cookie đã thay đổi, thử lại',INVALID_COOKIE:'Cookie không hợp lệ',CSRF_FETCH_TIMEOUT:'Proxy hoặc Instagram phản hồi quá thời gian',CSRF_RATE_LIMITED:'Instagram giới hạn request (429)',CSRF_ACCESS_DENIED:'Instagram từ chối truy cập',CSRF_PROXY_AUTH_REQUIRED:'Proxy yêu cầu xác thực (407)',CSRF_CHALLENGE_REQUIRED:'Instagram yêu cầu xác minh tài khoản',CSRF_HTTP_ERROR:'Instagram hoặc proxy trả lỗi HTTP',CSRF_REDIRECT_BLOCKED:'Chuyển hướng không hợp lệ, đã dừng',CSRF_REDIRECT_LIMIT:'Quá số lần chuyển hướng',CSRF_TOKEN_NOT_RECEIVED:'Phản hồi không có csrftoken',CSRF_RESPONSE_TOO_LARGE:'Phản hồi Instagram vượt giới hạn 8 MB',CSRF_DNS_FAILED:'Không phân giải được địa chỉ kết nối',CSRF_CONNECTION_REFUSED:'Kết nối bị từ chối',CSRF_CONNECTION_RESET:'Kết nối bị ngắt',CSRF_TLS_FAILED:'Kết nối TLS hoặc chứng chỉ bị lỗi',CSRF_TOKEN_FETCH_FAILED:'Kết nối qua proxy thất bại',CSRF_PROXY_INVALID:'Proxy không hợp lệ',CSRF_PROXY_REQUIRED:'Cần cấu hình proxy',CSRF_PROXY_SETTINGS_FAILED:'Không đọc được cấu hình proxy'})[r.reason]||'Không lấy được token'}{r.status==='failed'&&r.request_stage==='redirect'?' (sau chuyển hướng)':''}</td><td>{r.http_status||(r.previous_http_status?'Chưa nhận HTTP mới; trước đó '+r.previous_http_status:'-')}</td></tr>)}</tbody></table></div>
+        </div>}
         {loginCookieResults.length>0 && <div className="card" style={{marginBottom:'1rem',padding:0,overflow:'hidden'}}>
           <div className="card-header"><h3>Kết quả login cookie</h3><button type="button" className="btn btn-secondary btn-sm" onClick={()=>setLoginCookieResults([])}>Đóng</button></div>
           <div style={{overflowX:'auto'}}><table className="data-table"><thead><tr><th>ACCOUNT</th><th>KẾT QUẢ</th><th>LÝ DO</th><th>PROXY</th><th>COOKIE</th></tr></thead><tbody>{loginCookieResults.map((result)=><tr key={result.id}><td><strong>{result.uid}</strong></td><td style={{color:result.status==='success'?'#059669':result.status==='skipped'?'#d97706':'#dc2626',fontWeight:800}}>{result.status==='success'?'Thành công':result.status==='skipped'?'Bỏ qua':'Thất bại'}</td><td>{result.reason||'-'}</td><td>Proxy #{result.proxy_index||'-'}</td><td style={{color:result.cookie_saved?'#059669':'#94a3b8',fontWeight:750}}>{result.status==='skipped'?'Đã có':result.cookie_saved?'Đã lưu':'Chưa lưu'}</td></tr>)}</tbody></table></div>

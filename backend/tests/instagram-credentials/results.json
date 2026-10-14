@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-14T03:16:11.652Z",
+  "date": "2026-10-14T05:43:29.296Z",
   "results": [
     {
       "test": "additive migration twice preserves existing account",
@@ -7,6 +7,14 @@
     },
     {
       "test": "missing csrftoken is fetched once and appended without exposing cookies",
+      "status": "PASS"
+    },
+    {
+      "test": "CSRF redirects and HTTP failures are classified without leaking credentials",
+      "status": "PASS"
+    },
+    {
+      "test": "owner proxy routing and missing CSRF backfill preserve newer credentials",
       "status": "PASS"
     },
     {
@@ -63,6 +71,10 @@
     },
     {
       "test": "optional AES-GCM storage and legacy plaintext remain readable",
+      "status": "PASS"
+    },
+    {
+      "test": "Chrome table hides credentials; modal shows exact strings and clears on close",
       "status": "PASS"
     },
     {
