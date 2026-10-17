@@ -16,6 +16,8 @@ const {
   saveJobAccountDailyLimitSettings,
   getFacebookCheckProxySettings,
   saveFacebookCheckProxySettings,
+  getRegProxySettings,
+  saveRegProxySettings,
   getInstagramCheckCookieSettings,
   saveInstagramCheckCookieSettings,
   getFacebookRegPageWaitSettings,
@@ -304,6 +306,26 @@ const updateFacebookCheckProxies = async (req, res, next) => {
   }
 };
 
+const getRegProxies = async (req, res, next) => {
+  try {
+    const settings = await getRegProxySettings(ownerFromAdmin(req));
+    return success(res, { settings }, 'Lay proxy reg thanh cong');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateRegProxies = async (req, res, next) => {
+  try {
+    const settings = await saveRegProxySettings(ownerFromAdmin(req), {
+      proxies: req.body.proxies,
+    });
+    return success(res, { settings }, 'Da luu proxy reg');
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getInstagramCheckCookies = async (req, res, next) => {
   try {
     const settings = await getInstagramCheckCookieSettings(ownerFromAdmin(req));
@@ -482,4 +504,4 @@ const updateInstagramJob = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getInstagramJob, updateInstagramJob, getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getInstagramCheckCookies, updateInstagramCheckCookies, checkInstagramCheckCookies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookWorkflow, updateFacebookWorkflow, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture, getTaskDispatcher, updateTaskDispatcher };
+module.exports = { getInstagramJob, updateInstagramJob, getEligibility, updateEligibility, getChromeKhangLimit, updateChromeKhangLimit, listChromeKhangLimits, getFacebookLoginLimit, updateFacebookLoginLimit, listFacebookLoginLimits, getInstagramLoginLimit, updateInstagramLoginLimit, listInstagramLoginLimits, getJobAccountDailyLimit, updateJobAccountDailyLimit, listJobAccountDailyLimits, getMachineApiKeysSetting, updateMachineApiKeysSetting, getFacebookCheckProxies, updateFacebookCheckProxies, getRegProxies, updateRegProxies, getInstagramCheckCookies, updateInstagramCheckCookies, checkInstagramCheckCookies, getFacebookRegPageWait, updateFacebookRegPageWait, getFacebookWorkflow, updateFacebookWorkflow, getInstagramFacebookReg, updateInstagramFacebookReg, getFacebookNurture, updateFacebookNurture, getInstagramNurture, updateInstagramNurture, getTaskDispatcher, updateTaskDispatcher };

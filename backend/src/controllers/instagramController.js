@@ -223,6 +223,13 @@ const reportRegOnly = async (req,res,next) => {
       jobSyncMode: 'waiting_login',
       enrichCsrf: true,
     });
+    if (result.total - result.invalid > 0 && device_id) {
+      await require('../services/regProxyLeaseService').releaseActiveForDevice({
+        owner: owner_username,
+        deviceId: device_id,
+        reason: 'INSTAGRAM_REG_REPORTED',
+      });
+    }
     return success(res, {
       ...result,
       reported: result.total - result.invalid,

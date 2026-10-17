@@ -29,6 +29,41 @@ function privateIp(ip) {
     (a[0] === 192 && a[1] === 168)
   );
 }
+function publicIp(ip) {
+  if (typeof ip !== "string") return false;
+  const value = ip.trim();
+  const version = net.isIP(value);
+  if (version === 4) {
+    const a = value.split(".").map(Number);
+    return !(
+      privateIp(value) ||
+      a[0] === 0 ||
+      a[0] === 127 ||
+      (a[0] === 100 && a[1] >= 64 && a[1] <= 127) ||
+      (a[0] === 169 && a[1] === 254) ||
+      a[0] >= 224
+    );
+  }
+  if (version !== 6) return false;
+  const lower = value.toLowerCase();
+  return !(
+    lower === "::" ||
+    lower === "::1" ||
+    lower.startsWith("::ffff:") ||
+    /^(fc|fd)/.test(lower) ||
+    /^fe[89ab]/.test(lower) ||
+    lower.startsWith("ff")
+  );
+}
+function normalizeMac(value) {
+  if (typeof value !== "string") return null;
+  const compact = value.trim().replace(/[:-]/g, "");
+  if (!/^[0-9a-f]{12}$/i.test(compact)) return null;
+  return compact
+    .toUpperCase()
+    .match(/.{2}/g)
+    .join(":");
+}
 function key() {
   const k = Buffer.from(
     process.env.DEVICE_MANAGER_ENCRYPTION_KEY || "",
@@ -115,6 +150,8 @@ module.exports = {
   DEFAULT,
   hash,
   privateIp,
+  publicIp,
+  normalizeMac,
   seal,
   unseal,
   permissions,

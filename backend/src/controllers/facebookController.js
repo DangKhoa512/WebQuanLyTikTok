@@ -805,6 +805,13 @@ const reportRegOnly = async (req, res, next) => {
       syncToJob: true,
       jobSyncMode: 'waiting_login',
     });
+    if (result.total - result.invalid > 0 && device_id) {
+      await require('../services/regProxyLeaseService').releaseActiveForDevice({
+        owner: owner_username,
+        deviceId: device_id,
+        reason: 'FACEBOOK_REG_REPORTED',
+      });
+    }
     return success(res, {
       ...result,
       reported: result.total - result.invalid,

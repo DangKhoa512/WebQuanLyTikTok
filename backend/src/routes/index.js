@@ -27,6 +27,7 @@ router.use('/machine-api-configs', apiLimiter, require('./machineApiConfigs'));
 router.use('/machine-status', apiLimiter, require('./machineStatus'));
 router.use('/device-manager', apiLimiter, require('../middleware/deviceManagerReady'), (req,res,next)=>require('./deviceManager')(req,res,next));
 router.use('/device', apiLimiter, require('./device'));
+router.use('/proxy', apiLimiter, require('./regProxy'));
 router.use('/jobs', apiLimiter, require('./jobs'));
 router.use('/facebook', apiLimiter, require('./facebook'));
 router.use('/instagram', apiLimiter, require('./instagram'));

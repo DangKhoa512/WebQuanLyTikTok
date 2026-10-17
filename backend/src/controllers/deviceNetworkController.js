@@ -5,7 +5,7 @@ module.exports = async (req, res, next) => {
     return success(
       res,
       await service.reportIp(req.api_owner_username, req.body),
-      "Private IP updated",
+      "Network information updated",
     );
   } catch (e) {
     if (e.statusCode) return error(res, e.message, e.statusCode);

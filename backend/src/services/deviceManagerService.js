@@ -66,17 +66,28 @@ async function device(owner, deviceId, t) {
   return row;
 }
 async function reportIp(owner, body) {
+  body ||= {};
   for (const key of Object.keys(body || {}))
-    if (!["device_id", "private_ip"].includes(key))
+    if (!["device_id", "private_ip", "public_ip", "mac"].includes(key))
       fail("UNEXPECTED_NETWORK_FIELD");
   if (!sec.privateIp(body.private_ip)) fail("INVALID_PRIVATE_IP");
+  const hasPublicIp = Object.prototype.hasOwnProperty.call(body, "public_ip"),
+    hasMac = Object.prototype.hasOwnProperty.call(body, "mac"),
+    publicIp = hasPublicIp ? String(body.public_ip || "").trim() : null,
+    mac = hasMac ? sec.normalizeMac(body.mac) : null;
+  if (hasPublicIp && !sec.publicIp(publicIp)) fail("INVALID_PUBLIC_IP");
+  if (hasMac && !mac) fail("INVALID_MAC");
   return transaction(async (t) => {
     const row = await device(owner, body.device_id, t),
       changed = row.private_ip !== body.private_ip,
+      publicIpChanged = hasPublicIp && row.public_ip !== publicIp,
+      macChanged = hasMac && row.mac_address !== mac,
       now = new Date();
     await row.update(
       {
         private_ip: body.private_ip,
+        ...(hasPublicIp ? { public_ip: publicIp } : {}),
+        ...(hasMac ? { mac_address: mac } : {}),
         ip_updated_at: now,
         ...(changed
           ? { ip_changed_at: now, ssh_status: "UNKNOWN", ssh_checked_at: null }
@@ -87,7 +98,11 @@ async function reportIp(owner, body) {
     return {
       device_id: row.device_id,
       private_ip: row.private_ip,
+      public_ip: row.public_ip,
+      mac: row.mac_address,
       ip_changed: changed,
+      public_ip_changed: publicIpChanged,
+      mac_changed: macChanged,
     };
   });
 }
@@ -157,7 +172,7 @@ async function list(owner, q = {}) {
     type: QueryTypes.SELECT,
   });
   const rows = await db.query(
-    `SELECT d.id,d.device_id,COALESCE(d.device_name,d.device_id) device_name,d.private_ip,d.ip_updated_at,d.ip_changed_at,d.device_group_id,d.lan_id,d.gateway_id,d.last_seen,COALESCE((SELECT r.locked_at FROM device_task_runs r WHERE r.owner_username=d.owner_username AND r.device_id=d.device_id AND r.status IN ('RUNNING','REPORTING') ORDER BY r.id DESC LIMIT 1),d.started_at) started_at,d.command_adapter,d.ssh_host_fingerprint,EXISTS(SELECT 1 FROM device_task_runs r WHERE r.owner_username=d.owner_username AND r.device_id=d.device_id AND r.status IN ('RUNNING','REPORTING')) active_task,(d.ssh_credentials IS NOT NULL) has_credentials,dg.name group_name,l.name lan_name,g.name gateway_name,${statusSql} status,${sshSql} ssh_status,
+    `SELECT d.id,d.device_id,COALESCE(d.device_name,d.device_id) device_name,d.private_ip,d.public_ip,d.mac_address,d.ip_updated_at,d.ip_changed_at,d.device_group_id,d.lan_id,d.gateway_id,d.last_seen,COALESCE((SELECT r.locked_at FROM device_task_runs r WHERE r.owner_username=d.owner_username AND r.device_id=d.device_id AND r.status IN ('RUNNING','REPORTING') ORDER BY r.id DESC LIMIT 1),d.started_at) started_at,d.command_adapter,d.ssh_host_fingerprint,EXISTS(SELECT 1 FROM device_task_runs r WHERE r.owner_username=d.owner_username AND r.device_id=d.device_id AND r.status IN ('RUNNING','REPORTING')) active_task,(d.ssh_credentials IS NOT NULL) has_credentials,dg.name group_name,l.name lan_name,g.name gateway_name,${statusSql} status,${sshSql} ssh_status,
  COALESCE((SELECT r.task_type FROM device_task_runs r WHERE r.owner_username=d.owner_username AND r.device_id=d.device_id AND r.status IN ('RUNNING','REPORTING') ORDER BY r.id DESC LIMIT 1),d.current_task) current_task,
  COALESCE((SELECT COALESCE(r.uid,r.username) FROM device_task_runs r WHERE r.owner_username=d.owner_username AND r.device_id=d.device_id AND r.status IN ('RUNNING','REPORTING') ORDER BY r.id DESC LIMIT 1),d.current_uid) current_uid${fromSql}${where} ORDER BY d.id LIMIT :limit OFFSET :offset`,
     {

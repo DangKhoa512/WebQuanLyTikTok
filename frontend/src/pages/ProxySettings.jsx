@@ -24,6 +24,7 @@ function ProxySettings() {
   const { loadSettings, saveSettings } = useSettingsData();
   const init = loadCheckLiveSettings();
   const [proxies,     setProxies]     = useState(init.proxies);
+  const [regProxies,  setRegProxies]  = useState('');
   const [concurrency, setConcurrency] = useState(init.concurrency);
   const [delayMs,     setDelayMs]     = useState(init.delayMs);
   const [batchSize,   setBatchSize]   = useState(init.batchSize);
@@ -70,20 +71,20 @@ function ProxySettings() {
   const [registryState,setRegistryState]=useState({dirty:false,saving:false});
   const reportRegistry=useCallback(state=>setRegistryState(state),[]);
   const reportFacebookDraft = useCallback((state) => setFacebookDraftState(state), []);
-  const legacyValues = { proxies, concurrency, delayMs, batchSize, minVideos, minAgeDays, userKhangLimits, facebookLoginLimit, userFacebookLoginLimits, jobAccountDailyLimit, userJobAccountDailyLimits, facebookRegPageWaitHours, facebookRegPageResetHours, facebookNurtureResetHours, facebookPageJobResetHours, taskDispatcher };
-  const legacySetters = { proxies: setProxies, concurrency: setConcurrency, delayMs: setDelayMs, batchSize: setBatchSize, minVideos: setMinVideos, minAgeDays: setMinAgeDays, userKhangLimits: setUserKhangLimits, facebookLoginLimit: setFacebookLoginLimit, userFacebookLoginLimits: setUserFacebookLoginLimits, jobAccountDailyLimit: setJobAccountDailyLimit, userJobAccountDailyLimits: setUserJobAccountDailyLimits, facebookRegPageWaitHours: setFacebookRegPageWaitHours, facebookRegPageResetHours: setFacebookRegPageResetHours, facebookNurtureResetHours: setFacebookNurtureResetHours, facebookPageJobResetHours: setFacebookPageJobResetHours, taskDispatcher: setTaskDispatcher };
+  const legacyValues = { proxies, regProxies, concurrency, delayMs, batchSize, minVideos, minAgeDays, userKhangLimits, facebookLoginLimit, userFacebookLoginLimits, jobAccountDailyLimit, userJobAccountDailyLimits, facebookRegPageWaitHours, facebookRegPageResetHours, facebookNurtureResetHours, facebookPageJobResetHours, taskDispatcher };
+  const legacySetters = { proxies: setProxies, regProxies: setRegProxies, concurrency: setConcurrency, delayMs: setDelayMs, batchSize: setBatchSize, minVideos: setMinVideos, minAgeDays: setMinAgeDays, userKhangLimits: setUserKhangLimits, facebookLoginLimit: setFacebookLoginLimit, userFacebookLoginLimits: setUserFacebookLoginLimits, jobAccountDailyLimit: setJobAccountDailyLimit, userJobAccountDailyLimits: setUserJobAccountDailyLimits, facebookRegPageWaitHours: setFacebookRegPageWaitHours, facebookRegPageResetHours: setFacebookRegPageResetHours, facebookNurtureResetHours: setFacebookNurtureResetHours, facebookPageJobResetHours: setFacebookPageJobResetHours, taskDispatcher: setTaskDispatcher };
   const comparable = (value) => JSON.stringify(value, (_key, item) => typeof item === 'string' && item.trim() !== '' && Number.isFinite(Number(item)) ? Number(item) : item);
   const legacyChanged = (key) => legacyBaseline !== null && comparable(legacyValues[key]) !== comparable(legacyBaseline[key]);
   const platformKeys = {
     tiktok:['minVideos','minAgeDays','userKhangLimits','jobAccountDailyLimit','userJobAccountDailyLimits'],
     facebook:['facebookLoginLimit','userFacebookLoginLimits','facebookRegPageWaitHours','facebookRegPageResetHours','facebookNurtureResetHours','facebookPageJobResetHours'],
-    common:['proxies','concurrency','delayMs','batchSize','taskDispatcher'],
+    common:['proxies','regProxies','concurrency','delayMs','batchSize','taskDispatcher'],
   };
   const legacyDirty = Object.keys(legacyValues).some(legacyChanged);
   const activeDirty = (platformKeys[settingsTab] || []).some(legacyChanged);
   const markLegacySaved = (patch) => setLegacyBaseline((old) => old ? { ...old, ...JSON.parse(JSON.stringify(patch)) } : old);
   const markLegacyRowSaved = (key, username, limit) => setLegacyBaseline((old) => old ? { ...old, [key]: old[key].map((row) => row.username === username ? { ...row, limit } : row) } : old);
-  const globalKeys = ['proxies','concurrency','delayMs','batchSize','minVideos','minAgeDays','facebookRegPageWaitHours','facebookRegPageResetHours','facebookNurtureResetHours','facebookPageJobResetHours'];
+  const globalKeys = ['proxies','regProxies','concurrency','delayMs','batchSize','minVideos','minAgeDays','facebookRegPageWaitHours','facebookRegPageResetHours','facebookNurtureResetHours','facebookPageJobResetHours'];
   const discardLegacy = () => {
     if (legacyBaseline) (platformKeys[settingsTab] || []).forEach((key) => legacySetters[key]?.(JSON.parse(JSON.stringify(legacyBaseline[key]))));
     if (settingsTab === 'facebook') facebookNurtureRef.current?.discard();
@@ -116,6 +117,13 @@ function ProxySettings() {
         if (settings.concurrency) setConcurrency(settings.concurrency);
       })
       .catch((err) => toast.error(err.message || 'Không tải được proxy check Facebook'));
+    loadSettings('getRegProxies')
+      .then((res) => {
+        if (!mounted) return;
+        const settings = res.data?.settings || {};
+        setRegProxies((settings.proxies || []).join('\n'));
+      })
+      .catch((err) => toast.error(err.message || 'Không tải được Proxy Reg'));
     loadSettings('getFacebookWorkflow')
       .then((res) => {
         if (!mounted) return;
@@ -175,7 +183,7 @@ function ProxySettings() {
         .catch((err) => toast.error(err.message || 'Khong tai duoc limit JOB user'));
     }
     if (isAdminUser) loadSettings('getMachineApiKeys').then((res) => { if (mounted) setMachineApiKeys(res.data?.keys || []); }).catch(() => {});
-    const names = ['getEligibility','getFacebookCheckProxies','getFacebookWorkflow','getChromeKhangLimit','getFacebookLoginLimit','getJobAccountDailyLimit','getTaskDispatcher', ...(isAdminUser ? ['getChromeKhangLimits','getFacebookLoginLimits','getJobAccountDailyLimits','getMachineApiKeys'] : [])];
+    const names = ['getEligibility','getFacebookCheckProxies','getRegProxies','getFacebookWorkflow','getChromeKhangLimit','getFacebookLoginLimit','getJobAccountDailyLimit','getTaskDispatcher', ...(isAdminUser ? ['getChromeKhangLimits','getFacebookLoginLimits','getJobAccountDailyLimits','getMachineApiKeys'] : [])];
     Promise.allSettled(names.map(loadSettings)).then((results) => { if (mounted) { setDataError(results.some((result) => result.status === 'rejected')); setDataReady(true); } });
     return () => { mounted = false; };
   }, [isAdminUser,reload]);
@@ -193,12 +201,18 @@ function ProxySettings() {
       if (settingsTab === 'facebook' && ['facebookRegPageWaitHours','facebookRegPageResetHours','facebookNurtureResetHours','facebookPageJobResetHours'].some(legacyChanged)) {
         if (!await handleSaveFacebookWorkflow('all')) return false;
       }
-      if (settingsTab === 'common' && ['proxies','concurrency','delayMs','batchSize'].some(legacyChanged)) {
+      if (settingsTab === 'common' && ['proxies','regProxies','concurrency','delayMs','batchSize'].some(legacyChanged)) {
         const valid = (value,min,max) => value !== '' && Number.isInteger(Number(value)) && Number(value) >= min && Number(value) <= max;
         if (!valid(concurrency,1,40) || !valid(delayMs,0,5000) || !valid(batchSize,10,200)) throw new Error('Luồng phải từ 1–40, delay 0–5000 ms và batch 10–200 account.');
         if (['proxies','concurrency'].some(legacyChanged)) await saveSettings('updateFacebookCheckProxies',proxies,parseInt(concurrency,10));
+        let savedRegProxies = regProxies;
+        if (legacyChanged('regProxies')) {
+          const result = await saveSettings('updateRegProxies',regProxies);
+          savedRegProxies = result.data.settings.proxies.join('\n');
+          setRegProxies(savedRegProxies);
+        }
         saveCheckLiveSettings({proxies,concurrency:parseInt(concurrency,10),delayMs:parseInt(delayMs,10),batchSize:parseInt(batchSize,10)});
-        markLegacySaved({proxies,concurrency,delayMs,batchSize});
+        markLegacySaved({proxies,regProxies:savedRegProxies,concurrency,delayMs,batchSize});
       }
       toast.success('Đã lưu cài đặt'); return true;
     } catch (err) { toast.error(err.message || 'Lưu cài đặt thất bại'); return false; }
@@ -210,12 +224,14 @@ function ProxySettings() {
     return Promise.all([
       saveSettings('updateEligibility', 4, 20),
       saveSettings('updateFacebookCheckProxies', '', 20),
+      saveSettings('updateRegProxies', ''),
       saveSettings('updateInstagramCheckCookies', ''),
       saveSettings('updateFacebookWorkflow', { reg_page_reset_hours: 24, reg_page_wait_hours: 8, nurture_reset_hours: 24, page_job_reset_hours: 24 }),
       saveSettings('updateInstagramFacebookReg', 24, 1),
     ])
       .then(() => {
     setProxies('');
+    setRegProxies('');
     setConcurrency(20);
     setDelayMs(200);
     setBatchSize(60);
@@ -490,7 +506,7 @@ function ProxySettings() {
         <div role="tabpanel" id="platform-panel-tiktok" aria-labelledby="platform-tab-tiktok" hidden={settingsTab !== 'tiktok'}><TikTokSettingsPanel isAdmin={isAdminUser} saved={legacyBaseline} busy={savingLegacy || saving || !!savingLimitUser || !!savingJobLimitUser || savingOwnJobLimit || savingMachineApiKeys} model={{minAgeDays,minVideos,khangDailyLimit,jobAccountDailyLimit,userKhangLimits,userJobAccountDailyLimits,machineApiKeys,newMachineApiKey,savingLimitUser,savingJobLimitUser,savingMachineApiKeys}} setters={{minAgeDays:setMinAgeDays,minVideos:setMinVideos,userKhangLimits:setUserKhangLimits,userJobAccountDailyLimits:setUserJobAccountDailyLimits,jobAccountDailyLimit:setJobAccountDailyLimit,newMachineApiKey:setNewMachineApiKey}} actions={{saveChromeLimit:handleSaveUserLimit,saveJobLimit:handleSaveJobUserLimit,addKey:handleAddMachineApiKey,removeKey:handleRemoveMachineApiKey}} /></div>
         <div role="tabpanel" id="platform-panel-facebook" aria-labelledby="platform-tab-facebook" hidden={settingsTab !== 'facebook'}>{facebookVisited && <FacebookSettingsPanel isAdmin={isAdminUser} saved={legacyBaseline} busy={savingLegacy || !!savingFacebookLimitUser || !!savingFacebookWorkflow || facebookDraftState.saving} nurtureRef={facebookNurtureRef} onNurtureState={reportFacebookDraft} activeScenario={facebookDraftState.activeName} model={{facebookLoginLimit,userFacebookLoginLimits,savingFacebookLimitUser,facebookRegPageWaitHours,facebookRegPageResetHours,facebookNurtureResetHours,facebookPageJobResetHours}} setters={{facebookLoginLimit:setFacebookLoginLimit,userFacebookLoginLimits:setUserFacebookLoginLimits,facebookRegPageWaitHours:setFacebookRegPageWaitHours,facebookRegPageResetHours:setFacebookRegPageResetHours,facebookNurtureResetHours:setFacebookNurtureResetHours,facebookPageJobResetHours:setFacebookPageJobResetHours}} actions={{saveLimit:handleSaveFacebookUserLimit}} />}</div>
 
-        <div role="tabpanel" id="platform-panel-common" aria-labelledby="platform-tab-common" hidden={settingsTab !== 'common'}><CommonSettingsPanel registryRef={registryRef} onRegistryState={reportRegistry} visible={settingsTab==='common'} busy={savingLegacy || saving || savingTaskDispatcher} model={{proxies,concurrency,delayMs,batchSize,taskDispatcher}} setters={{proxies:setProxies,concurrency:setConcurrency,delayMs:setDelayMs,batchSize:setBatchSize,taskDispatcher:setTaskDispatcher}} /></div>
+        <div role="tabpanel" id="platform-panel-common" aria-labelledby="platform-tab-common" hidden={settingsTab !== 'common'}><CommonSettingsPanel registryRef={registryRef} onRegistryState={reportRegistry} visible={settingsTab==='common'} busy={savingLegacy || saving || savingTaskDispatcher} model={{proxies,regProxies,concurrency,delayMs,batchSize,taskDispatcher}} setters={{proxies:setProxies,regProxies:setRegProxies,concurrency:setConcurrency,delayMs:setDelayMs,batchSize:setBatchSize,taskDispatcher:setTaskDispatcher}} /></div>
         <div className="settings-footer-note"><span>Các thay đổi được lưu riêng theo nền tảng.</span><button className="settings-button ghost small" disabled={savingLegacy || saving} onClick={() => { if (confirm('Reset cấu hình chung, điều kiện TikTok, workflow Facebook, cookie và Reg Instagram về mặc định?')) handleReset().catch(() => {}); }}>Reset cài đặt mặc định</button></div>
         </div>
 

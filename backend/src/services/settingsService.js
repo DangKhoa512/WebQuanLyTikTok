@@ -10,6 +10,7 @@ const INSTAGRAM_LOGIN_LIMIT_KEY = 'instagram_login_machine_limit';
 const JOB_ACCOUNT_DAILY_LIMIT_KEY = 'job_account_daily_limit';
 const MACHINE_API_KEYS_KEY = 'machine_api_keys';
 const FACEBOOK_CHECK_PROXIES_KEY = 'facebook_check_proxies';
+const REG_PROXIES_KEY = 'reg_proxies';
 const INSTAGRAM_CHECK_COOKIES_KEY = 'instagram_check_cookies';
 const FACEBOOK_REG_PAGE_WAIT_KEY = 'facebook_reg_page_wait_hours';
 const FACEBOOK_WORKFLOW_KEY = 'facebook_workflow';
@@ -91,6 +92,22 @@ const normalizeFacebookCheckProxies = (data = {}) => {
     ? Math.min(Math.max(parsedConcurrency, 1), 40)
     : DEFAULT_FACEBOOK_CHECK_CONCURRENCY;
   return { proxies, concurrency };
+};
+const normalizeRegProxies = (data = {}) => {
+  const source = Array.isArray(data.proxies)
+    ? data.proxies
+    : String(data.proxies || '').split(/\r?\n/);
+  const proxies = [...new Set(source.map((proxy) => (() => {
+    const value = String(proxy || '').trim();
+    if (value.includes('@') || value.includes('://')) return value;
+    const parts = value.split(':');
+    if (parts.length === 4 && parts.every(Boolean) && /^\d+$/.test(parts[1])) {
+      const [host, port, username, password] = parts;
+      return username + ':' + password + '@' + host + ':' + port;
+    }
+    return value;
+  })()).filter(Boolean))];
+  return { proxies };
 };
 const normalizeInstagramCheckCookies = (data = {}) => {
   const source = Array.isArray(data.cookies)
@@ -390,6 +407,19 @@ const saveFacebookCheckProxySettings = async (owner_username = 'admin', data = {
   return normalized;
 };
 
+const getRegProxySettings = async (owner_username = 'admin') => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const stored = await getSetting(owner, REG_PROXIES_KEY);
+  return normalizeRegProxies(stored || { proxies: [] });
+};
+
+const saveRegProxySettings = async (owner_username = 'admin', data = {}) => {
+  const owner = normalizeOwner(owner_username) || defaultOwner();
+  const normalized = normalizeRegProxies(data);
+  await saveSetting(owner, REG_PROXIES_KEY, normalized);
+  return normalized;
+};
+
 const getInstagramCheckCookieSettings = async (owner_username = 'admin') => {
   const owner = normalizeOwner(owner_username) || defaultOwner();
   const stored = await getSetting(owner, INSTAGRAM_CHECK_COOKIES_KEY);
@@ -538,6 +568,8 @@ module.exports = {
   saveMachineApiKeys,
   getFacebookCheckProxySettings,
   saveFacebookCheckProxySettings,
+  getRegProxySettings,
+  saveRegProxySettings,
   getInstagramCheckCookieSettings,
   saveInstagramCheckCookieSettings,
   getFacebookRegPageWaitSettings,

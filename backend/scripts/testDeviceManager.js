@@ -193,6 +193,8 @@ const wait = async (fn, timeout = 15000) => {
         "OFFLINE",
       );
       assert.equal(d.private_ip, null);
+      assert.equal(d.public_ip, null);
+      assert.equal(d.mac_address, null);
     },
   )();
   let group, lan1, lan2, g;
@@ -280,7 +282,7 @@ const wait = async (fn, timeout = 15000) => {
     },
   )();
   await record(
-    "Private IP first/same/new + offline/running invariants",
+    "Network report private/public/MAC + old-client/offline/running invariants",
     async () => {
       const before = (await dm.device(a.username, "legacy")).toJSON(),
         beforeRun = (await dm.device(a.username, "run")).toJSON();
@@ -288,11 +290,22 @@ const wait = async (fn, timeout = 15000) => {
         a,
         "/api/device/network/report",
         "POST",
-        { device_id: "legacy", private_ip: "192.168.1.105" },
+        {
+          device_id: "legacy",
+          private_ip: "192.168.1.105",
+          public_ip: "8.8.8.8",
+          mac: "aa-bb-cc-dd-ee-01",
+        },
         true,
       );
       assert.equal(first.ip_changed, true);
+      assert.equal(first.public_ip_changed, true);
+      assert.equal(first.mac_changed, true);
+      assert.equal(first.public_ip, "8.8.8.8");
+      assert.equal(first.mac, "AA:BB:CC:DD:EE:01");
       const initial = (await dm.device(a.username, "legacy")).toJSON();
+      assert.equal(initial.public_ip, "8.8.8.8");
+      assert.equal(initial.mac_address, "AA:BB:CC:DD:EE:01");
       const same = await ok(
         a,
         "/api/device/network/report",
@@ -301,10 +314,37 @@ const wait = async (fn, timeout = 15000) => {
         true,
       );
       assert.equal(same.ip_changed, false);
+      assert.equal(same.public_ip_changed, false);
+      assert.equal(same.mac_changed, false);
+      assert.equal(same.public_ip, "8.8.8.8");
+      assert.equal(same.mac, "AA:BB:CC:DD:EE:01");
       assert.equal(
         +(await dm.device(a.username, "legacy")).ip_changed_at,
         +initial.ip_changed_at,
       );
+      await Device.update(
+        { ssh_status: "ONLINE", ssh_checked_at: new Date() },
+        {
+          where: { owner_username: a.username, device_id: "legacy" },
+          silent: true,
+        },
+      );
+      const metadataOnly = await ok(
+        a,
+        "/api/device/network/report",
+        "POST",
+        {
+          device_id: "legacy",
+          private_ip: "192.168.1.105",
+          public_ip: "1.1.1.1",
+          mac: "AABBCCDDEE02",
+        },
+        true,
+      );
+      assert.equal(metadataOnly.ip_changed, false);
+      assert.equal(metadataOnly.public_ip_changed, true);
+      assert.equal(metadataOnly.mac_changed, true);
+      assert.equal((await dm.device(a.username, "legacy")).ssh_status, "ONLINE");
       await ok(
         a,
         "/api/device/network/report",
@@ -345,7 +385,7 @@ const wait = async (fn, timeout = 15000) => {
     },
   )();
   await record(
-    "Private/public/loopback/multicast/unspecified/invalid + spoof/missing auth/device rejected",
+    "Network field validation + LAN spoof/missing auth/device rejected",
     async () => {
       for (const ip of [
         "8.8.8.8",
@@ -383,6 +423,67 @@ const wait = async (fn, timeout = 15000) => {
           { device_id: "run", private_ip: ip },
           true,
         );
+      for (const publicIp of [
+        "10.0.0.1",
+        "100.64.0.1",
+        "127.0.0.1",
+        "169.254.1.1",
+        "224.0.0.1",
+        "0.0.0.0",
+        "::1",
+        "fd00::1",
+        "fe80::1",
+        "bad-ip",
+      ])
+        assert.equal(
+          (
+            await request(
+              a,
+              "/api/device/network/report",
+              "POST",
+              {
+                device_id: "run",
+                private_ip: "10.0.0.1",
+                public_ip: publicIp,
+              },
+              true,
+            )
+          ).status,
+          400,
+        );
+      for (const publicIp of ["8.8.4.4", "2001:4860:4860::8888"])
+        await ok(
+          a,
+          "/api/device/network/report",
+          "POST",
+          { device_id: "run", private_ip: "10.0.0.1", public_ip: publicIp },
+          true,
+        );
+      for (const mac of ["", "AA:BB:CC", "GG:BB:CC:DD:EE:FF", null])
+        assert.equal(
+          (
+            await request(
+              a,
+              "/api/device/network/report",
+              "POST",
+              { device_id: "run", private_ip: "10.0.0.1", mac },
+              true,
+            )
+          ).status,
+          400,
+        );
+      const normalized = await ok(
+        a,
+        "/api/device/network/report",
+        "POST",
+        {
+          device_id: "run",
+          private_ip: "10.0.0.1",
+          mac: "11-22-33-44-55-66",
+        },
+        true,
+      );
+      assert.equal(normalized.mac, "11:22:33:44:55:66");
       assert.equal(
         (
           await request(
@@ -447,6 +548,8 @@ const wait = async (fn, timeout = 15000) => {
       assert.equal(rows.total, 1);
       assert.equal(rows.rows[0].device_id, "legacy");
       assert.equal(rows.rows[0].ssh_status, "UNKNOWN");
+      assert.equal(rows.rows[0].public_ip, "1.1.1.1");
+      assert.equal(rows.rows[0].mac_address, "AA:BB:CC:DD:EE:02");
       assert.equal((await ok(b, "/api/device-manager")).summary.total, 1);
       assert(!JSON.stringify(rows).includes("ssh_credentials"));
     },
@@ -1215,6 +1318,8 @@ const wait = async (fn, timeout = 15000) => {
       assert(response.device.last_seen);
       for (const field of [
         "private_ip",
+        "public_ip",
+        "mac_address",
         "ssh_credentials",
         "lan_id",
         "gateway_id",
@@ -1647,6 +1752,11 @@ const wait = async (fn, timeout = 15000) => {
       await waitJs(
         'return document.querySelectorAll(".dm-card tbody tr").length===50',
       );
+      const deviceTableText = await browser
+        .findElement(By.css(".dm-card table"))
+        .getText();
+      assert(deviceTableText.toUpperCase().includes("PUBLIC IP"));
+      assert(deviceTableText.toUpperCase().includes("MAC"));
       assert.equal(
         await browser.findElement(By.css(".dm-header h1")).getText(),
         "Quản lý thiết bị",
@@ -1734,6 +1844,8 @@ const wait = async (fn, timeout = 15000) => {
         .getQueryInterface()
         .describeTable("dashboard_devices");
       assert(!cols.private_ip);
+      assert(!cols.public_ip);
+      assert(!cols.mac_address);
       assert.equal((await Run.findByPk(run.id)).status, "RUNNING");
       await migration.up();
       assert.equal(

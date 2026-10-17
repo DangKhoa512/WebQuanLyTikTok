@@ -17,11 +17,11 @@
       "status": "PASS"
     },
     {
-      "test": "Private IP first/same/new + offline/running invariants",
+      "test": "Network report private/public/MAC + old-client/offline/running invariants",
       "status": "PASS"
     },
     {
-      "test": "Private/public/loopback/multicast/unspecified/invalid + spoof/missing auth/device rejected",
+      "test": "Network field validation + LAN spoof/missing auth/device rejected",
       "status": "PASS"
     },
     {

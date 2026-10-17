@@ -6,7 +6,7 @@ Module nâng cấp màn hình Trạng Thái Máy, dùng dữ liệu dashboard_de
 
 - Nhóm thiết bị: tạo/sửa/xóa, số máy, tìm nhóm, chuyển một hoặc nhiều máy; xóa nhóm chỉ bỏ gán nhóm.
 - LAN: tạo/sửa/xóa; LAN có máy cần xác nhận unassign hoặc API move_to; một máy thuộc một LAN; IP trùng ở các LAN khác nhau hợp lệ.
-- Private IP: API riêng, chỉ nhận device_id/private_ip, không tạo máy, không cập nhật last_seen/current_task/current_uid/error/runtime/status/cursor/reservation.
+- Thông tin mạng: API riêng nhận device_id/private_ip và có thể nhận thêm public_ip/mac; không tạo máy, không tự gán LAN và không cập nhật last_seen/current_task/current_uid/error/runtime/status/cursor/reservation.
 - Device Manager: 8 thẻ thống kê, filter kết hợp tại SQL, phân trang tối đa 100 dòng, detail overview/terminal/log/history, kết quả bulk cập nhật định kỳ.
 - Gateway Windows: kết nối ngược WSS, token ngẫu nhiên 256 bit, lưu SHA-256 tại VPS, mạng được cấp quyền tại VPS và CIDR allowlist tại Gateway. Gateway giới hạn đồng thời, reconnect backoff, journal chống chạy lại cùng Action ID.
 - SSH: kiểm tra kết nối, thông tin uname/uptime, process AutoTouch; script_status UNKNOWN nếu không có telemetry script xác nhận. Device status không lấy từ SSH.
@@ -18,7 +18,7 @@ Module nâng cấp màn hình Trạng Thái Máy, dùng dữ liệu dashboard_de
 ## Database và rollout
 
 6 bảng mới: device_groups, network_lans, ssh_gateways, gateway_lan_mappings, ssh_action_logs, ssh_sessions.
-11 cột bổ sung dashboard_devices: private_ip, ip_updated_at, ip_changed_at, device_group_id, lan_id, gateway_id, ssh_status, ssh_checked_at, ssh_credentials, ssh_host_fingerprint, command_adapter.
+13 cột bổ sung dashboard_devices: private_ip, public_ip, mac_address, ip_updated_at, ip_changed_at, device_group_id, lan_id, gateway_id, ssh_status, ssh_checked_at, ssh_credentials, ssh_host_fingerprint, command_adapter.
 
 ManagedDevice.js là ORM projection của chính dashboard_devices, không phải bảng hoặc inventory mới. Model DashboardDevice cũ giữ nguyên để heartbeat không trả thêm trường SSH/network hay ciphertext.
 
@@ -52,21 +52,28 @@ Module mặc định chưa bật. DEVICE_MANAGER_ENABLED=true chỉ bật sau mi
 Query danh sách: search, group_id, lan_id (none = chưa gán), status, ssh_status, task, private_ip, needs_attention=true, page, page_size.
 SSH status đã quá 5 phút hoặc Gateway không còn kết nối được trình bày UNKNOWN. Tổng device chỉ đếm các máy đã đăng ký trong dashboard_devices của owner; không tạo registration mới từ account hoặc IP report.
 
-Ví dụ API Private IP (thay YOUR_DOMAIN/API_KEY/DEVICE_ID bằng cấu hình của bạn):
+Ví dụ API báo cáo mạng (thay YOUR_DOMAIN/API_KEY/DEVICE_ID bằng cấu hình của bạn):
 
 ```bash
 curl --request POST 'https://YOUR_DOMAIN/api/device/network/report' \
   --header 'Content-Type: application/json' \
   --header 'x-api-key: API_KEY' \
-  --data '{"device_id":"DEVICE_ID","private_ip":"192.168.1.105"}'
+  --data '{"device_id":"DEVICE_ID","private_ip":"192.168.1.105","public_ip":"203.0.113.10","mac":"AA:BB:CC:DD:EE:FF"}'
 ```
 
 Response:
 ```json
-{"success":true,"message":"Private IP updated","data":{"device_id":"DEVICE_ID","private_ip":"192.168.1.105","ip_changed":true}}
+{"success":true,"message":"Network information updated","data":{"device_id":"DEVICE_ID","private_ip":"192.168.1.105","public_ip":"203.0.113.10","mac":"AA:BB:CC:DD:EE:FF","ip_changed":true,"public_ip_changed":true,"mac_changed":true}}
 ```
 
-IP không thay đổi: ip_changed=false, ip_changed_at giữ nguyên, ip_updated_at cập nhật. IP thay đổi làm SSH status về UNKNOWN để không dùng kết quả kiểm tra địa chỉ cũ; không tự gán LAN/Gateway hoặc mở SSH.
+`private_ip` vẫn bắt buộc để tương thích luồng hiện có; client cũ chỉ gửi `device_id/private_ip` vẫn dùng được. `public_ip` và `mac` là tùy chọn, nhưng nếu gửi phải hợp lệ; MAC được chuẩn hóa thành chữ hoa dạng `AA:BB:CC:DD:EE:FF`. Private IP không thay đổi: ip_changed=false, ip_changed_at giữ nguyên, ip_updated_at cập nhật. Chỉ thay đổi private IP mới làm SSH status về UNKNOWN để không dùng kết quả kiểm tra địa chỉ cũ. API không nhận group_id/lan_id/gateway_id; người dùng tự chia nhóm LAN trên giao diện.
+
+Dữ liệu mẫu local dùng tám device ID cố định `sample-device-01..08`, gồm Public IPv4/IPv6, trường hợp thiếu Public IP, thiếu MAC và thiết bị Offline. Địa chỉ public thuộc dải tài liệu và MAC là locally administered. Script không xóa dữ liệu, không dùng seed force và không gán nhóm/LAN/Gateway. Mặc định chỉ kiểm tra; thêm `--apply` mới ghi dữ liệu:
+
+```bash
+npm run sample:device-manager --prefix backend -- --owner=admin
+npm run sample:device-manager --prefix backend -- --owner=admin --apply
+```
 
 ## Quyền và bảo mật
 

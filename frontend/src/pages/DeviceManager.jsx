@@ -430,6 +430,8 @@ export default function DeviceManager() {
                     "Nhóm",
                     "LAN",
                     "Private IP",
+                    "Public IP",
+                    "MAC",
                     "Gateway",
                     "Device Status",
                     "SSH Status",
@@ -466,6 +468,8 @@ export default function DeviceManager() {
                     <td>{d.group_name || "—"}</td>
                     <td>{d.lan_name || "—"}</td>
                     <td>{d.private_ip || "—"}</td>
+                    <td>{d.public_ip || "—"}</td>
+                    <td>{d.mac_address || "—"}</td>
                     <td>{d.gateway_name || "—"}</td>
                     <td>
                       <span className={"dm-status " + d.status}>
@@ -854,6 +858,8 @@ export default function DeviceManager() {
                     Nhóm: detail.group_name,
                     LAN: detail.lan_name,
                     "Private IP": detail.private_ip,
+                    "Public IP": detail.public_ip,
+                    MAC: detail.mac_address,
                     Gateway: detail.gateway_name,
                     "Device Status": detail.status,
                     "SSH Status": detail.ssh_status,

@@ -14,6 +14,8 @@ module.exports = async (req, res, next) => {
         const cols = await qi.describeTable("dashboard_devices");
         for (const column of [
           "private_ip",
+          "public_ip",
+          "mac_address",
           "ip_updated_at",
           "ip_changed_at",
           "device_group_id",

@@ -3,6 +3,8 @@ const db = require("../config/database");
 const models = require("../models/DeviceManager");
 const columns = {
   private_ip: { type: D.STRING(15), allowNull: true },
+  public_ip: { type: D.STRING(45), allowNull: true },
+  mac_address: { type: D.STRING(17), allowNull: true },
   ip_updated_at: { type: D.DATE, allowNull: true },
   ip_changed_at: { type: D.DATE, allowNull: true },
   device_group_id: {

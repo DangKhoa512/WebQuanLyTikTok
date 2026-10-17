@@ -1,5 +1,11 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Cập nhật Proxy Reg — chuẩn hóa định dạng (2026-10-17)
+
+Proxy Reg tự chuyển `host:port:user:pass` thành `user:pass@host:port` khi đọc/lưu settings, loại trùng sau chuyển đổi. Dữ liệu đã lưu trước đó được chuẩn hóa khi đọc, không cần migration; phone allocate nhận định dạng mới, SOCKS5 và proxy key không đổi. UI dùng response settings để hiển thị danh sách đã chuẩn hóa ngay sau lưu và cập nhật baseline tránh báo dirty sai. Không ảnh hưởng pool Proxy Check/Login.
+
+Kiểm tra: reg-proxy-settings PASS (conversion/dedup/owner isolation); reg-proxy-leases PASS 10 nhóm DB tạm/network stub; backend syntax/diff check PASS. Frontend production build PASS ngoài sandbox sau lỗi esbuild bị chặn đọc thư mục cha, còn warning bundle lớn cũ. Không dùng proxy thật/seed/ghi DB production; chưa restart backend/commit/push/deploy.
+
 Cập nhật 2026-10-06 (Asia/Saigon), từ mã nguồn tại C:\Users\KHOA\Desktop\QUANLY_REG. Không chứa thông tin đăng nhập hoặc dữ liệu database.
 
 ## 1. Tổng quan
@@ -454,8 +460,8 @@ Kiểm tra cuối audit: testSystemHealthSignals.js PASS riêng; Dashboard --ui 
 
 - Base Git trước lượt này là 9c5572b main đã push. Lượt Device Manager chưa commit/push/deploy. Đọc yêu cầu attachment bd577dbf và các luồng Device/JWT/API key/role/ChromeKhangStats/model/migration hiện có; không khảo sát lại mọi module.
 - Nâng màn hình /chrome-khang-stats thành Quản lý thiết bị; thống kê cũ chuyển sang /machine-account-stats, component/API thống kê cũ giữ nguyên. Dashboard chính, dispatcher, account workflows, cron và offline timeout 1800 không sửa.
-- Dùng chính dashboard_devices, không bảng devices mới. ManagedDevice là ORM projection trên cùng bảng, giữ nguyên DashboardDevice cũ để heartbeat không trả thêm field hoặc ciphertext. Private IP POST /api/device/network/report dùng apiKeyAuth owner hiện có, chỉ cho device tồn tại; body chỉ device_id/private_ip. RFC1918 IPv4; report giữ last_seen/status/current_task/current_uid/error/runtime/cursor/reservation và updated_at gốc; chỉ cập nhật IP timestamps, SSH UNKNOWN khi đổi IP.
-- 6 bảng extension: device_groups/network_lans/ssh_gateways/gateway_lan_mappings/ssh_action_logs/ssh_sessions. 11 field trên device, index filter, FK composite owner+id, token hash unique. Migration riêng scripts/migrateDeviceManager.js --apply có lock DB/idempotent; rollback chỉ xóa extension sau backup/stop module. Không auto migration startup, không seed hoặc sync force.
+- Dùng chính dashboard_devices, không bảng devices mới. ManagedDevice là ORM projection trên cùng bảng, giữ nguyên DashboardDevice cũ để heartbeat không trả thêm field hoặc ciphertext. POST /api/device/network/report dùng apiKeyAuth owner hiện có, chỉ cho device tồn tại; body bắt buộc device_id/private_ip và hỗ trợ thêm public_ip/mac. Private IP là RFC1918 IPv4; public IP không nhận private/loopback/link-local/CGNAT/multicast/unspecified; MAC chuẩn hóa chữ hoa. Report giữ last_seen/status/current_task/current_uid/error/runtime/cursor/reservation và updated_at gốc; chỉ cập nhật network metadata/IP timestamps, SSH UNKNOWN khi đổi private IP; không tự gán LAN.
+- 6 bảng extension: device_groups/network_lans/ssh_gateways/gateway_lan_mappings/ssh_action_logs/ssh_sessions. 13 field trên device, gồm thêm public_ip/mac_address, index filter, FK composite owner+id, token hash unique. Migration riêng scripts/migrateDeviceManager.js --apply có lock DB/idempotent; rollback chỉ xóa extension sau backup/stop module. Không auto migration startup, không seed hoặc sync force.
 - Module tắt mặc định (DEVICE_MANAGER_ENABLED); lazy routes và schema guard kiểm tra đủ column/table/FK trước nạp model. DEVICE_MANAGER_MIGRATION_REQUIRED/DEVICE_MANAGER_DISABLED trả503 khi thiếu điều kiện. Backend legacy không auto đăng ký các model mới lúc app startup.
 - Cài đặt quyền theo User admin/user + AppSetting device_manager_permissions; admin cấp/read quyền user, dữ liệu máy/Gateway/log/session vẫn owner đăng nhập. User default VIEW/EDIT/GROUP_MANAGE/LAN_MANAGE, SSH/bulk/Gateway cần cấp. Không sửa User Management cũ hoặc API key username (theo user trước đó).
 - Gateway Node.js chạy Windows (user xác nhận), WSS outbound, token bí mật ngẫu nhiên, CIDR allowlist theo LAN, cap mặc định5 (1–20), reconnect backoff/journal chống lặp. CIDR public hoặc overlap giữa các LAN trong cùng Gateway bị từ chối; subnet trùng cần Gateway/VM routing độc lập.
@@ -494,7 +500,7 @@ HTTPS check trong deviceManagerSecurity.js va routes/deviceManager.js cung dung 
 
 ## 51. Commit handoff (2026-10-12)
 
-User requested stopping VPS deployment and committing/pushing completed Device Manager, Gateway and SSH tunnel work. Production remains undeployed; migration/module enable/TLS remain manual prerequisites. Phone Private IP endpoint is POST /api/device/network/report, x-api-key owner auth, body device_id/private_ip only; production HTTPS required, module/schema guard required. HTTP-only current VPS cannot call it successfully until HTTPS is configured (426). IP report never updates heartbeat last_seen. Verified tests and known limitations are in sections47-50 and Device Manager reports.
+User requested stopping VPS deployment and committing/pushing completed Device Manager, Gateway and SSH tunnel work. Production remains undeployed; migration/module enable/TLS remain manual prerequisites. Phone network endpoint is POST /api/device/network/report, x-api-key owner auth, body device_id/private_ip và tùy chọn public_ip/mac; production HTTPS required, module/schema guard required. HTTP-only current VPS cannot call it successfully until HTTPS is configured (426). Network report never updates heartbeat last_seen hoặc tự gán LAN. Verified tests and known limitations are in sections47-50 and Device Manager reports.
 
 ## 52. Task switches chỉ điều khiển Dispatcher (2026-10-12)
 
@@ -569,3 +575,49 @@ TestInstagramCredentials --ui PASS20groups DBtạm/Chrome, thêm kiểm tra8MB v
 ## 65. Bàn giao GitHub CSRF proxy (2026-10-14)
 
 User yêu cầu commit/push toàn bộ phần CSRF ưu tiên proxy, bulk bổ sung token, username/HTTP diagnostics và sửa giới hạnHTML8MB. Kiểm tra đã chạy:20groups --ui PASS, frontendbuild/syntax/diffPASS; chẩn đoánInstagramthật qua proxy lấytoken thànhcông nhưng khôngghiDB. Không đưa .env thật/log/artifacts/credential vào commit; chưadeployVPS, không cầnmigrationmới.
+
+## 66. Device network report thêm Public IP và MAC (2026-10-15)
+
+Theo yêu cầu người dùng tự chia nhóm LAN, mở rộng POST /api/device/network/report để nhận device_id/private_ip và tùy chọn public_ip/mac. Giữ apiKeyAuth và owner scope/row lock hiện có; chỉ device đã tồn tại mới được báo cáo. API từ chối group_id/lan_id/gateway_id nên không tự gán LAN. Client cũ chỉ gửi private_ip vẫn tương thích. Public IP kiểm tra cú pháp IPv4/IPv6 và từ chối private/loopback/link-local/CGNAT/multicast/unspecified; MAC nhận 12 hex hoặc dấu hai chấm/gạch ngang rồi lưu dạng chữ hoa AA:BB:CC:DD:EE:FF.
+
+Thêm public_ip STRING(45) và mac_address STRING(17) vào migration idempotent, ManagedDevice và schema guard; dashboard_devices tổng cộng 13 field extension. Network report không đổi last_seen/status/task/account/runtime/cursor/reservation/updated_at và không thay LAN; chỉ private_ip đổi mới reset SSH UNKNOWN. Danh sách/detail UI thêm cột Public IP và MAC. DashboardDevice heartbeat legacy giữ projection cũ nên không lộ field mới.
+
+Kiểm thử npm run test:device-manager PASS 35 nhóm và test:device-manager:ui PASS 36 nhóm trên database tạm/SSH mock/Chrome; gồm migration twice/rollback-reapply, old client, normalization/validation, owner isolation, LAN spoof, heartbeat response và UI columns. Frontend production build PASS, còn warning chunk lớn cũ; syntax và git diff --check PASS. Không chạy seed, không ghi DB production, chưa chạy migration/deploy/commit/push. Khi triển khai phải chạy migrateDeviceManager.js --apply trước khi restart backend vì schema guard mới yêu cầu đủ hai cột.
+
+Theo yêu cầu thêm data mẫu, bổ sung scripts/addDeviceManagerSampleData.js và npm script sample:device-manager. Script mặc định dry-run, chỉ ghi khi có --apply; dùng ba ID cố định sample-device-01..03, IP public thuộc dải tài liệu, MAC locally administered, không xóa dữ liệu và không gán/ghi đè group/LAN/Gateway. Đã chạy migration Device Manager idempotent trên DB local rồi apply cho owner admin: tạo 3 máy mẫu, không cập nhật máy cũ. Dry-run sau ghi xác nhận 3/3 đủ network data và 3/3 chưa gán LAN. Không dùng seedData.js, không ghi DB production; phần code vẫn chưa commit/push/deploy.
+
+## 67. Mở rộng dữ liệu mẫu Device Manager (2026-10-17)
+
+Theo yêu cầu thêm vài mẫu để kiểm tra UI mới, mở rộng fixture local thành sample-device-01..08. Bổ sung Public IPv6, thiếu MAC, thiếu Public IP, chỉ có Private IP và thêm một máy Offline; các mẫu đầy đủ tiếp tục dùng dải public dành cho tài liệu và MAC locally administered. Tất cả mẫu giữ group/LAN/Gateway null để người dùng tự chia; rerun chỉ refresh field mẫu và không ghi đè ba field phân nhóm. Đã apply DB local owner admin: tạo thêm 5, refresh 3 mẫu cũ. Dry-run xác nhận 8 mẫu, 5 đủ network data, 2 thiếu public, 2 thiếu MAC, 2 Offline và 8 chưa gán LAN. Không dùng seed force hoặc DB production; chưa commit/push/deploy.
+
+Ảnh UI sau đó vẫn hiện 0 do backend local chưa có DEVICE_MANAGER_ENABLED. Đã xác nhận HTTP /api/device-manager trả503, thêm DEVICE_MANAGER_ENABLED=true vào backend/.env local (gitignored), dừng tiến trình cũ và khởi động lại backend ẩn. Health trả200 và endpoint không JWT chuyển sang401, xác nhận module/schema guard đã sẵn sàng; browser có JWT sẽ nhận dữ liệu sau reload/poll. Không thay .env.example hoặc production.
+
+## 68. Proxy Reg trong Cài đặt chung (2026-10-17)
+
+Thêm mục Proxy Reg riêng trong Cài đặt chung, hiển thị số lượng và dùng cùng các định dạng `ip:port`, `ip:port:user:pass`, `user:pass@ip:port`. Proxy Reg không trộn với pool Proxy Check/Login hiện có; UI hỗ trợ tải, sửa, lưu, hoàn tác và reset cùng cơ chế settings hiện tại.
+
+Backend thêm GET/PUT `/api/settings/reg-proxies`, lưu dưới setting key `reg_proxies` theo `owner_username`; dữ liệu được trim, bỏ dòng rỗng và loại trùng. API dùng JWT/owner của settings router nên user không thể chỉ định hoặc đọc owner khác. Chưa gắn danh sách này vào dispatcher hay payload phone vì lượt này chỉ bổ sung cấu hình; luồng cấp proxy cho REG sẽ dùng API/setting riêng này khi được nối tiếp.
+
+Kiểm tra `test:reg-proxy-settings` PASS với hai owner giả lập, bao gồm chuẩn hóa và cách ly dữ liệu. Backend syntax PASS, frontend production build PASS; còn cảnh báo chunk lớn cũ. Không chạy seed, không ghi DB production và không đưa proxy thật vào mã/test/tài liệu.
+
+## 69. Lease Proxy Reg cho phone (2026-10-17)
+
+Nối Proxy Reg ở section 68 vào phone API bằng lease lưu MySQL. Thêm bảng `reg_proxy_leases` với session UUID, owner/device/task tùy chọn, proxy hash, IP thoát, TTL và các active guard nullable. Unique `(owner, active_device_id)`, `(owner, active_proxy_key)` và `(owner, active_exit_ip)` cùng transaction/row lock ngăn một phone có hai lease hoặc hai phone cùng owner nhận trùng proxy/IP thoát. Credential proxy không được chép vào bảng lease/history hoặc log; lease chỉ giữ SHA-256 key và IP thoát.
+
+Thêm phone API có `apiKeyAuth`, HTTPS guard ở production và `Cache-Control: no-store`: POST `/api/proxy/allocate`, `/api/proxy/heartbeat`, `/api/proxy/release`. Allocate xác minh device thuộc owner, giữ proxy nguyên tử, gọi HTTPS IP-check qua chính proxy rồi mới trả proxy/session. Private/loopback/link-local proxy host bị chặn; domain được resolve và pin vào địa chỉ public để tránh DNS rebinding. Mỗi request mặc định kiểm tra tối đa hai proxy, 8 giây/proxy và đổi vị trí bắt đầu ngẫu nhiên để nằm trong timeout client 20 giây. Gọi allocate lại từ cùng phone trả lease cũ; hết pool trả `PROXY_UNAVAILABLE` và không đổi task. Session token là HMAC ràng buộc owner/device/session; heartbeat gia hạn TTL mặc định 30 phút; release kiểm tra token và idempotent. Lease quá hạn được chuyển EXPIRED và mở các active guard.
+
+`/api/facebook/reg/report` và `/api/instagram/reg/report` nhận thêm `proxy_session_id`/`proxy_session_token`. Chỉ sau khi account hợp lệ được nhận và session đúng owner/device/token, controller mới release proxy; response có `proxy_released` và `proxy_release_status`. Client cũ không gửi session vẫn báo account như trước và có thể gọi `/api/proxy/release` riêng. Hợp đồng phone và ví dụ nằm trong `REG_PROXY_LEASE.md`.
+
+Thêm model/migration/script `migrate:reg-proxy-leases`; đã apply migration cộng thêm trên DB local, xác nhận 18 cột và bốn unique guard, restart backend local, health 200 và route không API key trả 401. `test:reg-proxy-leases` PASS 9 nhóm trên database tạm với network stub: migration hai lần, concurrent allocation, owner isolation, trùng exit IP, pool exhaustion, retry session, token/heartbeat/double release, chặn private host và Facebook REG report tự release. `test:reg-proxy-settings` PASS; `test:instagram-credentials` PASS 19 nhóm; backend syntax/diff check PASS. Không gọi proxy thật, không chạy seed và không ghi DB production. VPS phải chạy `npm run migrate:reg-proxy-leases` trước khi restart backend mới.
+
+## 70. Proxy Reg report simplification (2026-10-17)
+
+Facebook/Instagram reg/report releases the current lease by authenticated owner + device_id after accepting valid account data. No session fields required; response omits proxy_released/proxy_release_status. Removed Proxy Reg heartbeat route/controller/service (404). TTL remains 30 minutes; explicit release still requires session token. Complete report before allocating a new round: delayed/repeated report affects the current device lease. No schema change.
+
+## 71. SOCKS5 Proxy Reg (2026-10-17)
+
+IP health check uses SocksProxyAgent (^8.0.5 direct dependency), socks5h destination DNS, validated/pinned public proxy address, HTTPS verification and existing timeout/owner/transaction guards. No direct/HTTP fallback. Settings normalize host:port:user:pass to user:pass@host:port, including old values on read; UI displays normalized save response. See REG_PROXY_LEASE.md for current contract.
+
+## 72. GitHub handoff (2026-10-17)
+
+Preparing commit/push of pending Device Manager network fields/sample fixtures and Proxy Reg settings/leases/SOCKS5/report/format conversion. Reg proxy settings PASS; leases PASS 10 groups on isolated temporary database/network stub. Frontend build PASS (existing large chunk warning). No .env, real credentials, logs or local artifacts included. No VPS deployment or production migration.

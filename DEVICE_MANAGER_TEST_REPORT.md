@@ -1,8 +1,8 @@
-# Device Manager — báo cáo kiểm thử 2026-10-12
+# Device Manager — báo cáo kiểm thử 2026-10-15
 
 Môi trường: Windows, Node.js v24.16.0.
 
-Kết quả local: 35 nhóm test PASS với MySQL database tạm, HTTP/WebSocket thật và SSH server giả lập. Chrome desktop/mobile PASS. Không có Reboot/Respring vật lý hoặc production writes.
+Kết quả local mới nhất: 36 nhóm test PASS với MySQL database tạm, HTTP/WebSocket thật và SSH server giả lập. Chrome desktop/mobile PASS, gồm kiểm tra hai cột Public IP/MAC. Không có Reboot/Respring vật lý hoặc production writes.
 
 ## Nhóm test đã chạy
 
@@ -12,8 +12,8 @@ Kết quả local: 35 nhóm test PASS với MySQL database tạm, HTTP/WebSocket
 | Migration twice preserves legacy last_seen/status/task | PASS |
 | Group create/edit/delete/bulk move and owner protection | PASS |
 | LAN CRUD, occupied delete requires explicit unassign, same IP independent | PASS |
-| Private IP first/same/new + offline/running invariants | PASS |
-| Private/public/loopback/multicast/unspecified/invalid + spoof/missing auth/device rejected | PASS |
+| Network report private/public/MAC + old-client/offline/running invariants | PASS |
+| Network field validation + LAN spoof/missing auth/device rejected | PASS |
 | SQL combined filters + group counts + own-only devices | PASS |
 | Permission deny at backend; grants use existing admin + AppSetting | PASS |
 | Gateway token hash/non-retrieval; mapping owner and fresh-only status | PASS |
@@ -50,7 +50,7 @@ Kết quả local: 35 nhóm test PASS với MySQL database tạm, HTTP/WebSocket
 | --- | --- |
 | 1–5 | CRUD nhóm, chuyển/bulk, xóa không mất device/task; API/DB thật |
 | 6–10 | CRUD LAN, occupied delete, move; IP trùng không unique; routing trùng CIDR fail closed |
-| 11–20 | IP first/same/new/private ranges/invalid/public, auth/owner/missing device; OFFLINE/RUNNING giữ last_seen và task |
+| 11–20 | Private/public IP và MAC first/same/new/invalid/normalize, client cũ, auth/owner/missing device, từ chối tự gán LAN; OFFLINE/RUNNING giữ last_seen và task |
 | 21–29 | Gateway reverse connect, offline, tự reconnect, token sai, correct/wrong mapping, blackhole timeout, auth failure, host mismatch |
 | 30–33 | Terminal mock SSH thực, input/output/resize/disconnect, một lần ticket, TTL/permission revocation/deny |
 | 34–40 | Bulk SSH/Respring/Reboot chỉ mock, queue full, partial failure, retry/idempotency/journal replay và mất response sau commit |
@@ -71,12 +71,12 @@ Round-Robin kiểm thử 4/50 request đồng thời, phân bố 13/13/12/12 và
 
 | Devices | Latency service (ms) | SQL total (ms) | Queries | Rows trả về | RSS process (MiB) |
 | --- | --- | --- | --- | --- | --- |
-| 10 | 7 | 7 | 4 | 10 | 113.1 |
-| 50 | 6 | 6 | 4 | 50 | 113.5 |
-| 100 | 7 | 7 | 4 | 100 | 113.7 |
-| 200 | 11 | 11 | 4 | 100 | 114.1 |
-| 500 | 18 | 18 | 4 | 100 | 114.1 |
-| 1000 | 29 | 29 | 4 | 100 | 114.0 |
+| 10 | 7 | 6 | 4 | 10 | 107.9 |
+| 50 | 6 | 5 | 4 | 50 | 107.8 |
+| 100 | 8 | 8 | 4 | 100 | 107.8 |
+| 200 | 10 | 10 | 4 | 100 | 110.0 |
+| 500 | 17 | 16 | 4 | 100 | 112.0 |
+| 1000 | 29 | 28 | 4 | 100 | 113.8 |
 
 Một sample mỗi mức, không phải P95/P99 hay concurrent farm capacity. SQL time đo wrapper sequelize.query, gồm driver/roundtrip. RSS/CPU là toàn bộ tiến trình test (HTTP server + broker + mock SSH + client); CPU Windows có độ phân giải thô, 0 không có nghĩa không dùng CPU. Không đo riêng DB process hoặc VPS.
 

@@ -23,6 +23,8 @@ router.get('/machine-api-keys', ctrl.getMachineApiKeysSetting);
 router.put('/machine-api-keys', ctrl.updateMachineApiKeysSetting);
 router.get('/facebook-check-proxies', ctrl.getFacebookCheckProxies);
 router.put('/facebook-check-proxies', ctrl.updateFacebookCheckProxies);
+router.get('/reg-proxies', ctrl.getRegProxies);
+router.put('/reg-proxies', ctrl.updateRegProxies);
 router.get('/instagram-check-cookies', ctrl.getInstagramCheckCookies);
 router.put('/instagram-check-cookies', ctrl.updateInstagramCheckCookies);
 router.post('/instagram-check-cookies/check', ctrl.checkInstagramCheckCookies);
