@@ -1,5 +1,19 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Random UA cho EmailTick — 2026-10-19
+
+Theo user, emailTickService chọn ngẫu nhiên một UA từ pool 4 desktop browser bằng crypto.randomInt cho mỗi instance. Factory hiện tạo instance mới mỗi request API; giữ cùng UA trong create/activate và retry của instance, inbox request sau có thể khác. Không đổi Origin/Referer/cookie/IP, API owner hoặc retry429. Giữ các sửa xử lý429 chưa commit từ lượt trước.
+
+Test emailtick unit/integration PASS; unit inject bộ chọn xác định để test từng UA và sự nhất quán qua retry/create/activate/inbox, cùng Origin/Referer/no-cookie. Không gọi EmailTick/VPS thật hoặc ghi DB production, không migration/frontend. Chưa commit/push/deploy. Xem EMAILTICK.md; UA random không bảo đảm hết429.
+
+## EmailTick HTTP429 khi lấy type4 trên VPS — 2026-10-19
+
+Tái hiện API VPS trả EMAILTICK_ERROR/HTTP502. Output chẩn đoán do user chạy trong container xác nhận upstream `/get-mailbox` HTTP429, JSON không có success boolean. Không kết luận cụ thể IP bị chặn hay thời gian/quota; type4 thử lấy trực tiếp từ máy phát triển thành công, chưa chứng minh VPS sẽ thành công sau đó.
+
+Sửa normalizeResponse trong emailTickService phân loại 429 trước schema/challenge thành EMAILTICK_RATE_LIMITED/429, không tự retry. Parse Retry-After số giây/HTTP-date, chỉ giữ số giây an toàn; controllers emailTick và mail chung whitelist mã mới, trả retry_after_seconds và Retry-After nếu có giá trị hợp lệ, không echo upstream raw. Thiếu header thì bỏ thời gian chờ, không tự đoán. Không thêm cooldown chung liên request/worker, không đổi provider/quota/DB schema hoặc dữ liệu account.
+
+Test emailtick unit/integration PASS trên DB tạm/provider giả: rate limit create/activate/inbox, no-retry, header parsing và response cả hai API, không tạo ACTIVE khi lỗi, không EXPIRED mailbox do429, bảo toàn secret. Test mail unit/integration hồi quy PASS. Syntax/diff check PASS. Chưa commit/push/deploy; cần phone ngừng retry liên tục khi bị giới hạn và chờ theo hướng dẫn EmailTick. Xem EMAILTICK.md.
+
 ## Email OTP tự đóng sau 5 lần — 2026-10-19
 
 Email OTP có ngưỡng cố định MAX_EMAIL_USES=5. saveReport vẫn tăng use_count mỗi báo cáo hợp lệ theo cơ chế cũ (không dựa vào solan client); count mới >=5 chuyển DONE/Đã đóng và xóa locked_by/locked_at ngay trong transaction/row lock. Report đến muộn không mở lại email DONE, kể cả email đóng thủ công trước ngưỡng. Dưới 5 giữ mở khóa đúng máy như bản sửa trước.

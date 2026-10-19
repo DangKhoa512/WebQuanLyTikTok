@@ -1,5 +1,19 @@
 # EmailTick: VPS provider integration
 
+## Random User-Agent (2026-10-19)
+
+Mỗi instance EmailTick service chọn ngẫu nhiên một UA từ pool Chrome Windows/Linux/macOS và Firefox Windows bằng crypto.randomInt. Luồng API hiện tạo instance mới mỗi lần xử lý request; create-mailbox và activate-email trong cùng lượt dùng chung UA, các lần retry lỗi tạm thời cũng giữ UA đó. Poll inbox ở request sau có thể chọn UA khác. Origin/Referer vẫn theo EMAILTICK_BASE_URL, không thêm cookie. Random UA không thay đổi IP hoặc hạn mức nhà cung cấp; gặp429 vẫn không tự retry và chuyển tiếp Retry-After hợp lệ như phần dưới.
+
+Test unit dùng bộ chọn xác định để kiểm tra đủ pool, UA nhất quán qua retry/create/activate/inbox, Origin/Referer và không-cookie. EmailTick unit/integration PASS trên provider giả/DB tạm; không thử thêm request thật trên VPS đang bị429. Chưa commit/push/deploy lượt UA.
+
+## HTTP 429 từ nhà cung cấp (2026-10-19)
+
+Đã xác định từ kết quả chẩn đoán người dùng trên VPS: `/get-mailbox` trả HTTP429 khi lấy types=4; backend cũ gộp thành EMAILTICK_ERROR/502. Không có bằng chứng xác định giới hạn áp dụng theo IP, tài khoản, type hay thời gian chờ cụ thể. Không liên quan việc gắn domain/HTTPS của website.
+
+Provider nay phân loại 429 thành `EMAILTICK_RATE_LIMITED`, HTTP429; cả `/api/emailtick/*` và `/api/mail/*` trả mã này. Nếu có Retry-After hợp lệ (số giây hoặc HTTP-date), response có `retry_after_seconds` và header Retry-After dạng số giây; thiếu/sai header thì không tự đoán thời gian. Không lộ raw body/header hoặc mailbox credential. Không tự retry upstream 429; client cần ngừng gọi liên tục, giảm đồng thời và chờ theo Retry-After/giới hạn của nhà cung cấp. Chưa thêm cooldown dùng chung giữa request/worker; thay đổi này không gỡ giới hạn upstream.
+
+Kiểm thử unit/integration dùng HTTP provider giả + DB tạm: create/activate/inbox 429, không retry, Retry-After số/ngày/sai/thiếu, legacy/common API header/response, không cấp mailbox ACTIVE khi create/activate lỗi, mailbox ACTIVE không bị đánh dấu EXPIRED do inbox429, không lộ secret. Không migration hoặc frontend change; chưa commit/push/deploy bản sửa 429.
+
 ## Phạm vi / trạng thái
 
 AutoTouch chỉ gọi VPS. Provider phía backend gọi EmailTick theo contract đã cung cấp: `/get-mailbox`, `/activate-email`, `/get-emails`. Không thay đổi Hotmail/EmailOtpOrder hoặc API account/task hiện tại; trong repo chưa có abstraction gọi email provider để dùng chung nên integration được tách thành provider/service/controller riêng.

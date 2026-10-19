@@ -2,6 +2,12 @@ const axios=require('axios');
 const {randomInt}=require('crypto');
 const {selectOtp,parseTime}=require('./mailOtpService');
 const {getEmailTickConfig,parseTypes,invalid}=require('../config/emailtick');
+const EMAILTICK_USER_AGENTS=Object.freeze([
+ 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+ 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+ 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+ 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
+]);
 const providerError=(code,statusCode=502)=>Object.assign(new Error(code),{code,statusCode,isEmailTickError:true});
 const resolveTypes=(input,randomCount,config=getEmailTickConfig())=>{
  if(typeof input==='string' && input.trim().toLowerCase()==='random'){
@@ -13,7 +19,21 @@ const resolveTypes=(input,randomCount,config=getEmailTickConfig())=>{
  const types=parseTypes(input);if(types.some(value=>!config.allowedTypes.includes(value)))throw invalid();return types;
 };
 const detectCloudflare = data => typeof data==='string' && /just a moment|enable javascript and cookies|challenge-platform|cf-chl-|cloudflare.*challenge/i.test(data);
+const parseRetryAfter=(value,now=Date.now())=>{
+ if(typeof value!=='string'&&typeof value!=='number')return null;
+ const text=String(value).trim();
+ if(/^\d+$/.test(text)){const seconds=Number(text);return Number.isSafeInteger(seconds)?seconds:null;}
+ // Accept HTTP dates, never forward the upstream header verbatim.
+ if(!/^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(text))return null;
+ const date=Date.parse(text);return Number.isFinite(date)?Math.max(0,Math.ceil((date-now)/1000)):null;
+};
 const normalizeResponse=response=>{
+ if(response.status===429){
+  const err=providerError('EMAILTICK_RATE_LIMITED',429);
+  const seconds=parseRetryAfter(response.headers?.['retry-after']);
+  if(seconds!==null)err.retry_after_seconds=seconds;
+  throw err;
+ }
  const raw=response.data;if(detectCloudflare(raw))throw providerError('EMAILTICK_CLOUDFLARE_CHALLENGE');
  if(response.status>=500)throw providerError('EMAILTICK_TEMPORARY_ERROR');
  if(response.status<200||response.status>=300)throw providerError('EMAILTICK_ERROR');
@@ -31,11 +51,13 @@ const extractOtp=(emails,options={})=>{
  if(!['instagram','facebook','generic'].includes(provider))throw invalid('INVALID_PROVIDER');
  return selectOtp(emails.map(m=>m&&({id:m.code,fromName:m.fromName,subject:m.subject,receivedAt:m.time})),{...options,service:provider.toUpperCase(),allowBody:false});
 };
-const createEmailTickService=({config=getEmailTickConfig(),http=axios,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={})=>{
+const createEmailTickService=({config=getEmailTickConfig(),http=axios,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),random=randomInt}={})=>{
+ // One browser identity per service instance, shared by create/activate and any retries.
+ const userAgent=EMAILTICK_USER_AGENTS[random(EMAILTICK_USER_AGENTS.length)];
  const request=async(path,payload)=>{
   for(let attempt=0;attempt<=config.retryCount;attempt++){
    try {
-    const response=await http.post(config.baseUrl+path,payload,{timeout:config.timeoutMs,headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',Accept:'application/json, text/plain, */*','Content-Type':'application/json',Origin:config.baseUrl,Referer:config.baseUrl+'/'},responseType:'text',transformResponse:[data=>data],validateStatus:()=>true,maxRedirects:0,maxContentLength:1024*1024,maxBodyLength:8192});
+    const response=await http.post(config.baseUrl+path,payload,{timeout:config.timeoutMs,headers:{'User-Agent':userAgent,Accept:'application/json, text/plain, */*','Content-Type':'application/json',Origin:config.baseUrl,Referer:config.baseUrl+'/'},responseType:'text',transformResponse:[data=>data],validateStatus:()=>true,maxRedirects:0,maxContentLength:1024*1024,maxBodyLength:8192});
     return normalizeResponse(response);
    }catch(err){
     const transient=err.code==='EMAILTICK_TEMPORARY_ERROR'||['ECONNRESET','ECONNABORTED','ETIMEDOUT','EAI_AGAIN'].includes(err.code);
@@ -53,4 +75,4 @@ const createEmailTickService=({config=getEmailTickConfig(),http=axios,sleep=ms=>
   extractOtp,
  };
 };
-module.exports={createEmailTickService,resolveTypes,extractOtp,detectCloudflare,normalizeResponse,parseMessageTime,providerError};
+module.exports={createEmailTickService,resolveTypes,extractOtp,detectCloudflare,normalizeResponse,parseMessageTime,providerError,parseRetryAfter,EMAILTICK_USER_AGENTS};

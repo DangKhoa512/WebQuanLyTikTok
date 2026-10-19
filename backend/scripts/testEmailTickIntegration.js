@@ -13,9 +13,9 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
  process.env.DB_NAME=testDb;
  const express=require('express'),mock=express();mock.use(express.json());
  let sequence=0,mode='normal',emails=[],providerCalls=[],mailboxCodes=[];
- mock.post('/get-mailbox',(req,res)=>{providerCalls.push({path:req.path,body:req.body,origin:req.headers.origin,referer:req.headers.referer});if(mode==='cloudflare')return res.status(403).type('html').send('<title>Just a moment...</title>Enable JavaScript and cookies to continue');if(mode==='bad-schema')return res.json({success:true,email:'invalid',code:'fake'});const code='synthetic-private-mailbox-'+(++sequence);mailboxCodes.push(code);res.json({success:true,email:'test'+sequence+'@example.test',code});});
- mock.post('/activate-email',(req,res)=>{providerCalls.push({path:req.path,body:req.body});res.json({success:mode!=='activate-fail'});});
- mock.post('/get-emails',(req,res)=>{providerCalls.push({path:req.path,body:req.body});if(mode==='cloudflare')return res.status(403).type('html').send('<title>Just a moment...</title>challenge-platform');if(mode==='expired')return res.json({success:false,error:'INVALID_MAILBOX'});return res.json({success:true,emails});});
+ mock.post('/get-mailbox',(req,res)=>{providerCalls.push({path:req.path,body:req.body,origin:req.headers.origin,referer:req.headers.referer});if(mode==='rate-get')return res.status(429).set('Retry-After','120').json({message:'synthetic-limit-do-not-log'});if(mode==='cloudflare')return res.status(403).type('html').send('<title>Just a moment...</title>Enable JavaScript and cookies to continue');if(mode==='bad-schema')return res.json({success:true,email:'invalid',code:'fake'});const code='synthetic-private-mailbox-'+(++sequence);mailboxCodes.push(code);res.json({success:true,email:'test'+sequence+'@example.test',code});});
+ mock.post('/activate-email',(req,res)=>{providerCalls.push({path:req.path,body:req.body});if(mode==='rate-activate')return res.status(429).set('Retry-After','30').json({message:'synthetic-limit-do-not-log'});res.json({success:mode!=='activate-fail'});});
+ mock.post('/get-emails',(req,res)=>{providerCalls.push({path:req.path,body:req.body});if(mode==='rate-get')return res.status(429).set('Retry-After','120').json({message:'synthetic-limit-do-not-log'});if(mode==='cloudflare')return res.status(403).type('html').send('<title>Just a moment...</title>challenge-platform');if(mode==='expired')return res.json({success:false,error:'INVALID_MAILBOX'});return res.json({success:true,emails});});
  providerServer=mock.listen(0,'127.0.0.1');await new Promise(resolve=>providerServer.once('listening',resolve));
  process.env.EMAILTICK_BASE_URL='http://127.0.0.1:'+providerServer.address().port;process.env.EMAILTICK_TIMEOUT_MS='500';process.env.EMAILTICK_RETRY_COUNT='1';process.env.EMAILTICK_RETRY_DELAY_MS='1';process.env.EMAILTICK_ALLOWED_TYPES='1,2,3,4,5';process.env.EMAILTICK_RANDOM_TYPES='3,4,5';
  db=require('../src/config/database');const User=require('../src/models/User'),Mailbox=require('../src/models/EmailTickMailbox');await User.sync({logging:false});await Mailbox.sync({logging:false});
@@ -49,12 +49,35 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
  const {spawnSync}=require('child_process');for(let i=0;i<2;i++){const migration=spawnSync(process.execPath,[path.resolve(__dirname,'migrateEmailTick.js'),'--apply'],{env:process.env,encoding:'utf8'});assert.equal(migration.status,0,migration.stderr);}
  const after=(await Mailbox.unscoped().findOne({where:{mailbox_id:mailboxId},logging:false})).toJSON();assert.deepEqual(after,before,'Idempotent migration retains credentials/history');
  await new Promise(resolve=>server.close(resolve));server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));base='http://127.0.0.1:'+server.address().port;assert.equal((await request(codeUrl)).data.status,'WAITING');
- mode='activate-fail';const activeBefore=await Mailbox.count({where:{status:'ACTIVE'},logging:false});result=await request('/new',{types:1});assert.equal(result.status,502);assert.equal(result.data.success,false);assert.equal(await Mailbox.count({where:{status:'ACTIVE'},logging:false}),activeBefore);assert.equal(await Mailbox.count({where:{status:'ERROR'},logging:false}),1);
+ // 429 is preserved for legacy and common APIs; no automatic provider retry.
+ for(const rateMode of ['rate-get','rate-activate']){
+  mode=rateMode;
+  const beforeRate=providerCalls.length;
+  const activeCount=await Mailbox.count({where:{status:'ACTIVE'},logging:false});
+  const rateResponse=await fetch(base+'/api/emailtick/new',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':owner.username},body:JSON.stringify({types:4})});
+  assert.equal(rateResponse.status,429);
+  const seconds=rateMode==='rate-get'?120:30;
+  assert.equal(rateResponse.headers.get('retry-after'),String(seconds));
+  assert.deepEqual(await rateResponse.json(),{success:false,status:'EMAILTICK_RATE_LIMITED',error:'EMAILTICK_RATE_LIMITED',retry_after_seconds:seconds});
+  assert.equal(providerCalls.length,beforeRate+(rateMode==='rate-get'?1:2));
+  assert.equal(await Mailbox.count({where:{status:'ACTIVE'},logging:false}),activeCount);
+  const commonResponse=await fetch(base+'/api/mail/new',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':owner.username},body:JSON.stringify({provider:'EMAILTICK',types:4})});
+  assert.equal(commonResponse.status,429);
+  assert.equal(commonResponse.headers.get('retry-after'),String(seconds));
+  assert.equal((await commonResponse.json()).retry_after_seconds,seconds);
+ }
+ mode='rate-get';
+ const rateInbox=await request(codeUrl);
+ assert.equal(rateInbox.status,429);
+ assert.equal(rateInbox.data.error,'EMAILTICK_RATE_LIMITED');
+ assert.equal((await Mailbox.unscoped().findOne({where:{mailbox_id:mailboxId},logging:false})).status,'ACTIVE');
+ mode='normal';
+ mode='activate-fail';const errorsBefore=await Mailbox.count({where:{status:'ERROR'},logging:false});const activeBefore=await Mailbox.count({where:{status:'ACTIVE'},logging:false});result=await request('/new',{types:1});assert.equal(result.status,502);assert.equal(result.data.success,false);assert.equal(await Mailbox.count({where:{status:'ACTIVE'},logging:false}),activeBefore);assert.equal(await Mailbox.count({where:{status:'ERROR'},logging:false}),errorsBefore+1);
  mode='cloudflare';count=providerCalls.length;result=await request('/new',{types:1});assert.equal(result.data.error,'EMAILTICK_CLOUDFLARE_CHALLENGE');assert.equal(providerCalls.length,count+1,'No challenge retry');assert(!JSON.stringify(result.data).includes('<title>'));
  result=await request(codeUrl);assert.equal(result.data.error,'EMAILTICK_CLOUDFLARE_CHALLENGE');
  mode='expired';assert.equal((await request(codeUrl)).status,410);assert.equal((await Mailbox.unscoped().findOne({where:{mailbox_id:mailboxId},logging:false})).status,'EXPIRED');
  mode='bad-schema';assert.equal((await request('/new',{types:1})).data.error,'EMAILTICK_INVALID_RESPONSE');mode='normal';
- const text=JSON.stringify(logs);for(const secret of mailboxCodes)assert(!text.includes(secret),'No mailbox credentials in logs, including SQL');for(const otp of ['041374','000009','000010','000011'])assert(!text.includes(otp),'No OTP in logs');assert(!text.includes('synthetic-do-not-log'));
+ const text=JSON.stringify(logs);for(const secret of mailboxCodes)assert(!text.includes(secret),'No mailbox credentials in logs, including SQL');for(const otp of ['041374','000009','000010','000011'])assert(!text.includes(otp),'No OTP in logs');assert(!text.includes('synthetic-do-not-log'));assert(!text.includes('synthetic-limit-do-not-log'));
  // Exercise the AutoTouch client with its real POSIX curl against a child API/provider and test DB.
  const {fork}=require('child_process');const child=fork(path.resolve(__dirname,'emailTickHttpTestServer.js'),[],{silent:true,env:process.env});
  try {

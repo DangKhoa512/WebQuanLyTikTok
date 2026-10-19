@@ -1,7 +1,7 @@
 ﻿const {ownerFromRequest}=require('../utils/owner');
 const logger=require('../config/logger');
 const {createEmailTickMailboxService}=require('../services/emailTickMailboxService');
-const allowedErrors=new Set(['INVALID_EMAIL_TYPE','INVALID_RANDOM_COUNT','INVALID_INPUT','INVALID_PROVIDER','INVALID_MAILBOX','EMAILTICK_CONFIG_ERROR','EMAILTICK_ERROR','EMAILTICK_TEMPORARY_ERROR','EMAILTICK_CLOUDFLARE_CHALLENGE','EMAILTICK_INVALID_RESPONSE']);
+const allowedErrors=new Set(['INVALID_EMAIL_TYPE','INVALID_RANDOM_COUNT','INVALID_INPUT','INVALID_PROVIDER','INVALID_MAILBOX','EMAILTICK_CONFIG_ERROR','EMAILTICK_ERROR','EMAILTICK_TEMPORARY_ERROR','EMAILTICK_CLOUDFLARE_CHALLENGE','EMAILTICK_INVALID_RESPONSE','EMAILTICK_RATE_LIMITED']);
 const makeController=(serviceFactory=()=>createEmailTickMailboxService())=>{
  const execute=operation=>async(req,res)=>{
   const started=Date.now();let mailboxId;
@@ -20,8 +20,10 @@ const makeController=(serviceFactory=()=>createEmailTickMailboxService())=>{
   }catch(err){
    const code=allowedErrors.has(err.code)?err.code:'EMAILTICK_ERROR';
    const statusCode=allowedErrors.has(err.code)?err.statusCode||502:500;
+   const retry=code==='EMAILTICK_RATE_LIMITED'&&Number.isSafeInteger(err.retry_after_seconds)&&err.retry_after_seconds>=0?{retry_after_seconds:err.retry_after_seconds}:{};
+   if(retry.retry_after_seconds!==undefined)res.set('Retry-After',String(retry.retry_after_seconds));
    logger.warn('EmailTick operation',{provider:'EMAILTICK',operation,duration_ms:Date.now()-started,status:code});
-   return res.status(statusCode).json({success:false,status:code,error:code});
+   return res.status(statusCode).json({success:false,status:code,error:code,...retry});
   }
  };
  return{createMailbox:execute('CREATE_MAILBOX'),getCode:execute('GET_EMAILS')};

@@ -1,7 +1,7 @@
 ﻿const {ownerFromRequest}=require('../utils/owner');
 const logger=require('../config/logger');
 const {createMailService}=require('../services/mailService');
-const errors=new Set(['INVALID_INPUT','INVALID_PROVIDER','INVALID_SERVICE','INVALID_MAILBOX','INVALID_EMAIL_TYPE','INVALID_RANDOM_COUNT','EMAILTICK_CONFIG_ERROR','EMAILTICK_ERROR','EMAILTICK_TEMPORARY_ERROR','EMAILTICK_CLOUDFLARE_CHALLENGE','EMAILTICK_INVALID_RESPONSE','GHOSTINBOX_CONFIG_ERROR','GHOSTINBOX_ERROR','GHOSTINBOX_TEMPORARY_ERROR','GHOSTINBOX_INVALID_RESPONSE','GHOSTINBOX_ACCESS_CHALLENGE','GHOSTINBOX_SESSION_EXPIRED','GHOSTINBOX_MAILBOX_EXPIRED','GHOSTINBOX_RATE_LIMITED']);
+const errors=new Set(['INVALID_INPUT','INVALID_PROVIDER','INVALID_SERVICE','INVALID_MAILBOX','INVALID_EMAIL_TYPE','INVALID_RANDOM_COUNT','EMAILTICK_CONFIG_ERROR','EMAILTICK_ERROR','EMAILTICK_TEMPORARY_ERROR','EMAILTICK_CLOUDFLARE_CHALLENGE','EMAILTICK_INVALID_RESPONSE','EMAILTICK_RATE_LIMITED','GHOSTINBOX_CONFIG_ERROR','GHOSTINBOX_ERROR','GHOSTINBOX_TEMPORARY_ERROR','GHOSTINBOX_INVALID_RESPONSE','GHOSTINBOX_ACCESS_CHALLENGE','GHOSTINBOX_SESSION_EXPIRED','GHOSTINBOX_MAILBOX_EXPIRED','GHOSTINBOX_RATE_LIMITED']);
 const makeController=(factory=()=>createMailService())=>{
  const execute=operation=>async(req,res)=>{
   const started=Date.now();
@@ -18,8 +18,10 @@ const makeController=(factory=()=>createMailService())=>{
    return res.json({success:true,...result});
   }catch(error){
    const known=errors.has(error.code),code=known?error.code:'PROVIDER_ERROR';
+   const retry=code==='EMAILTICK_RATE_LIMITED'&&Number.isSafeInteger(error.retry_after_seconds)&&error.retry_after_seconds>=0?{retry_after_seconds:error.retry_after_seconds}:{};
+   if(retry.retry_after_seconds!==undefined)res.set('Retry-After',String(retry.retry_after_seconds));
    logger.warn('Mail operation',{operation,status:code,duration_ms:Date.now()-started});
-   return res.status(known?error.statusCode||502:500).json({success:false,status:code,error:code});
+   return res.status(known?error.statusCode||502:500).json({success:false,status:code,error:code,...retry});
   }
  };
  return {createMailbox:execute('CREATE_MAILBOX'),getCode:execute('GET_MESSAGES')};

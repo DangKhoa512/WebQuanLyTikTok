@@ -1,7 +1,7 @@
 // All external provider responses and mailbox credentials below are synthetic test fixtures.
 const assert=require('assert');
 const {getEmailTickConfig}=require('../src/config/emailtick');
-const {createEmailTickService,resolveTypes,extractOtp}=require('../src/services/emailTickService');
+const {createEmailTickService,resolveTypes,extractOtp,parseRetryAfter,EMAILTICK_USER_AGENTS}=require('../src/services/emailTickService');
 (async()=>{
  const config=getEmailTickConfig({EMAILTICK_ALLOWED_TYPES:'1,2,3,4,5',EMAILTICK_RANDOM_TYPES:'3,4,5'});
  for(const [input,expected] of [[1,[1]],[2,[2]],['1,2',[1,2]],[[1,2],[1,2]],['1,2,2',[1,2]],[[3,3,4,4,5],[3,4,5]]])assert.deepEqual(resolveTypes(input,undefined,config),expected);
@@ -25,6 +25,39 @@ const {createEmailTickService,resolveTypes,extractOtp}=require('../src/services/
  const withoutId={fromName:'Instagram',subject:'000003',time};const fallback=extractOtp([withoutId],{nowSeconds:time});assert(fallback.messageCode);assert.equal(extractOtp([withoutId],{lastEmailTime:time,processedMessageCodes:[fallback.messageCode],nowSeconds:time}),null);
  assert.equal(extractOtp([{...inbox[2],time:time+2}],{lastMessageCode:'id-new',nowSeconds:time+2}),null);
  const json=data=>({status:200,headers:{'content-type':'application/json'},data:JSON.stringify(data)});
+ // Inject deterministic selections to verify identity consistency without a flaky randomness test.
+ for(let index=0;index<EMAILTICK_USER_AGENTS.length;index++){
+  let selections=0,requests=0;
+  const provider=createEmailTickService({config,random:max=>{assert.equal(max,EMAILTICK_USER_AGENTS.length);selections++;return index;},sleep:async()=>{},http:{post:async(url,body,options)=>{
+   requests++;
+   assert.equal(options.headers['User-Agent'],EMAILTICK_USER_AGENTS[index]);
+   assert.equal(options.headers.Origin,config.baseUrl);
+   assert.equal(options.headers.Referer,config.baseUrl+'/');
+   assert(!Object.keys(options.headers).some(key=>key.toLowerCase()==='cookie'));
+   if(requests===1)throw Object.assign(Error('fixture timeout'),{code:'ETIMEDOUT'});
+   return url.endsWith('/get-mailbox')?json({success:true,email:'mail@example.test',code:'synthetic-key'}):json({success:true,emails:[]});
+  }}});
+  const mailbox=await provider.createMailbox([4]);
+  await provider.activateMailbox(mailbox.email,mailbox.mailboxCode);
+  await provider.getEmails(mailbox.email,mailbox.mailboxCode);
+  assert.equal(selections,1);
+  assert.equal(requests,4);
+ }
+ const fixedNow=Date.UTC(2026,9,19,0,0,0);
+ assert.equal(parseRetryAfter('120',fixedNow),120);
+ assert.equal(parseRetryAfter('0',fixedNow),0);
+ assert.equal(parseRetryAfter(new Date(fixedNow+90000).toUTCString(),fixedNow),90);
+ assert.equal(parseRetryAfter(new Date(fixedNow-1000).toUTCString(),fixedNow),0);
+ for(const bad of [undefined,null,[],{},'-1','1.5','Infinity','9007199254740992','private-header\r\nInjected: secret'])assert.equal(parseRetryAfter(bad,fixedNow),null);
+ for(const operation of ['createMailbox','activateMailbox','getEmails']){
+  for(const header of ['120',undefined,'invalid-private-header']){
+   let requests=0;
+   const provider=createEmailTickService({config,http:{post:async()=>{requests++;return {status:429,headers:{'content-type':'application/json',...(header?{'retry-after':header}:{})},data:'{"message":"private-provider-error"}'};}},sleep:async()=>{throw Error('Must not retry 429');}});
+   const args=operation==='createMailbox'?[[4]]:['mail@example.test','synthetic-key'];
+   await assert.rejects(()=>provider[operation](...args),err=>err.code==='EMAILTICK_RATE_LIMITED'&&err.statusCode===429&&(header==='120'?err.retry_after_seconds===120:err.retry_after_seconds===undefined)&&!JSON.stringify(err).includes('private-provider-error'));
+   assert.equal(requests,1);
+  }
+ }
  let calls=0,delay=[];
  const retryProvider=createEmailTickService({config,http:{post:async()=>{calls++;if(calls<3)throw Object.assign(Error('synthetic timeout'),{code:'ECONNABORTED'});return json({success:true,emails:[]});}},sleep:async ms=>delay.push(ms)});
  assert.deepEqual(await retryProvider.getEmails('mail@example.test','synthetic-key'),[]);assert.equal(calls,3);assert.deepEqual(delay,[250,500]);
