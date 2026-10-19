@@ -41,6 +41,23 @@ let groups = 0;
   assert.equal(new Set(calls.map(call => call.ua)).size, 1);
   groups++;
 
+  // Persisted context keeps UA/proxy after a new instance and pool reordering.
+  const savedContext = provider.getTransportContext();
+  assert(/^[a-f0-9]{64}$/.test(savedContext.proxy_key));
+  const stable = createEmailTickService({ ...base, random: max => max - 1,
+    transportContext: savedContext, proxies: ['192.0.2.11:8101', '192.0.2.10:8100'],
+    http: { post: async (url, body, options) => {
+      assert.equal(host(options), '192.0.2.11');
+      assert.equal(options.headers['User-Agent'], savedContext.user_agent);
+      return json({ success: true, emails: [] });
+    } },
+  });
+  await stable.getEmails(mail.email, mail.mailboxCode);
+  assert.deepEqual(stable.getTransportContext(), savedContext);
+  assert.throws(() => createEmailTickService({ ...base, transportContext: savedContext, proxies: [] }), err => err.code === 'EMAILTICK_PROXY_UNAVAILABLE');
+  assert.throws(() => createEmailTickService({ ...base, transportContext: { ...savedContext, user_agent: 'invalid\r\nheader' } }), err => err.code === 'EMAILTICK_CONFIG_ERROR');
+  groups++;
+
   // Proxy authentication and failed CONNECT may move to another proxy.
   for (const kind of ['407', 'connect-failure', 'socks-auth']) {
     let count = 0;

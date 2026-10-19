@@ -1,6 +1,6 @@
 const dns = require('dns').promises;
 const net = require('net');
-const { randomInt } = require('crypto');
+const { randomInt, createHash } = require('crypto');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { SocksProxyAgent } = require('socks-proxy-agent');
 const { publicIp } = require('./deviceManagerSecurity');
@@ -49,9 +49,12 @@ async function publicAddress(url, lookup, timeoutMs) {
   } finally { clearTimeout(timer); }
 }
 
-function createProxySession({ proxies = [], config, random = randomInt, now = Date.now, lookup = dns.lookup }) {
+function createProxySession({ proxies = [], config, random = randomInt, now = Date.now, lookup = dns.lookup, preferredProxyKey = null }) {
   if (!Array.isArray(proxies)) throw failure('EMAILTICK_PROXY_CONFIG_ERROR', 503);
-  if (!proxies.length) return null;
+  if (!proxies.length) {
+    if (preferredProxyKey) throw failure('EMAILTICK_PROXY_UNAVAILABLE');
+    return null;
+  }
   const unique = new Map();
   for (const raw of proxies) {
     const url = normalizeProxy(raw);
@@ -59,7 +62,9 @@ function createProxySession({ proxies = [], config, random = randomInt, now = Da
   }
   const candidates = [...unique.values()];
   if (!candidates.length) throw failure('EMAILTICK_PROXY_CONFIG_ERROR', 503);
-  const start = random(candidates.length);
+  const keyOf = url => createHash('sha256').update(url.href).digest('hex');
+  const preferred = preferredProxyKey ? candidates.findIndex(url => keyOf(url) === preferredProxyKey) : -1;
+  const start = preferred >= 0 ? preferred : random(candidates.length);
   const pool = candidates.slice(start).concat(candidates.slice(0, start))
     .slice(0, config.proxyMaxAttempts ?? 3);
   const deadline = now() + (config.proxyTotalTimeoutMs ?? 20000);
@@ -68,6 +73,7 @@ function createProxySession({ proxies = [], config, random = randomInt, now = Da
   let pinned = null;
 
   return {
+    proxyKey() { return pool[index] ? keyOf(pool[index]) : null; },
     remainingMs() { return Math.max(0, deadline - now()); },
     advance() { pinned = null; index += 1; },
     async options() {

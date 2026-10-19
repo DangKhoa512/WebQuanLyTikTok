@@ -52,10 +52,12 @@ const extractOtp=(emails,options={})=>{
  if(!['instagram','facebook','generic'].includes(provider))throw invalid('INVALID_PROVIDER');
  return selectOtp(emails.map(m=>m&&({id:m.code,fromName:m.fromName,subject:m.subject,receivedAt:m.time})),{...options,service:provider.toUpperCase(),allowBody:false});
 };
-const createEmailTickService=({config=getEmailTickConfig(),http=axios,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),random=randomInt,proxies=[],now=Date.now,lookup}={})=>{
+const createEmailTickService=({config=getEmailTickConfig(),http=axios,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),random=randomInt,proxies=[],now=Date.now,lookup,transportContext=null}={})=>{
+ if(transportContext!==null&&(!transportContext||transportContext.version!==1||!EMAILTICK_USER_AGENTS.includes(transportContext.user_agent)||
+   !(transportContext.proxy_key===null||typeof transportContext.proxy_key==='string'&&/^[a-f0-9]{64}$/.test(transportContext.proxy_key))))throw providerError('EMAILTICK_CONFIG_ERROR',503);
  // One browser identity per service instance, shared by create/activate and any retries.
- const userAgent=EMAILTICK_USER_AGENTS[random(EMAILTICK_USER_AGENTS.length)];
- const proxySession=createProxySession({proxies,config,random,now,lookup});
+ const userAgent=transportContext?.user_agent||EMAILTICK_USER_AGENTS[random(EMAILTICK_USER_AGENTS.length)];
+ const proxySession=createProxySession({proxies,config,random,now,lookup,preferredProxyKey:transportContext?.proxy_key});
  const request=async(path,payload)=>{
   let attempt=0;
   while(true){
@@ -77,6 +79,7 @@ const createEmailTickService=({config=getEmailTickConfig(),http=axios,sleep=ms=>
   }
  };
  return {
+  getTransportContext:()=>({version:1,user_agent:userAgent,proxy_key:proxySession?.proxyKey()||null}),
   resolveTypes:(input,count)=>resolveTypes(input,count,config),
   async createMailbox(types){const data=await request('/get-mailbox',{types});if(typeof data.email!=='string'||data.email.length>255||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)||typeof data.code!=='string'||!data.code.trim()||data.code.length>4096)throw providerError('EMAILTICK_INVALID_RESPONSE');return{email:data.email,mailboxCode:data.code};},
   async activateMailbox(email,mailboxCode){await request('/activate-email',{email,code:mailboxCode});},

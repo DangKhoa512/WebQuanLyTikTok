@@ -1,26 +1,34 @@
 # EmailTick: VPS provider integration
 
+## Giữ UA/proxy theo mailbox (2026-10-19)
+
+Mailbox mới lưu `transport_context` server-only sau khi tạo/kích hoạt thành công: version, UA được chọn và SHA-256 của cấu hình proxy đã hoạt động. Không chép proxy URL/username/password vào mailbox; hash chỉ dùng để chọn lại proxy trong pool của đúng owner. Getcode từ API riêng hoặc mail chung đọc context này, giữ UA và ưu tiên đúng proxy, kể cả sau restart hoặc đổi thứ tự pool. Nếu proxy lỗi kết nối/timeout hoặc bị loại khỏi pool, failover vẫn có giới hạn; chỉ sau inbox thành công mới lưu proxy thay thế. Poll cũ trả chậm không được ghi đè context mới đã lưu bởi poll khác. Không chuyển proxy vì429/challenge/HTTP400.
+
+**Cần migration trước khi restart backend mới:** chạy `npm run migrate:emailtick --prefix backend` (trong container: `npm run migrate:emailtick`). Script đã mở rộng để thêm cột JSON nullable `transport_context` vào bảng hiện có, có advisory lock và chạy lặp an toàn; không force/alter hoặc xóa dữ liệu mailbox. Default scope và API response ẩn context cùng mailbox_code. Không chạy seed.
+
+Mailbox cũ có context=null không thể khôi phục chính xác UA/proxy lúc tạo. Nếu inbox cũ đọc thành công sẽ ghi context cho các lần sau; nếu vẫn400, cần thử mailbox mới sau deploy. Proxy đã dùng mà toàn bộ pool bị xóa sẽ báo PROXY_UNAVAILABLE, không chuyển direct. Giữ cùng cấu hình proxy không bảo đảm cùng IP thoát nếu dịch vụ proxy tự xoay IP. Chưa nghiệm thu bản sửa trên VPS; kết quả user chạy mới cùng provider cho CREATE/ACTIVATE/GETCODE đều200 chỉ hỗ trợ giả thuyết context, chưa chứng minh nguyên nhân duy nhất của mailbox cũ.
+
 ## Getcode dùng proxy (đối soát 2026-10-19)
 
 Cả GET `/api/emailtick/code` và `/api/mail/code` cho EmailTick đều dùng Proxy Check/Login của owner qua emailTickMailboxService.getCode → createOwnerEmailTickService → getEmails. Proxy lỗi kết nối/timeout được thay trong giới hạn đã mô tả bên dưới; hết pool lỗi trả EMAILTICK_PROXY_UNAVAILABLE, không chuyển direct hoặc đánh dấu mailbox EXPIRED. Upstream429/challenge vẫn trả đúng lỗi, không xoay proxy để thử tiếp.
 
-Proxy được chọn lại từ pool khi bắt đầu mỗi request getcode; chưa lưu liên kết cố định mailbox→proxy qua các request. Kiểm thử API riêng/common đã nhận OTP qua failover, giữ số0 đầu và chống trả lại OTP đã claim, với provider/network stub và DB tạm. Đây không phải nghiệm thu OTP thực tế trên VPS.
+Proxy được ưu tiên theo context đã lưu của mailbox; mailbox cũ chưa có context chọn từ pool hiện tại và lưu sau khi inbox thành công. Kiểm thử API riêng/common đã nhận OTP qua failover, giữ số0 đầu và chống trả lại OTP đã claim, với provider/network stub và DB tạm. Đây không phải nghiệm thu OTP thực tế trên VPS.
 
 ## Proxy Check/Login theo user (2026-10-19)
 
-EmailTick dùng pool Proxy Check/Login trong Cài đặt chung của owner đã xác thực, áp dụng cho tạo mailbox, activate và đọc inbox qua cả `/api/emailtick/*` và `/api/mail/*`. Không dùng pool Proxy Reg hoặc proxy do phone truyền vào. Pool được đọc ngoài transaction; kiểm tra owner mailbox trước khi đọc inbox/lấy cấu hình. Proxy đã hoạt động được dùng tiếp cho activate trong cùng lượt API; lượt API sau chọn điểm bắt đầu ngẫu nhiên từ pool hiện tại.
+EmailTick dùng pool Proxy Check/Login trong Cài đặt chung của owner đã xác thực, áp dụng cho tạo mailbox, activate và đọc inbox qua cả `/api/emailtick/*` và `/api/mail/*`. Không dùng pool Proxy Reg hoặc proxy do phone truyền vào. Pool được đọc ngoài transaction; kiểm tra owner mailbox trước khi đọc inbox/lấy cấu hình. Proxy đã hoạt động được dùng tiếp cho activate trong cùng lượt API và được lưu dấu nhận diện cho getcode.
 
 Hỗ trợ `host:port`, `host:port:user:pass`, `user:pass@host:port`, URL HTTP/HTTPS và SOCKS5/SOCKS5h. Các chuỗi không có scheme mặc định là HTTP theo pool Check/Login hiện tại; SOCKS5 cần prefix `socks5://` hoặc `socks5h://`. Kiểm tra proxy host public, DNS không có địa chỉ private và pin IP khi kết nối. TLS vẫn xác minh chứng chỉ; không redirect. Agent truyền credential cho proxy, không thêm credential/cookie proxy vào request tới EmailTick hoặc response/log.
 
 Lỗi kết nối, DNS/handshake/timeout, auth407 hoặc CONNECT lỗi sẽ chuyển proxy khác, không lặp mãi proxy cũ. Mặc định tối đa 3 proxy khác nhau, 6 giây/proxy và ngân sách 20 giây chung cho phần gọi EmailTick trong một instance (create+activate dùng chung). Agent/socket có abort và cleanup; DNS cũng bị giới hạn thời gian. Env tùy chọn: EMAILTICK_PROXY_TIMEOUT_MS=6000, EMAILTICK_PROXY_MAX_ATTEMPTS=3, EMAILTICK_PROXY_TOTAL_TIMEOUT_MS=20000. Retry upstream5xx vẫn dùng proxy hiện tại trong ngân sách chung. Không chuyển proxy/retry khi EmailTick trả429/challenge/schema lỗi.
 
-Pool trống giữ luồng direct trước đây. Khi đã có pool thì không fallback direct: hết proxy lỗi trả EMAILTICK_PROXY_UNAVAILABLE/502; cấu hình proxy sai trả EMAILTICK_PROXY_CONFIG_ERROR/503; đọc/parse settings lỗi trả EMAILTICK_PROXY_SETTINGS_ERROR/503. Getter strict chỉ dùng cho EmailTick; không đổi hành vi Proxy Check/Login của module khác. Không migration và không sửa .env thật.
+Pool trống giữ luồng direct cho mailbox mới/chưa gắn proxy. Khi đã có pool hoặc mailbox có context proxy thì không fallback direct: hết proxy lỗi trả EMAILTICK_PROXY_UNAVAILABLE/502; cấu hình proxy sai trả EMAILTICK_PROXY_CONFIG_ERROR/503; đọc/parse settings lỗi trả EMAILTICK_PROXY_SETTINGS_ERROR/503. Getter strict chỉ dùng cho EmailTick; không đổi hành vi Proxy Check/Login của module khác. Migration context được mô tả ở đầu tài liệu; không sửa .env thật.
 
 Chạy `npm run test:emailtick --prefix backend`: gồm proxy suite, HTTP API/DB tạm và provider giả. Test riêng có proxy CONNECT local thật với handshake bị treo, auth và failover; không dùng proxy/mailbox/account thật. Chưa nghiệm thu proxy người dùng trên VPS. Timeout lấy mail sau khi upstream đã xử lý có thể để lại mailbox upstream không được nhận; retry/failover được giới hạn, không có idempotency upstream.
 
 ## Random User-Agent (2026-10-19)
 
-Mỗi instance EmailTick service chọn ngẫu nhiên một UA từ pool Chrome Windows/Linux/macOS và Firefox Windows bằng crypto.randomInt. Luồng API hiện tạo instance mới mỗi lần xử lý request; create-mailbox và activate-email trong cùng lượt dùng chung UA, các lần retry lỗi tạm thời cũng giữ UA đó. Poll inbox ở request sau có thể chọn UA khác. Origin/Referer vẫn theo EMAILTICK_BASE_URL, không thêm cookie. Random UA không thay đổi IP hoặc hạn mức nhà cung cấp; gặp429 vẫn không tự retry và chuyển tiếp Retry-After hợp lệ như phần dưới.
+Mailbox mới chọn ngẫu nhiên một UA từ pool Chrome Windows/Linux/macOS và Firefox Windows bằng crypto.randomInt. Context đã lưu được dùng lại cho getcode, kể cả instance/process mới; retry và failover cũng giữ UA đó. Origin/Referer vẫn theo EMAILTICK_BASE_URL, không thêm cookie. Random UA không thay đổi IP hoặc hạn mức nhà cung cấp; gặp429 vẫn không tự retry và chuyển tiếp Retry-After hợp lệ như phần dưới.
 
 Test unit dùng bộ chọn xác định để kiểm tra đủ pool, UA nhất quán qua retry/create/activate/inbox, Origin/Referer và không-cookie. EmailTick unit/integration PASS trên provider giả/DB tạm; không thử thêm request thật trên VPS đang bị429. Chưa commit/push/deploy lượt UA.
 

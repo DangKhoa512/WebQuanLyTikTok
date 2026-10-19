@@ -20,6 +20,12 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
  process.env.EMAILTICK_BASE_URL='http://127.0.0.1:'+providerServer.address().port;process.env.EMAILTICK_TIMEOUT_MS='500';process.env.EMAILTICK_RETRY_COUNT='1';process.env.EMAILTICK_RETRY_DELAY_MS='1';process.env.EMAILTICK_ALLOWED_TYPES='1,2,3,4,5';process.env.EMAILTICK_RANDOM_TYPES='3,4,5';
  db=require('../src/config/database');await require('../src/models/AppSetting').sync({logging:false});const User=require('../src/models/User'),Mailbox=require('../src/models/EmailTickMailbox');await User.sync({logging:false});await Mailbox.sync({logging:false});
  const owner=await User.create({username:'emailtick_test_user',password_hash:'test-only',role:'user'},{logging:false});const other=await User.create({username:'emailtick_test_other',password_hash:'test-only',role:'user'},{logging:false});
+ // Upgrade a populated legacy table, then verify the migration is safe to repeat.
+ const legacyRow=await Mailbox.create({owner_username:owner.username,mailbox_id:crypto.randomUUID(),email:'legacy@example.test',mailbox_code:'synthetic-legacy-key',types:[4],status:'ERROR'},{logging:false});
+ await db.getQueryInterface().removeColumn('emailtick_mailboxes','transport_context',{logging:false});
+ await require('../src/services/emailTickMigration').up();await require('../src/services/emailTickMigration').up();
+ const migratedRow=await Mailbox.unscoped().findByPk(legacyRow.id,{logging:false});
+ assert.equal(migratedRow.mailbox_code,'synthetic-legacy-key');assert.equal(migratedRow.transport_context,null);assert.equal(migratedRow.status,'ERROR');
  const app=require('../src/app');server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));let base='http://127.0.0.1:'+server.address().port;
  const request=async(url,body,username=owner.username)=>{const response=await fetch(base+'/api/emailtick'+url,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(username===null?{}:{'x-api-key':username})},...(body===undefined?{}:{body:JSON.stringify(body)})});return{status:response.status,data:await response.json()};};
  assert.equal((await request('/new',{types:1},null)).status,401);assert.equal(providerCalls.length,0);
@@ -28,6 +34,7 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
  const mailboxId=result.data.mailbox_id,codeUrl='/code?mailbox_id='+mailboxId;
  const saved=await Mailbox.unscoped().findOne({where:{mailbox_id:mailboxId},logging:false});assert.equal(saved.status,'ACTIVE');assert(saved.mailbox_code.startsWith('synthetic-private-mailbox-'));
  const hidden=await Mailbox.findOne({where:{mailbox_id:mailboxId},logging:false});assert.equal(hidden.toJSON().mailbox_code,undefined);
+ assert.equal(hidden.toJSON().transport_context,undefined);
  assert(providerCalls.filter(call=>call.path==='/get-mailbox').every(call=>Array.isArray(call.body.types)&&call.origin===process.env.EMAILTICK_BASE_URL&&call.referer===process.env.EMAILTICK_BASE_URL+'/'));
  let count=providerCalls.length;assert.equal((await request('/new',{types:999})).status,400);assert.equal(providerCalls.length,count);
  assert.equal((await request('/new',{types:'random',random_count:0})).status,400);
@@ -86,7 +93,7 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
  axios.post=async(url,payload,options)=>{
   assert.equal(options.proxy,false);assert(options.httpsAgent,'Configured owner must use a proxy');
   const hostname=options.httpsAgent.proxy.hostname;
-  proxyCalls.push({hostname,path:new URL(url).pathname});
+  proxyCalls.push({hostname,path:new URL(url).pathname,ua:options.headers['User-Agent']});
   if(failFirst||allDead){failFirst=false;throw Object.assign(Error('synthetic-proxy-secret'),{code:'ETIMEDOUT'});}
   return originalPost(url,payload,{...options,httpAgent:undefined,httpsAgent:undefined});
  };
@@ -97,6 +104,13 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
   assert.notEqual(proxyCalls[0].hostname,proxyCalls[1].hostname);
   assert.equal(proxyCalls[1].hostname,proxyCalls[2].hostname,'Activation keeps the working proxy');
   assert(proxyCalls.every(call=>['192.0.2.10','192.0.2.11'].includes(call.hostname)));
+  assert.equal(new Set(proxyCalls.map(call=>call.ua)).size,1);
+  const createdContext=(await Mailbox.unscoped().findOne({where:{mailbox_id:proxyMailbox},logging:false})).transport_context;
+  assert(/^[a-f0-9]{64}$/.test(createdContext.proxy_key));assert.equal(createdContext.user_agent,proxyCalls[2].ua);
+  assert(!JSON.stringify(createdContext).includes('synthetic-proxy-secret'));
+  assert(!Object.prototype.hasOwnProperty.call(response.data,'transport_context'));
+  // Reverse settings order; the saved proxy is selected by key instead of pool index.
+  await settings.saveFacebookCheckProxySettings(owner.username,{proxies:['192.0.2.11:8101:fixture:synthetic-proxy-secret','192.0.2.10:8100:fixture:synthetic-proxy-secret']});
   const common=await fetch(base+'/api/mail/new',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':other.username},body:JSON.stringify({provider:'EMAILTICK',types:4})});
   assert.equal(common.status,200);assert(proxyCalls.slice(3).every(call=>call.hostname==='192.0.2.20'));
   let before=proxyCalls.length;
@@ -112,6 +126,10 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
   assert.equal(legacyProxyCalls.length,2);
   assert(legacyProxyCalls.every(call=>call.path==='/get-emails'&&['192.0.2.10','192.0.2.11'].includes(call.hostname)));
   assert.notEqual(legacyProxyCalls[0].hostname,legacyProxyCalls[1].hostname);
+  assert.equal(legacyProxyCalls[0].hostname,proxyCalls[2].hostname);
+  assert(legacyProxyCalls.every(call=>call.ua===createdContext.user_agent));
+  const failoverContext=(await Mailbox.unscoped().findOne({where:{mailbox_id:proxyMailbox},logging:false})).transport_context;
+  assert.notEqual(failoverContext.proxy_key,createdContext.proxy_key);
   await require('../src/models/GhostInboxMailbox').sync({logging:false});
   failFirst=true;
   emails=[{code:'proxy-otp-common',fromName:'Instagram',subject:'000013 is your Instagram code',time:Math.floor(Date.now()/1000)}];
@@ -123,6 +141,8 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
   assert.equal(commonProxyCalls.length,2);
   assert(commonProxyCalls.every(call=>call.path==='/get-emails'&&['192.0.2.10','192.0.2.11'].includes(call.hostname)));
   assert.notEqual(commonProxyCalls[0].hostname,commonProxyCalls[1].hostname);
+  assert.equal(commonProxyCalls[0].hostname,legacyProxyCalls[1].hostname);
+  assert(commonProxyCalls.every(call=>call.ua===createdContext.user_agent));
   assert.equal((await request('/code?mailbox_id='+proxyMailbox)).data.status,'WAITING','Proxy failover must not replay claimed OTP');
   // Exhausting the inbox proxy pool neither falls back direct nor expires a valid mailbox.
   allDead=true;before=proxyCalls.length;
@@ -132,6 +152,35 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
   assert.equal((await Mailbox.unscoped().findOne({where:{mailbox_id:proxyMailbox},logging:false})).status,'ACTIVE');
   allDead=false;
   assert(!JSON.stringify(logs).includes('000012'));assert(!JSON.stringify(logs).includes('000013'));
+  // Legacy records can adopt a context after the first successful inbox request.
+  const bootstrap=await Mailbox.create({owner_username:owner.username,mailbox_id:crypto.randomUUID(),email:'legacy-context@example.test',mailbox_code:'synthetic-bootstrap-key',types:[4],status:'ACTIVE',transport_context:null},{logging:false});
+  assert.equal((await request('/code?mailbox_id='+bootstrap.mailbox_id)).status,200);
+  const bootstrapped=(await Mailbox.unscoped().findByPk(bootstrap.id,{logging:false})).transport_context;
+  assert(bootstrapped.user_agent);assert(/^[a-f0-9]{64}$/.test(bootstrapped.proxy_key));
+  const bootstrapHost=proxyCalls.at(-1).hostname;
+  assert.equal((await request('/code?mailbox_id='+bootstrap.mailbox_id)).status,200);
+  assert.equal(proxyCalls.at(-1).hostname,bootstrapHost);
+  assert.equal(proxyCalls.at(-1).ua,bootstrapped.user_agent);
+  // Removing the entire pool must not turn an existing proxied mailbox into a direct call.
+  await settings.saveFacebookCheckProxySettings(owner.username,{proxies:[]});
+  before=proxyCalls.length;
+  const removedPool=await request('/code?mailbox_id='+proxyMailbox);
+  assert.equal(removedPool.data.error,'EMAILTICK_PROXY_UNAVAILABLE');assert.equal(proxyCalls.length,before);
+  await settings.saveFacebookCheckProxySettings(owner.username,{proxies:['192.0.2.10:8100:fixture:synthetic-proxy-secret','192.0.2.11:8101:fixture:synthetic-proxy-secret']});
+  // A slower poll cannot undo the newer poll's successful persisted failover.
+  const raceRow=await Mailbox.create({owner_username:owner.username,mailbox_id:crypto.randomUUID(),email:'context-race@example.test',mailbox_code:'synthetic-race-key',types:[4],status:'ACTIVE',transport_context:createdContext},{logging:false});
+  let arrived,releaseSlow,order=0;
+  const arrival=new Promise(resolve=>{arrived=resolve;});const gate=new Promise(resolve=>{releaseSlow=resolve;});
+  const raceService=require('../src/services/emailTickMailboxService').createEmailTickMailboxService({providerFactory:async(name,options)=>{
+   assert.equal(name,owner.username);assert.deepEqual(options.transportContext,createdContext);
+   const slow=++order===1;
+   return {getEmails:async()=>{if(slow){arrived();await gate;}return [];},extractOtp:require('../src/services/emailTickService').extractOtp,getTransportContext:()=>slow?createdContext:failoverContext};
+  }});
+  const slowPoll=raceService.getCode(owner.username,raceRow.mailbox_id);
+  await arrival;
+  try{await raceService.getCode(owner.username,raceRow.mailbox_id);}finally{releaseSlow();}
+  await slowPoll;
+  assert.deepEqual((await Mailbox.unscoped().findByPk(raceRow.id,{logging:false})).transport_context,failoverContext);
   // A malformed stored setting must not silently enable direct access.
   const Setting=require('../src/models/AppSetting');
   await Setting.update({setting_value:'not-json'},{where:{owner_username:owner.username,setting_key:'facebook_check_proxies'}});

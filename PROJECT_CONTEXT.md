@@ -1,5 +1,13 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Giữ UA/proxy theo mailbox EmailTick — 2026-10-19
+
+User chạy VPS fresh CREATE→ACTIVATE→GETCODE trên cùng provider, tất cả200; mailbox cũ getcode400 Invalid request dù có proxy và code. Kết quả hỗ trợ giả thuyết context nhưng chưa chứng minh IP/UA là nguyên nhân duy nhất. Đã sửa mailbox mới lưu transport_context JSON nullable gồm version/UA/proxy_keySHA256 sau activate thành công. Không lưu credential proxy vào mailbox; API/default scope ẩn context. getcode cả hai route giữ UA và chọn lại proxy theo hash từ đúng owner pool, bền qua instance/restart/poolreorder. Failover thành công mới ghi context thay thế; compare snapshot dưới row lock tránh poll cũ ghi đè context mới; OTP claim/owner isolation giữ nguyên.
+
+Mở rộng migrateEmailTick.js qua emailTickMigration.up: advisory lock, sync force=false/alter=false rồi addColumn transport_context nếu thiếu. **Phải chạy npm run migrate:emailtick trước restart backend code mới trên VPS.** Không tự chạy migration DB đang dùng trong lượt này. Không force/seed/xóa dữ liệu. Mailbox cũ contextnull chỉ bootstrap sau inbox thành công, không thể khôi phục UA/proxy gốc; nên thử mailbox mới sau deploy nếu mailbox cũ vẫn400. Proxy tự xoay IP vẫn có thể đổi IP thoát dù cùng config. Xóa toàn bộ pool của mailbox proxied không fallback direct.
+
+Test emailtick unit/proxy/integration PASS (11 nhóm proxy): context giữ UA/proxy qua instance mới/poolreorder, persist failover cả legacy/common API, context không lộ credential/response, legacy bootstrap, no-direct khi xóa pool, concurrent stale-poll không ghi đè. Migration nâng table cũ/rerun và giữ dữ liệu PASS trên DB tạm. Test mail unit/integration hồi quy PASS. Syntax/diff check PASS. Không dùng proxy thật/ghi DBproduction; chưa commit/push/deploy lượt context.
+
 ## Đối soát proxy riêng cho getcode EmailTick — 2026-10-19
 
 User yêu cầu getcode cũng dùng proxy như getmail. Kiểm tra xác nhận code từ commit6132ca5 đã thực hiện: emailTickMailboxService.getCode kiểm tra mailbox theo owner rồi tạo activeProvider qua createOwnerEmailTickService, gọi getEmails qua cùng transport/proxy pool. `/api/mail/code` cho EmailTick chuyển vào cùng service; không có nhánh direct riêng khi đã cấu hình pool. Lượt getcode chọn proxy từ pool hiện tại của owner, chưa bảo đảm giữ nguyên proxy cụ thể đã tạo mailbox qua các request/process. Chưa có bằng chứng provider yêu cầu giữ cùng IP.

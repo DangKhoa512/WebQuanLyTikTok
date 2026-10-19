@@ -5,6 +5,7 @@ const Mailbox=require('../models/EmailTickMailbox');
 const {createOwnerEmailTickService,providerError}=require('./emailTickService');
 const invalid=code=>providerError(code,400);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const sameContext=(a,b)=>!a&&!b||!!a&&!!b&&a.version===b.version&&a.user_agent===b.user_agent&&a.proxy_key===b.proxy_key;
 const createEmailTickMailboxService=({provider,providerFactory=createOwnerEmailTickService,now=()=>Date.now()}={})=>({
  async createMailbox(owner,input,randomCount){
   const activeProvider=provider||await providerFactory(owner);
@@ -15,7 +16,7 @@ const createEmailTickMailboxService=({provider,providerFactory=createOwnerEmailT
    await Mailbox.create({owner_username:owner,mailbox_id,email:mailbox.email,mailbox_code:mailbox.mailboxCode,types,status:'ERROR'},{logging:false});
    throw err;
   }
-  await Mailbox.create({owner_username:owner,mailbox_id,email:mailbox.email,mailbox_code:mailbox.mailboxCode,types,status:'ACTIVE'},{logging:false});
+  await Mailbox.create({owner_username:owner,mailbox_id,email:mailbox.email,mailbox_code:mailbox.mailboxCode,types,status:'ACTIVE',transport_context:activeProvider.getTransportContext?.()||null},{logging:false});
   return {mailbox_id,email:mailbox.email,types};
  },
  async getCode(owner,mailboxId,{provider:sender='instagram',requestedAt}={}){
@@ -26,7 +27,7 @@ const createEmailTickMailboxService=({provider,providerFactory=createOwnerEmailT
   const where={owner_username:owner,mailbox_id:mailboxId};
   const mailbox=await Mailbox.unscoped().findOne({where,logging:false});
   if(!mailbox||mailbox.status!=='ACTIVE')throw providerError('INVALID_MAILBOX',404);
-  const activeProvider=provider||await providerFactory(owner);
+  const activeProvider=provider||await providerFactory(owner,{transportContext:mailbox.transport_context||null});
   let emails;
   try { emails=await activeProvider.getEmails(mailbox.email,mailbox.mailbox_code); }
   catch(err){ if(err.code==='INVALID_MAILBOX')await mailbox.update({status:'EXPIRED'},{logging:false});throw err; }
@@ -34,7 +35,12 @@ const createEmailTickMailboxService=({provider,providerFactory=createOwnerEmailT
    const current=await Mailbox.unscoped().findOne({where,transaction,lock:transaction.LOCK.UPDATE,logging:false});
    if(!current||current.status!=='ACTIVE')throw providerError('INVALID_MAILBOX',404);
    const claim=otpClaim(current,emails,activeProvider.extractOtp,{provider:sender,minimumTime:since,nowSeconds:Math.floor(now()/1000)});
-   if(claim.changes)await current.update(claim.changes,{transaction,logging:false});
+   const changes={...(claim.changes||{})};
+   const nextContext=activeProvider.getTransportContext?.();
+   // A late poll must not overwrite a newer successful failover's persisted context.
+   if(nextContext&&sameContext(current.transport_context,mailbox.transport_context)&&
+      !sameContext(nextContext,current.transport_context))changes.transport_context=nextContext;
+   if(Object.keys(changes).length)await current.update(changes,{transaction,logging:false});
    return claim.response;
   });
  }
