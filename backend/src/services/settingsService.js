@@ -394,8 +394,15 @@ const saveMachineApiKeys = async (keys = DEFAULT_MACHINE_API_KEYS, owner_usernam
   return normalized;
 };
 
-const getFacebookCheckProxySettings = async (owner_username = 'admin') => {
+const getFacebookCheckProxySettings = async (owner_username = 'admin', { strict = false } = {}) => {
   const owner = normalizeOwner(owner_username) || defaultOwner();
+  if (strict) {
+    const row = await AppSetting.findOne({ where: { owner_username: owner, setting_key: FACEBOOK_CHECK_PROXIES_KEY } });
+    if (!row) return normalizeFacebookCheckProxies({ proxies: [] });
+    const stored = JSON.parse(row.setting_value);
+    if (!stored || !Array.isArray(stored.proxies)) throw new Error('Invalid proxy settings');
+    return normalizeFacebookCheckProxies(stored);
+  }
   const stored = await getSetting(owner, FACEBOOK_CHECK_PROXIES_KEY);
   return normalizeFacebookCheckProxies(stored || { proxies: [] });
 };

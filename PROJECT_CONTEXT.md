@@ -1,5 +1,13 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## EmailTick qua Proxy Check/Login của owner — 2026-10-19
+
+User xác nhận dùng pool Proxy Check/Login, không dùng Proxy Reg. emailTickMailboxService tạo provider theo owner đã auth cho create/activate/inbox (kiểm tra owner mailbox trước inbox); cả legacy emailtick và API mail chung đều áp dụng. settingsService có tùy chọn strict cho getter proxy: JSON/settings hỏng không biến thành direct; hành vi mặc định của module khác giữ nguyên. Không nhận proxy/owner từ body phone.
+
+emailTickProxyTransport hỗ trợ HTTP/HTTPS, SOCKS5 URL, dạng host:port và auth cũ; không scheme mặc định HTTP. Chọn điểm bắt đầu ngẫu nhiên, tối đa3 proxy, mặc định6s/proxy/20s tổng create+activate. Giữ proxy thành công cho activate, thay proxy khi network/timeout/DNS/auth407/CONNECT lỗi, hủy socket và cleanup. DNS/proxy host phải public và được pin; không redirect/TLS bypass. Có pool thì không fallback direct, lỗi trả EMAILTICK_PROXY_UNAVAILABLE/502 hoặc CONFIG/SETTINGS_ERROR/503. Pool trống giữ direct trước đây. Không xoay proxy khi upstream429/challenge/schema lỗi; giữ UA và Retry-After từ bản đã push73ecae0. Không thêm cooldown giữa worker/request.
+
+Config mẫu thêm EMAILTICK_PROXY_TIMEOUT_MS/MAX_ATTEMPTS/TOTAL_TIMEOUT_MS; không sửa .env thật/schema/frontend. Test emailtick unit/proxy/integration PASS:10 nhóm proxy, timeout/handshake CONNECT local thật, mock auth/failover/SOCKS/publicDNS/pinning/totalbudget/no-direct/429; HTTP API+DBtạm haiowner, cả mailnew/code, settingsmalformed, pooldead và không lộ secret. Test mail unit/integration hồi quy PASS. Syntax/git diff --check PASS. Không dùng proxy thật hoặc DBproduction; chưa commit/push/deploy lượt proxy.
+
 ## Random UA cho EmailTick — 2026-10-19
 
 Theo user, emailTickService chọn ngẫu nhiên một UA từ pool 4 desktop browser bằng crypto.randomInt cho mỗi instance. Factory hiện tạo instance mới mỗi request API; giữ cùng UA trong create/activate và retry của instance, inbox request sau có thể khác. Không đổi Origin/Referer/cookie/IP, API owner hoặc retry429. Giữ các sửa xử lý429 chưa commit từ lượt trước.

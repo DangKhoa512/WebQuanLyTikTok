@@ -9,7 +9,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node seeds/seedData.js",
-    "test:emailtick": "node scripts/testEmailTick.js && node scripts/testEmailTickIntegration.js",
+    "test:emailtick": "node scripts/testEmailTick.js && node scripts/testEmailTickProxy.js && node scripts/testEmailTickIntegration.js",
     "migrate:emailtick": "node scripts/migrateEmailTick.js --apply",
     "test:totp": "node scripts/testTotp.js",
     "test:cross-target-engine": "node scripts/testCrossTargetEngineIntegration.js",

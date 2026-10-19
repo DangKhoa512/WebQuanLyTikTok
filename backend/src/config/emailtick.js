@@ -17,6 +17,6 @@ const getEmailTickConfig = (env=process.env) => {
  const allowedTypes=parseConfiguredTypes(env.EMAILTICK_ALLOWED_TYPES || '1,2,3,4,5');
  const randomTypes=parseConfiguredTypes(env.EMAILTICK_RANDOM_TYPES || '3,4,5');
  if(randomTypes.some(value=>!allowedTypes.includes(value)))throw invalid('EMAILTICK_CONFIG_ERROR');
- return {baseUrl:base.origin,allowedTypes,randomTypes,timeoutMs:readInt(env.EMAILTICK_TIMEOUT_MS,15000,100,60000),retryCount:readInt(env.EMAILTICK_RETRY_COUNT,2,0,3),retryDelayMs:readInt(env.EMAILTICK_RETRY_DELAY_MS,250,0,5000)};
+ return {baseUrl:base.origin,allowedTypes,randomTypes,timeoutMs:readInt(env.EMAILTICK_TIMEOUT_MS,15000,100,60000),retryCount:readInt(env.EMAILTICK_RETRY_COUNT,2,0,3),retryDelayMs:readInt(env.EMAILTICK_RETRY_DELAY_MS,250,0,5000),proxyTimeoutMs:readInt(env.EMAILTICK_PROXY_TIMEOUT_MS,6000,100,30000),proxyMaxAttempts:readInt(env.EMAILTICK_PROXY_MAX_ATTEMPTS,3,1,10),proxyTotalTimeoutMs:readInt(env.EMAILTICK_PROXY_TOTAL_TIMEOUT_MS,20000,100,60000)};
 };
 module.exports={getEmailTickConfig,parseTypes,invalid};

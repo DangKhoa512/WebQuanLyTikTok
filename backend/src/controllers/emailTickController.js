@@ -1,7 +1,7 @@
 ﻿const {ownerFromRequest}=require('../utils/owner');
 const logger=require('../config/logger');
 const {createEmailTickMailboxService}=require('../services/emailTickMailboxService');
-const allowedErrors=new Set(['INVALID_EMAIL_TYPE','INVALID_RANDOM_COUNT','INVALID_INPUT','INVALID_PROVIDER','INVALID_MAILBOX','EMAILTICK_CONFIG_ERROR','EMAILTICK_ERROR','EMAILTICK_TEMPORARY_ERROR','EMAILTICK_CLOUDFLARE_CHALLENGE','EMAILTICK_INVALID_RESPONSE','EMAILTICK_RATE_LIMITED']);
+const allowedErrors=new Set(['INVALID_EMAIL_TYPE','INVALID_RANDOM_COUNT','INVALID_INPUT','INVALID_PROVIDER','INVALID_MAILBOX','EMAILTICK_CONFIG_ERROR','EMAILTICK_ERROR','EMAILTICK_TEMPORARY_ERROR','EMAILTICK_CLOUDFLARE_CHALLENGE','EMAILTICK_INVALID_RESPONSE','EMAILTICK_RATE_LIMITED','EMAILTICK_PROXY_UNAVAILABLE','EMAILTICK_PROXY_CONFIG_ERROR','EMAILTICK_PROXY_SETTINGS_ERROR']);
 const makeController=(serviceFactory=()=>createEmailTickMailboxService())=>{
  const execute=operation=>async(req,res)=>{
   const started=Date.now();let mailboxId;

@@ -18,7 +18,7 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
  mock.post('/get-emails',(req,res)=>{providerCalls.push({path:req.path,body:req.body});if(mode==='rate-get')return res.status(429).set('Retry-After','120').json({message:'synthetic-limit-do-not-log'});if(mode==='cloudflare')return res.status(403).type('html').send('<title>Just a moment...</title>challenge-platform');if(mode==='expired')return res.json({success:false,error:'INVALID_MAILBOX'});return res.json({success:true,emails});});
  providerServer=mock.listen(0,'127.0.0.1');await new Promise(resolve=>providerServer.once('listening',resolve));
  process.env.EMAILTICK_BASE_URL='http://127.0.0.1:'+providerServer.address().port;process.env.EMAILTICK_TIMEOUT_MS='500';process.env.EMAILTICK_RETRY_COUNT='1';process.env.EMAILTICK_RETRY_DELAY_MS='1';process.env.EMAILTICK_ALLOWED_TYPES='1,2,3,4,5';process.env.EMAILTICK_RANDOM_TYPES='3,4,5';
- db=require('../src/config/database');const User=require('../src/models/User'),Mailbox=require('../src/models/EmailTickMailbox');await User.sync({logging:false});await Mailbox.sync({logging:false});
+ db=require('../src/config/database');await require('../src/models/AppSetting').sync({logging:false});const User=require('../src/models/User'),Mailbox=require('../src/models/EmailTickMailbox');await User.sync({logging:false});await Mailbox.sync({logging:false});
  const owner=await User.create({username:'emailtick_test_user',password_hash:'test-only',role:'user'},{logging:false});const other=await User.create({username:'emailtick_test_other',password_hash:'test-only',role:'user'},{logging:false});
  const app=require('../src/app');server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));let base='http://127.0.0.1:'+server.address().port;
  const request=async(url,body,username=owner.username)=>{const response=await fetch(base+'/api/emailtick'+url,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(username===null?{}:{'x-api-key':username})},...(body===undefined?{}:{body:JSON.stringify(body)})});return{status:response.status,data:await response.json()};};
@@ -77,6 +77,49 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
  result=await request(codeUrl);assert.equal(result.data.error,'EMAILTICK_CLOUDFLARE_CHALLENGE');
  mode='expired';assert.equal((await request(codeUrl)).status,410);assert.equal((await Mailbox.unscoped().findOne({where:{mailbox_id:mailboxId},logging:false})).status,'EXPIRED');
  mode='bad-schema';assert.equal((await request('/new',{types:1})).data.error,'EMAILTICK_INVALID_RESPONSE');mode='normal';
+ // Real authenticated API + owner settings + proxy agents; external network is stubbed.
+ const axios=require('axios'),originalPost=axios.post;
+ const settings=require('../src/services/settingsService');
+ const proxyCalls=[];let failFirst=true,allDead=false;
+ await settings.saveFacebookCheckProxySettings(owner.username,{proxies:['192.0.2.10:8100:fixture:synthetic-proxy-secret','192.0.2.11:8101:fixture:synthetic-proxy-secret']});
+ await settings.saveFacebookCheckProxySettings(other.username,{proxies:['192.0.2.20:8200']});
+ axios.post=async(url,payload,options)=>{
+  assert.equal(options.proxy,false);assert(options.httpsAgent,'Configured owner must use a proxy');
+  const hostname=options.httpsAgent.proxy.hostname;
+  proxyCalls.push({hostname,path:new URL(url).pathname});
+  if(failFirst||allDead){failFirst=false;throw Object.assign(Error('synthetic-proxy-secret'),{code:'ETIMEDOUT'});}
+  return originalPost(url,payload,{...options,httpAgent:undefined,httpsAgent:undefined});
+ };
+ try{
+  let response=await request('/new',{types:4});assert.equal(response.status,200);
+  const proxyMailbox=response.data.mailbox_id;
+  assert.equal(proxyCalls.length,3);
+  assert.notEqual(proxyCalls[0].hostname,proxyCalls[1].hostname);
+  assert.equal(proxyCalls[1].hostname,proxyCalls[2].hostname,'Activation keeps the working proxy');
+  assert(proxyCalls.every(call=>['192.0.2.10','192.0.2.11'].includes(call.hostname)));
+  const common=await fetch(base+'/api/mail/new',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':other.username},body:JSON.stringify({provider:'EMAILTICK',types:4})});
+  assert.equal(common.status,200);assert(proxyCalls.slice(3).every(call=>call.hostname==='192.0.2.20'));
+  let before=proxyCalls.length;
+  assert.equal((await request('/code?mailbox_id='+proxyMailbox,undefined,other.username)).status,404);assert.equal(proxyCalls.length,before);
+  assert.equal((await request('/code?mailbox_id='+proxyMailbox)).status,200);assert(['192.0.2.10','192.0.2.11'].includes(proxyCalls.at(-1).hostname));
+  await require('../src/models/GhostInboxMailbox').sync({logging:false});
+  const commonInbox=await fetch(base+'/api/mail/code?mailbox_id='+proxyMailbox,{headers:{'x-api-key':owner.username}});
+  assert.equal(commonInbox.status,200);assert(['192.0.2.10','192.0.2.11'].includes(proxyCalls.at(-1).hostname));
+  // A malformed stored setting must not silently enable direct access.
+  const Setting=require('../src/models/AppSetting');
+  await Setting.update({setting_value:'not-json'},{where:{owner_username:owner.username,setting_key:'facebook_check_proxies'}});
+  before=proxyCalls.length;response=await request('/new',{types:4});assert.equal(response.status,503);assert.equal(response.data.error,'EMAILTICK_PROXY_SETTINGS_ERROR');assert.equal(proxyCalls.length,before);
+  await settings.saveFacebookCheckProxySettings(owner.username,{proxies:['ftp://192.0.2.10:8000']});
+  response=await request('/new',{types:4});assert.equal(response.status,503);assert.equal(response.data.error,'EMAILTICK_PROXY_CONFIG_ERROR');assert.equal(proxyCalls.length,before);
+  await settings.saveFacebookCheckProxySettings(owner.username,{proxies:['192.0.2.10:8100','192.0.2.11:8101']});
+  allDead=true;response=await request('/new',{types:4});assert.equal(response.status,502);assert.equal(response.data.error,'EMAILTICK_PROXY_UNAVAILABLE');assert.equal(proxyCalls.length,before+2);
+  assert(!JSON.stringify(response).includes('synthetic-proxy-secret'));
+ }finally{
+  axios.post=originalPost;
+  await settings.saveFacebookCheckProxySettings(owner.username,{proxies:[]});
+  await settings.saveFacebookCheckProxySettings(other.username,{proxies:[]});
+ }
+ assert(!JSON.stringify(logs).includes('synthetic-proxy-secret'));
  const text=JSON.stringify(logs);for(const secret of mailboxCodes)assert(!text.includes(secret),'No mailbox credentials in logs, including SQL');for(const otp of ['041374','000009','000010','000011'])assert(!text.includes(otp),'No OTP in logs');assert(!text.includes('synthetic-do-not-log'));assert(!text.includes('synthetic-limit-do-not-log'));
  // Exercise the AutoTouch client with its real POSIX curl against a child API/provider and test DB.
  const {fork}=require('child_process');const child=fork(path.resolve(__dirname,'emailTickHttpTestServer.js'),[],{silent:true,env:process.env});
