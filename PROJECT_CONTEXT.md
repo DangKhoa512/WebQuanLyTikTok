@@ -1,5 +1,11 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Email OTP report mở khóa — 2026-10-19
+
+Sửa POST `/api/email-otps/report`: trước đây saveReport gia hạn locked_at và giữ locked_by khi máy giữ khóa báo cáo; nay reportFromPhone bật releaseOwnLock để xóa cả hai field trong cùng transaction/row lock sau lưu báo cáo thành công. Chỉ mở khóa của đúng device đang giữ email và owner đã xác thực; report từ máy cũ không mở khóa của máy mới. Giữ trạng thái PENDING, lịch sử OTP, tăng use_count mỗi report và lịch sử device-use chống máy đã dùng lấy lại. `/report-done` vẫn đóng DONE; dashboard create giữ hành vi trước đó. Không đụng khóa Proxy Reg, không đổi schema/payload/auth.
+
+Đã tái hiện test thất bại trước sửa (locked_by vẫn phone-a). `npm run test:email-otp-report-lock --prefix backend` PASS 8 nhóm trên DB tạm, HTTP API/auth thật: own-lock release, same-device exclusion, concurrent claim chỉ cấp một lần, replay không mở khóa máy mới, owner isolation, invalid input giữ khóa, report-done và first-time report. Syntax/diff check PASS. Không seed, không đọc/ghi account thật hoặc DB production; chưa restart backend, commit/push/deploy.
+
 ## Cập nhật Proxy Reg — chuẩn hóa định dạng (2026-10-17)
 
 Proxy Reg tự chuyển `host:port:user:pass` thành `user:pass@host:port` khi đọc/lưu settings, loại trùng sau chuyển đổi. Dữ liệu đã lưu trước đó được chuẩn hóa khi đọc, không cần migration; phone allocate nhận định dạng mới, SOCKS5 và proxy key không đổi. UI dùng response settings để hiển thị danh sách đã chuẩn hóa ngay sau lưu và cập nhật baseline tránh báo dirty sai. Không ảnh hưởng pool Proxy Check/Login.

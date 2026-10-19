@@ -62,7 +62,7 @@ const serializeForPhone = (row) => {
   return data;
 };
 
-const saveReport = async ({ owner_username, payload, source = 'PURCHASED' }) => {
+const saveReport = async ({ owner_username, payload, source = 'PURCHASED', releaseOwnLock = false }) => {
   if (!payload.site) throw Object.assign(new Error('Can truyen site'), { statusCode: 400 });
   if (!payload.gmail) throw Object.assign(new Error('Gmail khong hop le'), { statusCode: 400 });
   if (!payload.order_id) throw Object.assign(new Error('Can truyen id_oder'), { statusCode: 400 });
@@ -109,7 +109,8 @@ const saveReport = async ({ owner_username, payload, source = 'PURCHASED' }) => 
 
     // So lan duoc tinh theo so request bao cao: ban ghi moi = 1, moi lan gui lai +1.
     const nextCount = (Number(order.use_count) || 0) + 1;
-    const refreshOwnLock = payload.device_id && order.locked_by === payload.device_id;
+    // Only the reporting phone may release its current lock, under the row lock above.
+    const ownsLock = payload.device_id && order.locked_by === payload.device_id;
     await order.update({
       gmail: payload.gmail,
       otp_history: appendOtpHistory(order.otp_history, payload.otp_history),
@@ -117,7 +118,9 @@ const saveReport = async ({ owner_username, payload, source = 'PURCHASED' }) => 
       status: 'PENDING',
       source_device_id: order.source_device_id || payload.device_id,
       ...(payload.device_id ? { last_used_at: new Date() } : {}),
-      ...(refreshOwnLock ? { locked_at: new Date() } : {}),
+      ...(ownsLock ? (releaseOwnLock
+        ? { locked_by: null, locked_at: null }
+        : { locked_at: new Date() }) : {}),
     }, { transaction });
     return { order, created, new_device_use: newDeviceUse };
   });
@@ -127,7 +130,7 @@ const reportFromPhone = async (req, res, next) => {
   try {
     const payload = payloadFromRequest(req);
     if (!payload.device_id) return error(res, 'Can truyen device_id de tranh may lay lai Email da dung', 400);
-    const result = await saveReport({ owner_username: ownerFromRequest(req), payload });
+    const result = await saveReport({ owner_username: ownerFromRequest(req), payload, releaseOwnLock: true });
     return success(res, {
       email: serialize(result.order),
       created: result.created,

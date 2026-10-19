@@ -29,6 +29,7 @@
     "test:device-manager:ui": "node scripts/testDeviceManager.js --ui",
     "test:reg-proxy-settings": "node scripts/testRegProxySettings.js",
     "test:reg-proxy-leases": "node scripts/testRegProxyLeases.js",
+    "test:email-otp-report-lock": "node scripts/testEmailOtpReportLock.js",
     "migrate:reg-proxy-leases": "node scripts/migrateRegProxyLeases.js --apply",
     "migrate:instagram-credentials": "node scripts/migrateInstagramCredentials.js --apply",
     "test:instagram-credentials": "node scripts/testInstagramCredentials.js"
