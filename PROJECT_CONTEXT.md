@@ -1,5 +1,13 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Email OTP tự đóng sau 5 lần — 2026-10-19
+
+Email OTP có ngưỡng cố định MAX_EMAIL_USES=5. saveReport vẫn tăng use_count mỗi báo cáo hợp lệ theo cơ chế cũ (không dựa vào solan client); count mới >=5 chuyển DONE/Đã đóng và xóa locked_by/locked_at ngay trong transaction/row lock. Report đến muộn không mở lại email DONE, kể cả email đóng thủ công trước ngưỡng. Dưới 5 giữ mở khóa đúng máy như bản sửa trước.
+
+getForPhone chỉ cấp/resume PENDING với use_count<5; trước khi cấp, đóng PENDING >=5 của owner hiện tại (gồm dữ liệu cũ hoặc được đặt lại Pending), xóa khóa trong transaction. Không backfill toàn DB hoặc sửa schema. Report/dashboard save dùng cùng ngưỡng; UI đã có nhãn DONE = Đã đóng nên không sửa frontend.
+
+Test email-otp-report-lock PASS 12 nhóm trên DB tạm/HTTP API, thêm biên 4→5, không cấp sau đóng, concurrent late reports giữ DONE/counter, dữ liệu cũ >=5 không resume/cấp mới, owner isolation và DONE thủ công không mở lại. Syntax/diff check PASS. Không seed/ghi DB production; chưa restart backend, commit/push/deploy cho lượt ngưỡng 5 này.
+
 ## Email OTP report mở khóa — 2026-10-19
 
 Sửa POST `/api/email-otps/report`: trước đây saveReport gia hạn locked_at và giữ locked_by khi máy giữ khóa báo cáo; nay reportFromPhone bật releaseOwnLock để xóa cả hai field trong cùng transaction/row lock sau lưu báo cáo thành công. Chỉ mở khóa của đúng device đang giữ email và owner đã xác thực; report từ máy cũ không mở khóa của máy mới. Giữ trạng thái PENDING, lịch sử OTP, tăng use_count mỗi report và lịch sử device-use chống máy đã dùng lấy lại. `/report-done` vẫn đóng DONE; dashboard create giữ hành vi trước đó. Không đụng khóa Proxy Reg, không đổi schema/payload/auth.

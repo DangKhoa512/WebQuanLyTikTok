@@ -123,6 +123,53 @@ let passed = 0;
   assert.equal(purchased.body.data.email.locked_by, null);
   assert.equal(purchased.body.data.email.solan, 1);
   passed += 1;
+
+  // The fifth report closes the email atomically and removes its device lock.
+  await Order.update({ status: 'PAUSED' }, { where: { owner_username: 'email_owner_a', status: 'PENDING' } });
+  const capped = await Order.create({ owner_username: 'email_owner_a', site: payload.site,
+    order_id: 'capped-order', gmail: 'capped@example.com', use_count: 3, locked_by: 'phone-cap', locked_at: new Date() });
+  const capPayload = { ...payload, id_oder: capped.order_id, gmail: capped.gmail, device_id: 'phone-cap' };
+  const fourth = await request('report', capPayload);
+  assert.equal(fourth.body.data.email.solan, 4);
+  assert.equal(fourth.body.data.email.status, 'PENDING');
+  const capClaim = await request('get', { device_id: 'phone-cap-next' });
+  assert.equal(capClaim.body.data.email.id, capped.id);
+  const fifth = await request('report', { ...capPayload, device_id: 'phone-cap-next' });
+  assert.equal(fifth.status, 200);
+  assert.equal(fifth.body.data.email.solan, 5);
+  assert.equal(fifth.body.data.email.status, 'DONE');
+  assert.equal(fifth.body.data.email.locked_by, null);
+  assert.equal(fifth.body.data.email.locked_at, null);
+  assert.equal((await request('get', { device_id: 'phone-after-cap' })).body.data.email, null);
+  passed += 1;
+
+  // Concurrent late reports keep DONE and do not lose the request counter increments.
+  const lateReports = await Promise.all([request('report', capPayload), request('report', capPayload)]);
+  assert(lateReports.every((entry) => entry.status === 200 && entry.body.data.email.status === 'DONE'));
+  await capped.reload();
+  assert.equal(capped.use_count, 7);
+  assert.equal(capped.locked_by, null);
+  passed += 1;
+
+  // Legacy PENDING data at/above five uses cannot be resumed or newly allocated.
+  for (const [count, device] of [[5, 'phone-old'], [6, null]]) {
+    const old = await Order.create({ owner_username: 'email_owner_a', site: payload.site,
+      order_id: `old-${count}`, gmail: 'old@example.com', use_count: count,
+      locked_by: device, locked_at: device ? new Date() : null });
+    assert.equal((await request('get', { device_id: device || 'phone-fresh' })).body.data.email, null);
+    await old.reload();
+    assert.equal(old.status, 'DONE');
+    assert.equal(old.locked_by, null);
+    assert.equal(old.locked_at, null);
+  }
+  await otherOrder.reload();
+  assert.equal(otherOrder.status, 'PENDING');
+  assert.equal(otherOrder.locked_by, currentDevice);
+  passed += 1;
+
+  // A later report must not reopen an email explicitly finalized before five uses.
+  assert.equal((await request('report', payload)).body.data.email.status, 'DONE');
+  passed += 1;
   console.log(`Email OTP report lock: ${passed} groups PASS (temporary database)`);
 })().catch((err) => {
   console.error(err.stack);

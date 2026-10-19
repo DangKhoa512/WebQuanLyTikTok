@@ -6,6 +6,7 @@ const { success, error } = require('../utils/response');
 const { ownerFromAdmin, ownerFromRequest } = require('../utils/owner');
 
 const STATUSES = ['PENDING', 'PAUSED', 'DONE'];
+const MAX_EMAIL_USES = 5;
 const LOCK_TIMEOUT_MIN = parseInt(process.env.EMAIL_OTP_LOCK_TIMEOUT_MIN, 10) || 30;
 
 const nullify = (value) => {
@@ -109,16 +110,17 @@ const saveReport = async ({ owner_username, payload, source = 'PURCHASED', relea
 
     // So lan duoc tinh theo so request bao cao: ban ghi moi = 1, moi lan gui lai +1.
     const nextCount = (Number(order.use_count) || 0) + 1;
+    const closed = nextCount >= MAX_EMAIL_USES || order.status === 'DONE';
     // Only the reporting phone may release its current lock, under the row lock above.
     const ownsLock = payload.device_id && order.locked_by === payload.device_id;
     await order.update({
       gmail: payload.gmail,
       otp_history: appendOtpHistory(order.otp_history, payload.otp_history),
       use_count: nextCount,
-      status: 'PENDING',
+      status: closed ? 'DONE' : 'PENDING',
       source_device_id: order.source_device_id || payload.device_id,
       ...(payload.device_id ? { last_used_at: new Date() } : {}),
-      ...(ownsLock ? (releaseOwnLock
+      ...(closed ? { locked_by: null, locked_at: null } : ownsLock ? (releaseOwnLock
         ? { locked_by: null, locked_at: null }
         : { locked_at: new Date() }) : {}),
     }, { transaction });
@@ -163,6 +165,11 @@ const getForPhone = async (req, res, next) => {
     }
 
     const now = new Date();
+    // Apply the limit to old data and manually reopened orders before any resume/claim.
+    await EmailOtpOrder.update({ status: 'DONE', locked_by: null, locked_at: null }, {
+      where: { owner_username, status: 'PENDING', use_count: { [Op.gte]: MAX_EMAIL_USES } },
+      transaction,
+    });
     const expiredAt = new Date(now.getTime() - LOCK_TIMEOUT_MIN * 60 * 1000);
     await EmailOtpOrder.update({ locked_by: null, locked_at: null }, {
       where: { owner_username, status: 'PENDING', locked_at: { [Op.lt]: expiredAt } },
@@ -171,7 +178,7 @@ const getForPhone = async (req, res, next) => {
 
     // May goi lai trong thoi gian lock luon nhan dung Email dang su dung.
     const active = await EmailOtpOrder.findOne({
-      where: { owner_username, status: 'PENDING', locked_by: device_id },
+      where: { owner_username, status: 'PENDING', locked_by: device_id, use_count: { [Op.lt]: MAX_EMAIL_USES } },
       order: [['locked_at', 'DESC'], ['id', 'DESC']],
       transaction,
       lock: transaction.LOCK.UPDATE,
@@ -193,6 +200,7 @@ const getForPhone = async (req, res, next) => {
         owner_username,
         status: 'PENDING',
         locked_by: null,
+        use_count: { [Op.lt]: MAX_EMAIL_USES },
         [Op.and]: literal(`NOT EXISTS (SELECT 1 FROM email_otp_device_uses AS used_email WHERE used_email.email_order_id = EmailOtpOrder.id AND used_email.device_id = ${escapedDevice})`),
       },
       order: [['last_used_at', 'ASC'], ['id', 'ASC']],
