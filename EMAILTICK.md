@@ -1,5 +1,11 @@
 # EmailTick: VPS provider integration
 
+## Getcode dùng proxy (đối soát 2026-10-19)
+
+Cả GET `/api/emailtick/code` và `/api/mail/code` cho EmailTick đều dùng Proxy Check/Login của owner qua emailTickMailboxService.getCode → createOwnerEmailTickService → getEmails. Proxy lỗi kết nối/timeout được thay trong giới hạn đã mô tả bên dưới; hết pool lỗi trả EMAILTICK_PROXY_UNAVAILABLE, không chuyển direct hoặc đánh dấu mailbox EXPIRED. Upstream429/challenge vẫn trả đúng lỗi, không xoay proxy để thử tiếp.
+
+Proxy được chọn lại từ pool khi bắt đầu mỗi request getcode; chưa lưu liên kết cố định mailbox→proxy qua các request. Kiểm thử API riêng/common đã nhận OTP qua failover, giữ số0 đầu và chống trả lại OTP đã claim, với provider/network stub và DB tạm. Đây không phải nghiệm thu OTP thực tế trên VPS.
+
 ## Proxy Check/Login theo user (2026-10-19)
 
 EmailTick dùng pool Proxy Check/Login trong Cài đặt chung của owner đã xác thực, áp dụng cho tạo mailbox, activate và đọc inbox qua cả `/api/emailtick/*` và `/api/mail/*`. Không dùng pool Proxy Reg hoặc proxy do phone truyền vào. Pool được đọc ngoài transaction; kiểm tra owner mailbox trước khi đọc inbox/lấy cấu hình. Proxy đã hoạt động được dùng tiếp cho activate trong cùng lượt API; lượt API sau chọn điểm bắt đầu ngẫu nhiên từ pool hiện tại.

@@ -1,5 +1,11 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Đối soát proxy riêng cho getcode EmailTick — 2026-10-19
+
+User yêu cầu getcode cũng dùng proxy như getmail. Kiểm tra xác nhận code từ commit6132ca5 đã thực hiện: emailTickMailboxService.getCode kiểm tra mailbox theo owner rồi tạo activeProvider qua createOwnerEmailTickService, gọi getEmails qua cùng transport/proxy pool. `/api/mail/code` cho EmailTick chuyển vào cùng service; không có nhánh direct riêng khi đã cấu hình pool. Lượt getcode chọn proxy từ pool hiện tại của owner, chưa bảo đảm giữ nguyên proxy cụ thể đã tạo mailbox qua các request/process. Chưa có bằng chứng provider yêu cầu giữ cùng IP.
+
+Bổ sung regression HTTP/API trên DB tạm/provider stub cho cả `/api/emailtick/code` và `/api/mail/code`: proxy đầu timeout, proxy thứ hai trả RECEIVED với OTP giữ số0 đầu; không lấy lại OTP đã claim; owner sai không gọi upstream; pool getcode chết hết trả EMAILTICK_PROXY_UNAVAILABLE, không direct và giữ mailbox ACTIVE. Không log OTP/credential. Test emailtick unit/proxy/integration PASS, syntax/diff check PASS. Không đổi production logic vì getcode đã dùng proxy; không thử OTP/proxy thật trên VPS. Test/doc lượt đối soát chưa commit/push.
+
 ## EmailTick qua Proxy Check/Login của owner — 2026-10-19
 
 User xác nhận dùng pool Proxy Check/Login, không dùng Proxy Reg. emailTickMailboxService tạo provider theo owner đã auth cho create/activate/inbox (kiểm tra owner mailbox trước inbox); cả legacy emailtick và API mail chung đều áp dụng. settingsService có tùy chọn strict cho getter proxy: JSON/settings hỏng không biến thành direct; hành vi mặc định của module khác giữ nguyên. Không nhận proxy/owner từ body phone.

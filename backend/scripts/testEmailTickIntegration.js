@@ -101,10 +101,37 @@ for(const key of ['info','warn','error','debug']){oldLogs[key]=logger[key];logge
   assert.equal(common.status,200);assert(proxyCalls.slice(3).every(call=>call.hostname==='192.0.2.20'));
   let before=proxyCalls.length;
   assert.equal((await request('/code?mailbox_id='+proxyMailbox,undefined,other.username)).status,404);assert.equal(proxyCalls.length,before);
-  assert.equal((await request('/code?mailbox_id='+proxyMailbox)).status,200);assert(['192.0.2.10','192.0.2.11'].includes(proxyCalls.at(-1).hostname));
+  // Getcode must also fail over a dead proxy and preserve the leading-zero OTP.
+  failFirst=true;
+  emails=[{code:'proxy-otp-legacy',fromName:'Instagram',subject:'000012 is your Instagram code',time:Math.floor(Date.now()/1000)}];
+  before=proxyCalls.length;
+  const legacyOtp=await request('/code?mailbox_id='+proxyMailbox);
+  assert.equal(legacyOtp.status,200);
+  assert.deepEqual(legacyOtp.data,{success:true,status:'RECEIVED',code:'000012'});
+  const legacyProxyCalls=proxyCalls.slice(before);
+  assert.equal(legacyProxyCalls.length,2);
+  assert(legacyProxyCalls.every(call=>call.path==='/get-emails'&&['192.0.2.10','192.0.2.11'].includes(call.hostname)));
+  assert.notEqual(legacyProxyCalls[0].hostname,legacyProxyCalls[1].hostname);
   await require('../src/models/GhostInboxMailbox').sync({logging:false});
+  failFirst=true;
+  emails=[{code:'proxy-otp-common',fromName:'Instagram',subject:'000013 is your Instagram code',time:Math.floor(Date.now()/1000)}];
+  before=proxyCalls.length;
   const commonInbox=await fetch(base+'/api/mail/code?mailbox_id='+proxyMailbox,{headers:{'x-api-key':owner.username}});
-  assert.equal(commonInbox.status,200);assert(['192.0.2.10','192.0.2.11'].includes(proxyCalls.at(-1).hostname));
+  assert.equal(commonInbox.status,200);
+  assert.deepEqual(await commonInbox.json(),{success:true,status:'RECEIVED',code:'000013'});
+  const commonProxyCalls=proxyCalls.slice(before);
+  assert.equal(commonProxyCalls.length,2);
+  assert(commonProxyCalls.every(call=>call.path==='/get-emails'&&['192.0.2.10','192.0.2.11'].includes(call.hostname)));
+  assert.notEqual(commonProxyCalls[0].hostname,commonProxyCalls[1].hostname);
+  assert.equal((await request('/code?mailbox_id='+proxyMailbox)).data.status,'WAITING','Proxy failover must not replay claimed OTP');
+  // Exhausting the inbox proxy pool neither falls back direct nor expires a valid mailbox.
+  allDead=true;before=proxyCalls.length;
+  const deadInbox=await request('/code?mailbox_id='+proxyMailbox);
+  assert.equal(deadInbox.status,502);assert.equal(deadInbox.data.error,'EMAILTICK_PROXY_UNAVAILABLE');
+  assert.equal(proxyCalls.length,before+2);
+  assert.equal((await Mailbox.unscoped().findOne({where:{mailbox_id:proxyMailbox},logging:false})).status,'ACTIVE');
+  allDead=false;
+  assert(!JSON.stringify(logs).includes('000012'));assert(!JSON.stringify(logs).includes('000013'));
   // A malformed stored setting must not silently enable direct access.
   const Setting=require('../src/models/AppSetting');
   await Setting.update({setting_value:'not-json'},{where:{owner_username:owner.username,setting_key:'facebook_check_proxies'}});
