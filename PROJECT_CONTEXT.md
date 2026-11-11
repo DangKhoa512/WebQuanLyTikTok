@@ -1,5 +1,11 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Facebook Job Die: cấp một account và khóa theo phone — 2026-11-11
+
+Thay thế quy tắc lấy toàn bộ danh sách ở phần dưới: GET/POST `/job/die-accounts` giữ response data dạng mảng, tối đa một account hoặc []. Transaction khóa các row Die đúng owner/phone theo ID để serialize các request đồng thời; resume account có locked_by đúng phone, nếu chưa có chọn account không khóa/không reg Page/không nuôi rồi ghi locked_by+locked_at. Get lặp trước report trả lại account hiện tại, không cấp thêm. Không tự hết hạn khóa trong luồng này. `/job/report-die` chỉ chuyển Die khi đúng phone giữ khóa, xóa khóa và chuyển DANG_KHANG; replay khi đang kháng không tác động account kế tiếp. Get sau report cấp Die kế tiếp, loại DANG_KHANG. Không đổi schema/frontend/check-live/các API khác. Hợp đồng: FACEBOOK_JOB_APPEAL.md.
+
+Kiểm tra test:facebook-appeal PASS trên DB tạm/Facebook stub: thêm concurrent get chỉ một claim, resume, report account chưa claim409, get tiếp sau report, hết pool khi toàn bộ đang kháng, không lấy khóa máy khác và replay không mở khóa account tiếp theo; giữ các ca hồi quy Live/Die/Unknown/owner/phone/trash/stale-check. Node syntax và git diff --check PASS. Không ghi DB đang dùng/seed/gọi Facebook thật; chưa commit/push/restart/deploy lượt này.
+
 ## Facebook Job: Die → Đang Kháng → check live — 2026-11-11
 
 Thêm GET/POST `/api/facebook/job/die-accounts` nhận device_id, trả mảng account Die chưa trash của đúng owner/phone/kind job; không claim hoặc đổi trạng thái. POST `/api/facebook/job/report-die` nhận device_id+uid, row lock/transaction chuyển ACCOUNT_DIE sang DANG_KHANG, giữ phone và giải phóng khóa account/reg Page/nuôi. Report lặp khi DANG_KHANG idempotent; trạng thái khác409, sai owner/phone/kind hoặc trash404. Hai API apiKeyAuth, no-store, không nhận owner từ client. Chi tiết hợp đồng: FACEBOOK_JOB_APPEAL.md.

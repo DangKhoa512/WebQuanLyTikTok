@@ -53,8 +53,13 @@ const originalGet = axios.get;
   const ready = await make('ready', { status: 'LOGIN_THANH_CONG', live_status: 'live' });
   const listing = await request('job/die-accounts?device_id=phone-a');
   assert.equal(listing.status, 200);
-  assert.deepEqual(listing.body.data.map(a => a.uid), [live.uid, dead.uid, unknown.uid]);
-  assert.equal((await request('job/die-accounts', { device_id: 'phone-a' })).body.data.length, 3);
+  assert.deepEqual(listing.body.data.map(a => a.uid), [live.uid]);
+  assert.equal(listing.body.data[0].locked_by, 'phone-a');
+  assert(listing.body.data[0].locked_at);
+  const get = () => request('job/die-accounts', { device_id: 'phone-a' });
+  const concurrentGets = await Promise.all(Array.from({ length: 4 }, get));
+  assert(concurrentGets.every(r => r.status === 200 && r.body.data.length === 1 && r.body.data[0].uid === live.uid));
+  assert.equal(await Account.count({ where: { owner_username: 'appeal_a', device_id: 'phone-a', locked_by: 'phone-a' } }), 1);
   assert.equal((await request('job/die-accounts')).status, 400);
   assert.equal((await request('job/die-accounts', {}, '')).status, 401);
   const report = (uid, extra = {}, owner) => request('job/report-die', { uid, device_id: 'phone-a', ...extra }, owner);
@@ -63,6 +68,7 @@ const originalGet = axios.get;
   assert.equal((await report('reg-only')).status, 404);
   assert.equal((await report('trash')).status, 404);
   assert.equal((await report(ready.uid)).status, 409);
+  assert.equal((await report(dead.uid)).status, 409); // not acquired yet
   assert.equal((await request('job/report-die', { device_id: 'phone-a' })).status, 400);
   await live.update({ locked_by: 'phone-a', locked_at: new Date(), reg_page_locked_by: 'phone-a',
     nurture_status: 'DANG_NUOI', nurture_locked_by: 'phone-a', nurture_run_id: 'fixture-run' });
@@ -75,8 +81,21 @@ const originalGet = axios.get;
   assert.equal(live.locked_by, null);
   assert.equal(live.reg_page_locked_by, null);
   assert.equal(live.nurture_run_id, null);
-  await report(dead.uid);
-  await report(unknown.uid);
+  assert.equal((await get()).body.data[0].uid, dead.uid);
+  // Replaying a completed report does not release the next claim.
+  assert.equal((await report(live.uid)).body.data.already_reported, true);
+  await dead.reload(); assert.equal(dead.locked_by, 'phone-a');
+  assert.equal((await report(dead.uid)).status, 200);
+  assert.equal((await get()).body.data[0].uid, unknown.uid);
+  assert.equal((await report(unknown.uid)).status, 200);
+  assert.deepEqual((await get()).body.data, []); // DANG_KHANG is never reissued
+  // Never steal a lock held by a different device or another workflow.
+  const blocked = await make('blocked', { locked_by: 'phone-b', locked_at: new Date() });
+  assert.deepEqual((await get()).body.data, []);
+  assert.equal((await report(blocked.uid)).status, 409);
+  await blocked.reload(); assert.equal(blocked.locked_by, 'phone-b');
+  const phoneB = await request('job/die-accounts', { device_id: 'phone-b' });
+  assert.equal(phoneB.body.data[0].uid, 'other-phone');
   axios.get = async url => {
     assert(url.startsWith('https://graph.facebook.com/'));
     if (url.includes('fixture-live')) return { status: 200, data: { data: { width: 100, height: 100 } } };
@@ -103,9 +122,10 @@ const originalGet = axios.get;
   await check([ready.id]); await ready.reload();
   assert.equal(ready.status, 'ACCOUNT_DIE'); assert.equal(ready.trashed_at, null);
   // A delayed check started before phone report cannot trash the newly pending appeal.
-  const race = await make('race');
+  const race = await make('race', { device_id: 'phone-race' });
+  assert.equal((await request('job/die-accounts', { device_id: 'phone-race' })).body.data[0].uid, race.uid);
   axios.get = async () => {
-    assert.equal((await report(race.uid)).status, 200);
+    assert.equal((await report(race.uid, { device_id: 'phone-race' })).status, 200);
     return { status: 404, data: {} };
   };
   const stale = await check([race.id]);

@@ -12,7 +12,9 @@ Hoặc `POST /api/facebook/job/die-accounts`:
 { "device_id": "phone-example" }
 ```
 
-`data` là mảng tài khoản trạng thái `ACCOUNT_DIE`, sắp theo ID tăng dần; không có tài khoản trả `[]`. Dùng định dạng account hiện có, gồm UID và dữ liệu đăng nhập phục vụ phone. API không đổi trạng thái hoặc khóa tài khoản. Dữ liệu có credential nên client không ghi response vào log.
+`data` giữ định dạng mảng nhưng chỉ có **tối đa một tài khoản** `ACCOUNT_DIE`; hết tài khoản khả dụng trả `[]`. API dùng transaction/row lock để chọn theo ID tăng dần và đặt `locked_by=device_id`, `locked_at`. Mỗi phone chỉ xử lý một account tại một thời điểm. Gọi lại trước khi report trả cùng account đang khóa (resume), không cấp thêm account; request đồng thời cũng không cấp hai account khác nhau. Không lấy account đang khóa bởi máy khác, đang reg Page hoặc đang nuôi. Khóa giữ đến khi report thành công, không tự bỏ qua account đang xử lý.
+
+Sau report, lần gọi get kế tiếp nhận account Die tiếp theo; account `DANG_KHANG` không nằm trong pool cấp. Dùng định dạng account hiện có, gồm UID và dữ liệu đăng nhập phục vụ phone. Dữ liệu có credential nên client không ghi response vào log.
 
 ## Báo cáo đã kháng
 
@@ -22,11 +24,11 @@ Hoặc `POST /api/facebook/job/die-accounts`:
 { "device_id": "phone-example", "uid": "fixture-facebook-uid" }
 ```
 
-Chuyển `ACCOUNT_DIE` → `DANG_KHANG`, giữ phone, giải phóng khóa account/reg Page/nuôi trong transaction với row lock. Báo cáo lại khi còn `DANG_KHANG` trả thành công với `already_reported: true`. `data` gồm `account` và `already_reported`.
+Chuyển `ACCOUNT_DIE` → `DANG_KHANG` khi account đang được khóa bởi đúng phone, giữ phone, giải phóng khóa account/reg Page/nuôi trong transaction với row lock. Báo cáo lại khi còn `DANG_KHANG` trả thành công với `already_reported: true`, không mở khóa account kế tiếp. `data` gồm `account` và `already_reported`. Sau báo cáo, phone gọi get để lấy account tiếp theo.
 
 - Thiếu hoặc quá dài UID/device: HTTP 400.
 - Sai owner/phone/kind, không tồn tại hoặc đã vào thùng rác: HTTP 404.
-- Account ở trạng thái khác: HTTP 409; không chuyển lại sang Đang Kháng sau khi đã được check thành công.
+- Account ở trạng thái khác hoặc chưa được phone giữ khóa: HTTP 409; không chuyển lại sang Đang Kháng sau khi đã được check thành công.
 - Chưa xác thực: HTTP 401.
 
 ## Check live trên dashboard

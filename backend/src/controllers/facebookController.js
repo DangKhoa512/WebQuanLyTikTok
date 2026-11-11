@@ -976,17 +976,26 @@ const listDeviceAccounts = async (req, res, next) => {
     next(err);
   }
 };
-// Die accounts stay assigned to their phone; listing does not claim or change them.
+// Serialize acquisition for this phone so concurrent requests cannot claim different accounts.
 const listDieAccountsForPhone = async (req, res, next) => {
   try {
     const device_id = nullify(req.body?.device_id || req.query.device_id);
     if (!device_id || device_id.length > 255) return error(res, 'Can truyen device_id hop le', 400);
-    const accounts = await FacebookAccount.findAll({
-      where: { owner_username: ownerFromRequest(req), kind: 'job', device_id, status: 'ACCOUNT_DIE' },
-      order: [['id', 'ASC']],
+    const account = await sequelize.transaction(async (transaction) => {
+      const accounts = await FacebookAccount.findAll({
+        where: { owner_username: ownerFromRequest(req), kind: 'job', device_id, status: 'ACCOUNT_DIE' },
+        order: [['id', 'ASC']], transaction, lock: transaction.LOCK.UPDATE,
+      });
+      // Resume the current claim until report-die finishes; do not advance on repeated get.
+      const current = accounts.find((row) => row.locked_by === device_id);
+      if (current) return current;
+      const nextAccount = accounts.find((row) => !row.locked_by && !row.reg_page_locked_by && row.nurture_status !== 'DANG_NUOI');
+      if (!nextAccount) return null;
+      await nextAccount.update({ locked_by: device_id, locked_at: new Date() }, { transaction });
+      return nextAccount;
     });
     res.set('Cache-Control', 'no-store');
-    return success(res, accounts.map(serialize), 'Danh sach Facebook Job Die cua may');
+    return success(res, account ? [serialize(account)] : [], account ? 'Account Facebook Job Die dang khoa cho may' : 'Khong con account Facebook Job Die kha dung');
   } catch (err) { next(err); }
 };
 
@@ -1005,6 +1014,7 @@ const reportDieAccountForPhone = async (req, res, next) => {
       if (!account) return { code: 404 };
       if (account.status === 'DANG_KHANG') return { account, already_reported: true };
       if (account.status !== 'ACCOUNT_DIE') return { code: 409 };
+      if (account.locked_by !== device_id) return { code: 409 };
       await account.update({
         status: 'DANG_KHANG', status_before_die: null,
         locked_by: null, locked_at: null,
