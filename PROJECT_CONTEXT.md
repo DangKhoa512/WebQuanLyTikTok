@@ -1,5 +1,13 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Facebook Job: Die → Đang Kháng → check live — 2026-11-11
+
+Thêm GET/POST `/api/facebook/job/die-accounts` nhận device_id, trả mảng account Die chưa trash của đúng owner/phone/kind job; không claim hoặc đổi trạng thái. POST `/api/facebook/job/report-die` nhận device_id+uid, row lock/transaction chuyển ACCOUNT_DIE sang DANG_KHANG, giữ phone và giải phóng khóa account/reg Page/nuôi. Report lặp khi DANG_KHANG idempotent; trạng thái khác409, sai owner/phone/kind hoặc trash404. Hai API apiKeyAuth, no-store, không nhận owner từ client. Chi tiết hợp đồng: FACEBOOK_JOB_APPEAL.md.
+
+Check-live dashboard với job DANG_KHANG: live → LOGIN_THANH_CONG/login_at mới/reset lỗi+khóa; die → ACCOUNT_DIE và trashed_at (không xóa vĩnh viễn); unknown giữ đang kháng. Network ngoài transaction; reload row lock/snapshot status+updated_at trước ghi, bỏ kết quả stale khi report/trash/thay đổi trong lúc check. Luồng check tài khoản chưa kháng giữ quy tắc cũ. Frontend thêm tab/nhãn/màu Đang Kháng. Model và runtime migration server.js mở rộng ENUM; cần restart backend mới và kiểm tra migration thành công trước dùng API. Chưa chạy migration/restart local hoặc VPS trong lượt này.
+
+Kiểm tra: test:facebook-appeal PASS trên MySQL tạm/HTTP API thật/Facebook stub, gồm auth/owner/phone/kind/trash, concurrent report idempotency, Live/Die/Unknown, legacy và stale check trước report. Backend syntax và git diff --check PASS. Frontend production build PASS ngoài sandbox sau lỗi esbuild bị chặn đọc thư mục cha; còn cảnh báo bundle lớn cũ. Không gọi Facebook thật/seed/ghi DB đang dùng; chưa commit/push/deploy hoặc kiểm tra trình duyệt trực tiếp.
+
 ## Giữ UA/proxy theo mailbox EmailTick — 2026-10-19
 
 User chạy VPS fresh CREATE→ACTIVATE→GETCODE trên cùng provider, tất cả200; mailbox cũ getcode400 Invalid request dù có proxy và code. Kết quả hỗ trợ giả thuyết context nhưng chưa chứng minh IP/UA là nguyên nhân duy nhất. Đã sửa mailbox mới lưu transport_context JSON nullable gồm version/UA/proxy_keySHA256 sau activate thành công. Không lưu credential proxy vào mailbox; API/default scope ẩn context. getcode cả hai route giữ UA và chọn lại proxy theo hash từ đúng owner pool, bền qua instance/restart/poolreorder. Failover thành công mới ghi context thay thế; compare snapshot dưới row lock tránh poll cũ ghi đè context mới; OTP claim/owner isolation giữ nguyên.

@@ -373,7 +373,7 @@ const startServer = async () => {
     }
 
     try {
-      await sequelize.query("ALTER TABLE facebook_accounts MODIFY COLUMN status ENUM('CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE') NOT NULL DEFAULT 'CHO_LOGIN'");
+      await sequelize.query("ALTER TABLE facebook_accounts MODIFY COLUMN status ENUM('CHO_LOGIN','DANG_LOGIN','DANG_LAM','LOGIN_THANH_CONG','LOGIN_FAIL','DA_CHAY_XONG','ACCOUNT_DIE','DANG_KHANG') NOT NULL DEFAULT 'CHO_LOGIN'");
       logger.info('facebook_accounts status enum ready');
     } catch (e) {
       logger.warn('Migration facebook_accounts status enum skipped:', e.message);

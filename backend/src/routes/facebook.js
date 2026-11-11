@@ -13,6 +13,9 @@ router.post('/nurture/targets/report', apiKeyAuth, crossTargets.reportTargets('F
 router.post('/import-api', apiKeyAuth, controller.importFromApi);
 router.post('/reg/report', apiKeyAuth, controller.reportRegOnly);
 router.post('/job/get-account', apiKeyAuth, controller.getJobForPhone);
+router.get('/job/die-accounts', apiKeyAuth, controller.listDieAccountsForPhone);
+router.post('/job/die-accounts', apiKeyAuth, controller.listDieAccountsForPhone);
+router.post('/job/report-die', apiKeyAuth, controller.reportDieAccountForPhone);
 router.all('/job/device-account-count', apiKeyAuth, controller.checkDeviceAccountCount);
 router.all('/job/check-limit', apiKeyAuth, controller.checkDeviceAccountCount);
 router.all('/job/device-accounts', apiKeyAuth, controller.listDeviceAccounts);

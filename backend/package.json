@@ -4,6 +4,7 @@
   "description": "MMO Manager Backend API",
   "main": "src/server.js",
   "scripts": {
+    "test:facebook-appeal": "node scripts/testFacebookAppeal.js",
     "migrate:round-robin": "node scripts/migrateRoundRobin.js --apply",
     "test:round-robin": "node scripts/testRoundRobinIntegration.js --ui",
     "start": "node src/server.js",

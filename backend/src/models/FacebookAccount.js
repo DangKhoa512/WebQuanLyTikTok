@@ -90,7 +90,7 @@ const FacebookAccount = sequelize.define(
       allowNull: true,
     },
     status: {
-      type: DataTypes.ENUM('CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'),
+      type: DataTypes.ENUM('CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE', 'DANG_KHANG'),
       allowNull: false,
       defaultValue: 'CHO_LOGIN',
     },

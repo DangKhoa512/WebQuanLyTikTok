@@ -23,7 +23,7 @@ const { resetExpiredNurtureStates, resetExpiredPageJobStates } = require('../ser
 const { allocateFriendSuggestions } = require('../services/facebookFriendSuggestionService');
 const { parseProxy } = require('../utils/checkLiveUtils');
 
-const STATUSES = ['CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
+const STATUSES = ['CHO_LOGIN', 'DANG_LOGIN', 'DANG_LAM', 'LOGIN_THANH_CONG', 'LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE', 'DANG_KHANG'];
 const FINAL_STATUSES = ['LOGIN_FAIL', 'DA_CHAY_XONG', 'ACCOUNT_DIE'];
 const KINDS = ['reg', 'job'];
 const LOCK_TIMEOUT_MIN = parseInt(process.env.FACEBOOK_LOCK_TIMEOUT_MIN, 10) || 120;
@@ -976,6 +976,50 @@ const listDeviceAccounts = async (req, res, next) => {
     next(err);
   }
 };
+// Die accounts stay assigned to their phone; listing does not claim or change them.
+const listDieAccountsForPhone = async (req, res, next) => {
+  try {
+    const device_id = nullify(req.body?.device_id || req.query.device_id);
+    if (!device_id || device_id.length > 255) return error(res, 'Can truyen device_id hop le', 400);
+    const accounts = await FacebookAccount.findAll({
+      where: { owner_username: ownerFromRequest(req), kind: 'job', device_id, status: 'ACCOUNT_DIE' },
+      order: [['id', 'ASC']],
+    });
+    res.set('Cache-Control', 'no-store');
+    return success(res, accounts.map(serialize), 'Danh sach Facebook Job Die cua may');
+  } catch (err) { next(err); }
+};
+
+const reportDieAccountForPhone = async (req, res, next) => {
+  try {
+    const device_id = nullify(req.body.device_id);
+    const uid = nullify(req.body.uid);
+    if (!device_id || device_id.length > 255 || !uid || uid.length > 255) {
+      return error(res, 'Can truyen device_id va uid hop le', 400);
+    }
+    const outcome = await sequelize.transaction(async (transaction) => {
+      const account = await FacebookAccount.findOne({
+        where: { owner_username: ownerFromRequest(req), kind: 'job', device_id, uid },
+        transaction, lock: transaction.LOCK.UPDATE,
+      });
+      if (!account) return { code: 404 };
+      if (account.status === 'DANG_KHANG') return { account, already_reported: true };
+      if (account.status !== 'ACCOUNT_DIE') return { code: 409 };
+      await account.update({
+        status: 'DANG_KHANG', status_before_die: null,
+        locked_by: null, locked_at: null,
+        reg_page_locked_by: null, reg_page_locked_at: null,
+        nurture_status: account.nurture_status === 'DANG_NUOI' ? 'NUOI_FAIL' : account.nurture_status,
+        nurture_locked_by: null, nurture_locked_at: null, nurture_run_id: null,
+      }, { transaction });
+      return { account, already_reported: false };
+    });
+    if (outcome.code) return error(res, outcome.code === 404 ? 'Khong tim thay account Die cua may' : 'Account khong o trang thai Die', outcome.code);
+    res.set('Cache-Control', 'no-store');
+    return success(res, { account: serialize(outcome.account), already_reported: outcome.already_reported }, 'Account dang khang, cho check live');
+  } catch (err) { next(err); }
+};
+
 const getLoginSuccessJobForPhone = async (req, res, next) => {
   try {
     const owner_username = ownerFromRequest(req);
@@ -1654,24 +1698,51 @@ const checkLive = async (req, res, next) => {
     const rows = await mapWithConcurrency(accounts, actualConcurrency, async (account) => {
       try {
         const result = await checkFacebookUidLive(account.uid, proxyPool);
-        const updates = { live_status: result.status, last_live_check_at: new Date() };
-        let restoredStatus = null;
-        if (result.status === 'die' && account.status !== 'ACCOUNT_DIE') {
-          updates.status_before_die = account.status;
-          updates.status = 'ACCOUNT_DIE';
-        } else if (result.status === 'live') {
-          restoredStatus = restoreFacebookStatusAfterLive(account);
-          if (restoredStatus) {
-            updates.status = restoredStatus;
-            updates.status_before_die = null;
+        const saved = await sequelize.transaction(async (transaction) => {
+          const current = await FacebookAccount.findOne({
+            where: { id: account.id, owner_username }, transaction, lock: transaction.LOCK.UPDATE,
+          });
+          // Never apply a network result captured before a report, move or trash action.
+          if (!current || current.status !== account.status || current.updated_at.getTime() !== account.updated_at.getTime()) return null;
+          const updates = { live_status: result.status, last_live_check_at: new Date() };
+          let restoredStatus = null;
+          if (current.kind === 'job' && current.status === 'DANG_KHANG' && result.status !== 'unknown') {
+            Object.assign(updates, {
+              status: result.status === 'live' ? 'LOGIN_THANH_CONG' : 'ACCOUNT_DIE',
+              status_before_die: null, locked_by: null, locked_at: null,
+              reg_page_locked_by: null, reg_page_locked_at: null,
+              nurture_status: current.nurture_status === 'DANG_NUOI' ? 'NUOI_FAIL' : current.nurture_status,
+              nurture_locked_by: null, nurture_locked_at: null, nurture_run_id: null,
+              completed_at: result.status === 'live' ? null : new Date(),
+            });
+            if (result.status === 'live') {
+              restoredStatus = 'LOGIN_THANH_CONG';
+              updates.login_at = new Date();
+              updates.login_get_count = 0;
+              updates.fail_reason = null;
+            } else {
+              updates.trashed_at = new Date();
+            }
+          } else if (result.status === 'die' && account.status !== 'ACCOUNT_DIE') {
+            updates.status_before_die = account.status;
+            updates.status = 'ACCOUNT_DIE';
+          } else if (result.status === 'live') {
+            restoredStatus = restoreFacebookStatusAfterLive(account);
+            if (restoredStatus) {
+              updates.status = restoredStatus;
+              updates.status_before_die = null;
+            }
           }
-        }
-        await account.update(updates);
+          await current.update(updates, { transaction });
+          return { restoredStatus, trashed: Boolean(updates.trashed_at) };
+        });
+        if (!saved) return { id: account.id, uid: account.uid, result: 'unknown', reason: 'ACCOUNT_CHANGED_DURING_CHECK', proxy: maskProxy(result.proxy) };
         return {
           id: account.id,
           uid: account.uid,
           result: result.status,
-          restored_status: restoredStatus,
+          restored_status: saved.restoredStatus,
+          trashed: saved.trashed,
           reason: result.reason,
           http_status: result.http_status,
           error_code: result.error_code,
@@ -2836,6 +2907,8 @@ module.exports = {
   getJobForPhone,
   checkDeviceAccountCount,
   listDeviceAccounts,
+  listDieAccountsForPhone,
+  reportDieAccountForPhone,
   getLoginSuccessJobForPhone,
   report,
   checkLive,

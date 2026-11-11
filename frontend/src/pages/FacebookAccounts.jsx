@@ -17,6 +17,7 @@ const STATUS_TABS = [
   { value: 'LOGIN_FAIL', icon: '❌', label: 'Login fail', color: '#f97316' },
   { value: 'DA_CHAY_XONG', icon: '✅', label: 'Đã làm xong', color: '#10b981' },
   { value: 'ACCOUNT_DIE', icon: '💀', label: 'Die', color: '#6b7280' },
+  { value: 'DANG_KHANG', icon: '⏳', label: 'Đang Kháng', color: '#d97706' },
 ];
 
 const REG_TABS = [
@@ -40,6 +41,7 @@ const STATUS_COLOR = {
   LOGIN_FAIL: { bg: 'rgba(249,115,22,.15)', color: '#ea580c' },
   DA_CHAY_XONG: { bg: 'rgba(16,185,129,.15)', color: '#059669' },
   ACCOUNT_DIE: { bg: 'rgba(107,114,128,.16)', color: '#4b5563' },
+  DANG_KHANG: { bg: 'rgba(245,158,11,.15)', color: '#d97706' },
 };
 const LIVE_COLOR = { live: '#10b981', die: '#ef4444', unknown: '#94a3b8' };
 const pageJobLabel = (status) => status === 'DA_LAM' ? 'Đã làm' : status === 'DANG_LAM' ? 'Đang làm' : 'Chưa làm';
