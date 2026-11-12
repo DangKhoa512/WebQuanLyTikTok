@@ -4,7 +4,7 @@ function installMail(API,options){
  const client=factory(Object.assign({},options||{},{apiPath:'/api/mail',serviceParam:'service'}));
  const providers={};
  API._Mail_New=function(provider,types,randomCount){
-  const body={provider:provider};if(types!==undefined)body.types=types;if(randomCount!==undefined)body.random_count=randomCount;
+  const body={provider:provider};if(types!==undefined)body[provider==='GHOSTINBOX'?'mail_type':'types']=types;if(randomCount!==undefined)body.random_count=randomCount;
   const r=client.newMailbox(body);if(!r)return 0;providers[r.mailbox_id]=r.provider;
   return {provider:r.provider,mailbox_id:r.mailbox_id,email:r.email};
  };

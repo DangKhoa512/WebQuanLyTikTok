@@ -47,8 +47,38 @@ const html=(email)=>'<meta name="csrf-token" content="fixture-csrf"><div wire:sn
  mode='redirect';await assert.rejects(()=>p.getMessages(a),e=>e.code==='GHOSTINBOX_SESSION_EXPIRED');mode='html';await assert.rejects(()=>p.getMessages(a),e=>e.code==='GHOSTINBOX_INVALID_RESPONSE');
  mode='normal';transient=2;await p.getMessages(a);assert.deepEqual(delays,[250,500]);
  a.providerState.cookies.ghostinbox_session.expiresAt=clock-1;await assert.rejects(()=>p.getMessages(a),e=>e.code==='GHOSTINBOX_SESSION_EXPIRED');
+ for(const mailType of ['TEMP_MAIL','TEN_MINUTE_MAIL']){
+  const prefix=mailType==='TEN_MINUTE_MAIL'?'/10-minute-mail':'',email='fixture@fixture.test';
+  let invalidDomain=false,wrongRedirect=false,badTimer=false,modeCalls=0;
+  const modeHttp={request:async options=>{
+   modeCalls++;const path=new URL(options.url).pathname;
+   if(path===(prefix||'/'))return response(200,'<span id="heroUser">fixture</span><span id="addrDomainText">'+(invalidDomain?'invalid.test':'fixture.test')+'</span><ul id="domainList"><li data-domain="fixture.test"></li></ul>','text/html',{'set-cookie':['ghostinbox_session=fixture-session-mode; Path=/; Secure']});
+   assert(options.headers.Cookie.includes('fixture-session-mode'));
+   if(path===prefix+'/set-custom-email'){
+    assert.equal(new URL(options.url).searchParams.get('user'),'fixture');assert.equal(new URL(options.url).searchParams.get('domain'),'fixture.test');
+    return response(302,'','text/html',{location:wrongRedirect?'https://other.test/inbox':prefix+'/inbox'});
+   }
+   if(path===prefix+'/inbox')return response(200,html(email)+(mailType==='TEN_MINUTE_MAIL'?'<span id="expiryCountdown" data-remaining="'+(badTimer?'bad':'600')+'"></span>':''));
+   assert.equal(path,'/livewire/update');assert.equal(options.headers.Referer,settings.baseUrl+prefix+'/inbox');
+   assert.equal(JSON.parse(options.data.components[0].snapshot).checksum,'synthetic-signature');
+   return response(200,JSON.stringify({components:[{snapshot:snapshot(email,[message('mode-otp')])}]}),'application/json');
+  }};
+  const provider=createGhostInboxProvider({mailType,settings,http:modeHttp,now:()=>clock});
+  const m=await provider.createMailbox();assert.equal(m.providerState.mailType,mailType);
+  clock+=10001;assert.equal((await provider.getMessages(m))[0].id,'mode-otp');
+  if(mailType==='TEN_MINUTE_MAIL'){
+   clock=m.providerState.expiresAt;const before=modeCalls;
+   await assert.rejects(()=>provider.getMessages(m),e=>e.code==='GHOSTINBOX_MAILBOX_EXPIRED');assert.equal(modeCalls,before);
+   badTimer=true;await assert.rejects(()=>provider.createMailbox(),e=>e.code==='GHOSTINBOX_INVALID_RESPONSE');badTimer=false;
+  }
+  wrongRedirect=true;await assert.rejects(()=>provider.createMailbox(),e=>e.code==='GHOSTINBOX_SESSION_EXPIRED');wrongRedirect=false;
+  invalidDomain=true;await assert.rejects(()=>provider.createMailbox(),e=>e.code==='GHOSTINBOX_INVALID_RESPONSE');
+ }
+ assert.equal(config({},'TEMP_MAIL').baseUrl,'https://ghostinbox.net');
+ assert.throws(()=>config({},'BAD'),e=>e.code==='INVALID_INPUT');
  const install=require('../../tools/autotouch/mail'),API={};let clientCalls=0,sleeps=[];
  install(API,{getBaseUrl:()=> 'https://vps.example',getApiKey:()=> 'fixture',sleep:s=>sleeps.push(s),exec:command=>{assert(!command.includes('ghostinbox.net'));assert(command.includes('/api/mail/'));return JSON.stringify(command.includes('/new')?{success:true,provider:'GHOSTINBOX',mailbox_id:'fixture-uuid',email:'fixture@gmail.com'}:++clientCalls<3?{success:true,status:'WAITING',code:null}:{success:true,status:'RECEIVED',code:'041374'});}});
  const mail=API._Mail_New('GHOSTINBOX');assert.equal(API._Mail_GetOTP(mail.mailbox_id),'041374');assert.deepEqual(sleeps,[10,10]);
+ const modeAPI={};install(modeAPI,{getBaseUrl:()=> 'https://vps.example',getApiKey:()=> 'fixture',exec:command=>{assert(command.includes('mail_type'));assert(command.includes('TEN_MINUTE_MAIL'));assert(!command.includes('random_count'));return JSON.stringify({success:true,provider:'GHOSTINBOX',mailbox_id:'fixture-mode-uuid',email:'fixture@fixture.test'});}});assert(modeAPI._Mail_New('GHOSTINBOX','TEN_MINUTE_MAIL'));
  console.log('MAIL_UNIT_OK: normalized Livewire/messages, ISO timestamps, subject/body/HTML/zero, service/old/processed filters, sessions, CSRF, challenge, expiry, retries, Retry-After, 10s polling, AutoTouch');
 })().catch(e=>{console.error(e.stack);process.exitCode=1;});

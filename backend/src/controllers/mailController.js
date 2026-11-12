@@ -8,7 +8,7 @@ const makeController=(factory=()=>createMailService())=>{
   try{
    let result;
    if(operation==='CREATE_MAILBOX'){
-    if(!req.body||Array.isArray(req.body)||Object.keys(req.body).some(k=>!['provider','types','random_count'].includes(k)))throw Object.assign(Error('INVALID_INPUT'),{code:'INVALID_INPUT',statusCode:400});
+    if(!req.body||Array.isArray(req.body)||Object.keys(req.body).some(k=>!['provider','types','random_count','mail_type'].includes(k)))throw Object.assign(Error('INVALID_INPUT'),{code:'INVALID_INPUT',statusCode:400});
     result=await factory().createMailbox(ownerFromRequest(req),req.body);
    }else{
     if(Object.keys(req.query).some(k=>!['mailbox_id','service','requested_at'].includes(k)))throw Object.assign(Error('INVALID_INPUT'),{code:'INVALID_INPUT',statusCode:400});

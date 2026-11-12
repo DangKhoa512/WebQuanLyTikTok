@@ -17,6 +17,7 @@ Config trong `backend/.env.example`:
 
 ```dotenv
 GHOSTINBOX_BASE_URL=https://temp-gmail.ghostinbox.net
+GHOSTINBOX_WEB_BASE_URL=https://ghostinbox.net
 GHOSTINBOX_TIMEOUT_MS=15000
 GHOSTINBOX_RETRY_COUNT=2
 GHOSTINBOX_POLL_INTERVAL_MS=10000
@@ -35,6 +36,32 @@ x-api-key: <API key thiết bị>
 ```json
 {"provider":"GHOSTINBOX"}
 ```
+
+Chọn loại Ghost Inbox (bổ sung 2026-11-12):
+
+| Loại | Body tạo mailbox |
+| --- | --- |
+| Temp Gmail, mặc định để tương thích tool cũ | `{"provider":"GHOSTINBOX"}` hoặc `{"provider":"GHOSTINBOX","mail_type":"TEMP_GMAIL"}` |
+| Temp Mail | `{"provider":"GHOSTINBOX","mail_type":"TEMP_MAIL"}` |
+| 10 Minute Mail | `{"provider":"GHOSTINBOX","mail_type":"TEN_MINUTE_MAIL"}` |
+
+Khi truyền `mail_type`, response tạo mail có thêm field `mail_type` cùng giá trị. Không truyền thì response giữ nguyên như cũ. `mail_type` chỉ áp dụng Ghost Inbox; sai loại hoặc dùng với EmailTick trả `INVALID_INPUT`/400. Không kết hợp `types`/`random_count` với Ghost Inbox.
+
+Lấy OTP của cả ba loại vẫn dùng `GET /api/mail/code?mailbox_id=...&service=...`, không cần gửi lại loại mail. Backend lưu loại trong state riêng của mailbox và chọn đúng origin/inbox sau restart. Mailbox cũ không có loại tiếp tục được coi là Temp Gmail. `GHOSTINBOX_WEB_BASE_URL` dành cho Temp Mail/10 Minute Mail, mặc định `https://ghostinbox.net`; biến cũ `GHOSTINBOX_BASE_URL` giữ riêng Temp Gmail.
+
+Mailbox 10 phút lưu thời hạn theo `data-remaining` của website; sau hạn trả `GHOSTINBOX_MAILBOX_EXPIRED`/410, đánh dấu EXPIRED, không tự gia hạn hoặc thay địa chỉ. Chưa thêm API Extend timer. Khoảng poll vẫn tối thiểu 10 giây. Lượt thay đổi này không cần migration schema mới vì dùng JSON state hiện có; nếu VPS chưa có bảng Ghost Inbox vẫn cần migration ở phần triển khai.
+
+AutoTouch (cập nhật `tools/autotouch/mail.js`, giữ helper EmailTick hiện có):
+
+```javascript
+const gmail = API._Mail_New('GHOSTINBOX');
+const temp = API._Mail_New('GHOSTINBOX', 'TEMP_MAIL');
+const tenMinute = API._Mail_New('GHOSTINBOX', 'TEN_MINUTE_MAIL');
+// Với mailbox tạo thành công:
+const otp = API._Mail_GetOTP(tenMinute.mailbox_id, 'GENERIC');
+```
+
+Tham số thứ hai của `_Mail_New` cho EmailTick vẫn là `types`, tham số thứ ba vẫn là `randomCount`.
 
 ```json
 {

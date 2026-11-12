@@ -9,8 +9,10 @@ const unwrap=value=>{
  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,unwrap(v)]));
  return value;
 };
-function config(env=process.env){
- const baseUrl=env.GHOSTINBOX_BASE_URL||'https://temp-gmail.ghostinbox.net';
+const MAIL_TYPES=['TEMP_GMAIL','TEMP_MAIL','TEN_MINUTE_MAIL'];
+function config(env=process.env,mailType='TEMP_GMAIL'){
+ if(!MAIL_TYPES.includes(mailType))throw failure('INVALID_INPUT',400);
+ const baseUrl=mailType==='TEMP_GMAIL'?(env.GHOSTINBOX_BASE_URL||'https://temp-gmail.ghostinbox.net'):(env.GHOSTINBOX_WEB_BASE_URL||'https://ghostinbox.net');
  let url;try{url=new URL(baseUrl);}catch(_){throw failure('GHOSTINBOX_CONFIG_ERROR',503);}
  if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw failure('GHOSTINBOX_CONFIG_ERROR',503);
  const integer=(key,def,min,max)=>{const n=Number(env[key]??def);if(!Number.isSafeInteger(n)||n<min||n>max)throw failure('GHOSTINBOX_CONFIG_ERROR',503);return n;};
@@ -38,13 +40,15 @@ function normalizeMessages(raw){
   return {id:m.id,from:m.sender_email,fromName:m.sender_name,subject:m.subject,bodyHtml:m.content,receivedAt:parseTime(m.timestamp),provider:'GHOSTINBOX'};
  });
 }
-function createGhostInboxProvider({settings=config(),http=axios,now=()=>Date.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}){
+function createGhostInboxProvider({mailType='TEMP_GMAIL',settings=config(process.env,mailType),http=axios,now=()=>Date.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}){
+ if(!MAIL_TYPES.includes(mailType))throw failure('INVALID_INPUT',400);
+ const prefix=mailType==='TEN_MINUTE_MAIL'?'/10-minute-mail':'',inboxPath=prefix+'/inbox';
  const request=async(state,method,path,body,json=false)=>{
   if(state.retryAfterAt>now())throw failure('GHOSTINBOX_RATE_LIMITED',429);
   for(let attempt=0;attempt<=settings.retryCount;attempt++){
    try{
     const cookie=Object.entries(state.cookies).filter(([,c])=>(c.expiresAt===null||c.expiresAt>now())&&path.startsWith(c.path)&&(!c.secure||settings.baseUrl.startsWith('https:'))).map(([k,c])=>k+'='+c.value).join('; ');
-    const response=await http.request({method,url:settings.baseUrl+path,data:body,timeout:settings.timeoutMs,maxRedirects:0,maxContentLength:4*1024*1024,maxBodyLength:4*1024*1024,responseType:'text',transformResponse:[x=>x],validateStatus:()=>true,headers:{'User-Agent':'QUANLY_REG-MailProvider/1.0',Accept:json?'*/*':'text/html',Referer:settings.baseUrl+(method==='POST'?'/inbox':'/'),...(method==='POST'?{Origin:settings.baseUrl,'Content-Type':'application/json','X-Livewire':''}:{}),...(cookie?{Cookie:cookie}:{})}});
+    const response=await http.request({method,url:settings.baseUrl+path,data:body,timeout:settings.timeoutMs,maxRedirects:0,maxContentLength:4*1024*1024,maxBodyLength:4*1024*1024,responseType:'text',transformResponse:[x=>x],validateStatus:()=>true,headers:{'User-Agent':'QUANLY_REG-MailProvider/1.0',Accept:json?'*/*':'text/html',Referer:settings.baseUrl+(method==='POST'?inboxPath:(prefix||'/')),...(method==='POST'?{Origin:settings.baseUrl,'Content-Type':'application/json','X-Livewire':''}:{}),...(cookie?{Cookie:cookie}:{})}});
     mergeCookies(state,response.headers,settings.baseUrl,now());
     if(detectCloudflare(response.data)||response.headers['cf-mitigated']==='challenge'||response.status===403)throw failure('GHOSTINBOX_ACCESS_CHALLENGE');
     if(response.status===429){const retry=response.headers['retry-after'];const seconds=/^\d+$/.test(String(retry))?Number(retry):null;const retryAt=seconds!==null?now()+seconds*1000:Date.parse(retry);state.retryAfterAt=Math.max(now()+settings.pollIntervalMs,Number.isFinite(retryAt)?retryAt:0);throw failure('GHOSTINBOX_RATE_LIMITED',429);}
@@ -66,13 +70,20 @@ function createGhostInboxProvider({settings=config(),http=axios,now=()=>Date.now
   }
  };
  const bootstrap=async(state,email)=>{
-  const response=await request(state,'GET','/inbox');
+  const response=await request(state,'GET',inboxPath);
   if(response.status>=300)throw failure('GHOSTINBOX_SESSION_EXPIRED',410);
   if(!/text\/html/i.test(response.headers['content-type']||''))throw failure('GHOSTINBOX_INVALID_RESPONSE');
   const $=load(response.data),element=$('[wire\\:snapshot]').filter((_,el)=>{try{return JSON.parse($(el).attr('wire:snapshot')).memo.name==='frontend.app';}catch(_){return false;}}).first();
   state.snapshot=element.attr('wire:snapshot');state.csrf=$('script[data-csrf]').attr('data-csrf')||$('meta[name="csrf-token"]').attr('content');
   let snapshot;try{snapshot=JSON.parse(state.snapshot);}catch(_){throw failure('GHOSTINBOX_INVALID_RESPONSE');}
   if(!state.csrf||!state.cookies.ghostinbox_session||snapshot.data.email!==email)throw failure('GHOSTINBOX_SESSION_EXPIRED',410);
+  if(mailType==='TEN_MINUTE_MAIL'){
+   const raw=$('#expiryCountdown').attr('data-remaining'),seconds=Number(raw);
+   if(raw===undefined||!Number.isSafeInteger(seconds)||seconds<0||seconds>600)throw failure('GHOSTINBOX_INVALID_RESPONSE');
+   if(seconds===0)throw failure('GHOSTINBOX_MAILBOX_EXPIRED',410);
+   // Never extend a saved mailbox merely by bootstrapping it again.
+   state.expiresAt=Math.min(state.expiresAt||Infinity,now()+seconds*1000);
+  }
   return snapshot;
  };
  const refresh=async(state,email,initial=false)=>{
@@ -89,18 +100,31 @@ function createGhostInboxProvider({settings=config(),http=axios,now=()=>Date.now
  return {
   pollIntervalMs:settings.pollIntervalMs,
   async createMailbox(){
-   const state={cookies:{},retryAfterAt:0,lastPolledAt:0};
-   const page=await request(state,'GET','/');
+   const state={cookies:{},retryAfterAt:0,lastPolledAt:0,mailType};
+   const page=await request(state,'GET',prefix||'/');
    if(page.status!==200||!/text\/html/i.test(page.headers['content-type']||''))throw failure('GHOSTINBOX_INVALID_RESPONSE');
-   const $=load(page.data),email=$('#heroUser').attr('value');
-   if(typeof email!=='string'||email.length>255||!/^[^\s@]+@(?:gmail|googlemail)\.com$/i.test(email))throw failure('GHOSTINBOX_INVALID_RESPONSE');
-   const confirm=await request(state,'GET','/confirm-gmail-alias?email='+encodeURIComponent(email));
-   if(confirm.status!==302||new URL(confirm.headers.location,settings.baseUrl).href!==settings.baseUrl+'/inbox')throw failure('GHOSTINBOX_SESSION_EXPIRED',410);
+   const $=load(page.data);
+   let email,confirmPath;
+   if(mailType==='TEMP_GMAIL'){
+    email=$('#heroUser').attr('value');
+    if(typeof email!=='string'||email.length>255||!/^[^\s@]+@(?:gmail|googlemail)\.com$/i.test(email))throw failure('GHOSTINBOX_INVALID_RESPONSE');
+    confirmPath='/confirm-gmail-alias?email='+encodeURIComponent(email);
+   }else{
+    const user=$('#heroUser').text().trim().toLowerCase(),domain=$('#addrDomainText').text().trim().toLowerCase();
+    const domains=$('#domainList [data-domain]').map((_,el)=>$(el).attr('data-domain')).get();
+    if(!/^[a-z0-9]+$/.test(user)||!domains.includes(domain)||!/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain))throw failure('GHOSTINBOX_INVALID_RESPONSE');
+    email=user+'@'+domain;
+    if(email.length>255)throw failure('GHOSTINBOX_INVALID_RESPONSE');
+    confirmPath=prefix+'/set-custom-email?user='+encodeURIComponent(user)+'&domain='+encodeURIComponent(domain);
+   }
+   const confirm=await request(state,'GET',confirmPath);
+   if(confirm.status!==302||new URL(confirm.headers.location,settings.baseUrl).href!==settings.baseUrl+inboxPath)throw failure('GHOSTINBOX_SESSION_EXPIRED',410);
    await bootstrap(state,email);await refresh(state,email,true);
    return {email,providerState:state};
   },
   async getMessages(mailbox){
    const state=mailbox.providerState,email=mailbox.email;
+   if(mailType==='TEN_MINUTE_MAIL'&&(!Number.isFinite(state.expiresAt)||state.expiresAt<=now()))throw failure('GHOSTINBOX_MAILBOX_EXPIRED',410);
    const session=state.cookies?.ghostinbox_session;
    if(!session||session.expiresAt!==null&&session.expiresAt<=now())throw failure('GHOSTINBOX_SESSION_EXPIRED',410);
    if(state.lastPolledAt+settings.pollIntervalMs>now())return [];
@@ -112,4 +136,4 @@ function createGhostInboxProvider({settings=config(),http=axios,now=()=>Date.now
   extractOtp:selectOtp
  };
 }
-module.exports={createGhostInboxProvider,config,normalizeMessages,unwrap,failure,mergeCookies};
+module.exports={createGhostInboxProvider,config,normalizeMessages,unwrap,failure,mergeCookies,MAIL_TYPES};

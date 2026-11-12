@@ -1,19 +1,20 @@
 const {randomUUID}=require('crypto');
 const db=require('../config/database');
 const GhostMailbox=require('../models/GhostInboxMailbox');
-const {createGhostInboxProvider,failure}=require('./mailProviders/GhostInboxProvider');
+const {createGhostInboxProvider,failure,MAIL_TYPES}=require('./mailProviders/GhostInboxProvider');
 const {createEmailTickMailboxService}=require('./emailTickMailboxService');
 const {otpClaim}=require('./mailOtpService');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const services=new Set(['INSTAGRAM','FACEBOOK','GENERIC']);
-const createMailService=({ghostFactory=()=>createGhostInboxProvider(),emailTickFactory=()=>createEmailTickMailboxService(),now=()=>Date.now()}={})=>({
+const createMailService=({ghostFactory=options=>createGhostInboxProvider(options),emailTickFactory=()=>createEmailTickMailboxService(),now=()=>Date.now()}={})=>({
  async createMailbox(owner,options){
   if(!['EMAILTICK','GHOSTINBOX'].includes(options.provider))throw failure('INVALID_PROVIDER',400);
+  if(options.mail_type!==undefined&&(options.provider!=='GHOSTINBOX'||!MAIL_TYPES.includes(options.mail_type)))throw failure('INVALID_INPUT',400);
   if(options.provider==='EMAILTICK')return {provider:'EMAILTICK',...await emailTickFactory().createMailbox(owner,options.types===undefined?'random':options.types,options.random_count)};
   if(options.types!==undefined||options.random_count!==undefined)throw failure('INVALID_INPUT',400);
-  const p=ghostFactory(),mail=await p.createMailbox(),mailbox_id=randomUUID();
+  const p=ghostFactory({mailType:options.mail_type||'TEMP_GMAIL'}),mail=await p.createMailbox(),mailbox_id=randomUUID();
   await GhostMailbox.create({mailbox_id,owner_username:owner,email:mail.email,provider_state:mail.providerState},{logging:false});
-  return {provider:'GHOSTINBOX',mailbox_id,email:mail.email};
+  return {provider:'GHOSTINBOX',mailbox_id,email:mail.email,...(options.mail_type!==undefined?{mail_type:options.mail_type}:{})};
  },
  async getCode(owner,mailboxId,{service='INSTAGRAM',requestedAt}={}){
   if(typeof mailboxId!=='string'||!UUID.test(mailboxId))throw failure('INVALID_MAILBOX',400);
@@ -22,12 +23,12 @@ const createMailService=({ghostFactory=()=>createGhostInboxProvider(),emailTickF
   const where={owner_username:owner,mailbox_id:mailboxId};
   const exists=await GhostMailbox.findOne({where,attributes:['id'],logging:false});
   if(!exists)return emailTickFactory().getCode(owner,mailboxId,{provider:service.toLowerCase(),requestedAt});
-  const provider=ghostFactory();
   // Serialize session/snapshot updates and OTP claims for this mailbox only.
   const result=await db.transaction({logging:false},async transaction=>{
    const current=await GhostMailbox.unscoped().findOne({where,transaction,lock:transaction.LOCK.UPDATE,logging:false});
    if(!current||current.status!=='ACTIVE')throw failure('INVALID_MAILBOX',404);
    const state=JSON.parse(JSON.stringify(current.provider_state));
+   const provider=ghostFactory({mailType:state.mailType||'TEMP_GMAIL'});
    try{
     const messages=await provider.getMessages({email:current.email,providerState:state});
     const claim=otpClaim(current,messages,provider.extractOtp,{service,minimumTime:since,nowSeconds:Math.floor(now()/1000),retainAllProcessed:true});

@@ -1,5 +1,15 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Ghost Inbox thêm Temp Mail và 10 Minute Mail — 2026-11-12
+
+POST `/api/mail/new` thêm `mail_type` dành Ghost: TEMP_GMAIL (mặc định cũ), TEMP_MAIL, TEN_MINUTE_MAIL. Nếu truyền loại thì response thêm mail_type; request/response cũ giữ nguyên. Loại lưu trong provider_state.mailType, get-code chọn provider theo record server, mailbox cũ thiếu loại coi là Temp Gmail. Không đổi bảng/schema/owner/claim OTP. GHOSTINBOX_WEB_BASE_URL mới (mặc định https://ghostinbox.net) dành hai loại mới, biến BASE_URL cũ giữ Temp Gmail.
+
+Đã đọc JS và replay website thật: hai loại mới lấy span heroUser/domain list, GET set-custom-email và redirect inbox; bản10phút prefix /10-minute-mail. Cùng component frontend.app và Livewire update signed snapshot/CSRF/session. State10phút lưu expiresAt theo data-remaining; hết hạn410/EXPIRED, không autoextend/chuyển địa chỉ. AutoTouch `_Mail_New('GHOSTINBOX','TEMP_MAIL'|'TEN_MINUTE_MAIL')`; tham số EmailTick không đổi. Xem MAIL_API.md và GHOSTINBOX_MODES_DISCOVERY.md.
+
+Kiểm tra unit mail và HTTP/MySQL integration PASS: hai origin stub, mode persist, legacy thiếu mode, auth/owner/no-upstream sai owner, OTP/dedupe/zero, expiry không gọi upstream, validation, ký snapshot/CSRF/session và helper AutoTouch. Unit thêm sai domain/redirect ngoài origin/timer sai/mode expiry. Provider thật tạo+refresh inbox trống thành công cho cả hai loại, không in/lưu mailbox/session/CSRF hoặc gửi thư thật. Syntax/diff PASS. Không migration/seed/ghi DB đang dùng; chưa commit/push/restart/deploy.
+
+Hồi quy `npm run test:emailtick --prefix backend` PASS cả unit/proxy(11 nhóm)/HTTP-MySQL integration trên DB tạm. Không thay frontend, không cần build UI lượt này.
+
 ## Facebook Job Die: cấp một account và khóa theo phone — 2026-11-11
 
 Thay thế quy tắc lấy toàn bộ danh sách ở phần dưới: GET/POST `/job/die-accounts` giữ response data dạng mảng, tối đa một account hoặc []. Transaction khóa các row Die đúng owner/phone theo ID để serialize các request đồng thời; resume account có locked_by đúng phone, nếu chưa có chọn account không khóa/không reg Page/không nuôi rồi ghi locked_by+locked_at. Get lặp trước report trả lại account hiện tại, không cấp thêm. Không tự hết hạn khóa trong luồng này. `/job/report-die` chỉ chuyển Die khi đúng phone giữ khóa, xóa khóa và chuyển DANG_KHANG; replay khi đang kháng không tác động account kế tiếp. Get sau report cấp Die kế tiếp, loại DANG_KHANG. Không đổi schema/frontend/check-live/các API khác. Hợp đồng: FACEBOOK_JOB_APPEAL.md.
