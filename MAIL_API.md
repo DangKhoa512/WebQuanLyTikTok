@@ -16,7 +16,7 @@ Migration chỉ thêm `ghostinbox_mailboxes`, không đổi/xóa bảng EmailTic
 Config trong `backend/.env.example`:
 
 ```dotenv
-GHOSTINBOX_BASE_URL=https://temp-gmail.ghostinbox.net
+GHOSTINBOX_BASE_URL=https://ghostinbox.net
 GHOSTINBOX_WEB_BASE_URL=https://ghostinbox.net
 GHOSTINBOX_TIMEOUT_MS=15000
 GHOSTINBOX_RETRY_COUNT=2
@@ -24,6 +24,10 @@ GHOSTINBOX_POLL_INTERVAL_MS=10000
 ```
 
 Interval được giới hạn tối thiểu 10 giây theo frontend. Timeout mỗi request, retry chỉ network tạm thời/5xx, tối đa 3 lần bổ sung. Không retry 403/429/schema/session invalid. Retry-After được lưu theo mailbox để request sau không gọi provider sớm hơn hạn. Không có cookie global hoặc password giả; session/cookie/CSRF/signed snapshot được lưu riêng trong state server-side.
+
+**Sửa Temp Gmail 2026-11-12:** website đã chuyển subdomain cũ sang `https://ghostinbox.net/temp-gmail`. Backend dùng origin `https://ghostinbox.net` và các đường dẫn `/temp-gmail`, `/temp-gmail/confirm-gmail-alias`, `/temp-gmail/inbox`; POST Livewire vẫn `/livewire/update`. Nếu VPS còn `GHOSTINBOX_BASE_URL=https://temp-gmail.ghostinbox.net`, code tự chuẩn hóa đúng origin cũ này sang origin mới; không cần chỉnh `.env` để hết lỗi redirect301. Giá trị cấu hình mới chỉ chứa origin, không thêm `/temp-gmail`. Không bật follow redirect tùy ý. Cần build/restart backend mới; không cần migration schema. Mailbox/session cũ không được bảo đảm còn hợp lệ qua thay đổi website; nếu session hết hạn hãy tạo mailbox mới.
+
+Kiểm tra API thật bằng `npm run test:mail:live --prefix backend`: tạo DB tạm riêng, gọi `/api/mail/new` và `/api/mail/code` cho ba loại với website thật. Script không chạy cùng test mặc định, không ghi DB đang dùng, không in địa chỉ/session/OTP và tự xóa DB tạm. Cần quyền tạo/xóa DB test và kết nối Ghost Inbox. Script kiểm tra tạo+đọc inbox, không gửi email OTP thật.
 
 ## Tạo mailbox
 

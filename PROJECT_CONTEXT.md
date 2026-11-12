@@ -1,5 +1,13 @@
 # QUANLY_REG — bối cảnh tiếp nối cho AI
 
+## Sửa Temp Gmail đổi origin/prefix sau HTTP301 — 2026-11-12
+
+Tái hiện thật code cũ lỗi GHOSTINBOX_INVALID_RESPONSE ngay GET subdomain cũ HTTP301. Website Gmail đã chuyển sang ghostinbox.net/temp-gmail, confirm /temp-gmail/confirm-gmail-alias, inbox /temp-gmail/inbox, Livewire vẫn /livewire/update. Adapter đổi default origin sang ghostinbox.net, dùng prefix Gmail đúng cả create/confirm/bootstrap/Referer. Config tự chuẩn hóa chính xác legacy origin https://temp-gmail.ghostinbox.net sang origin mới để VPS giữ .env cũ vẫn chạy; không follow redirect tùy ý, không sửa .env thật hoặc đổi custom origin khác. .env.example và MAIL_API.md cập nhật origin mới (không kèm path). Không schema/migration/auth/claim/frontend changes.
+
+Unit/integration fixtures chuyển sang route Gmail mới, test alias legacy config/default/custom origin và Referer. Thêm script opt-in test:mail:live gọi HTTP API /mail/new + /mail/code thật cho3loại với upstream thật, user giả/DBtạm an toàn và cleanup, không log mail/session/OTP. Chưa kiểm tra nhận thư OTP thật hoặc session Gmail cũ qua lần website đổi host; session cũ hết hạn cần tạo mailbox mới.
+
+Kiểm tra sau sửa: `npm run test:mail --prefix backend` PASS unit + HTTP/MySQL integration/curl AutoTouch (fixtures cả provider server và child curl server đã cập nhật prefix); `npm run test:mail:live --prefix backend` PASS cả TEMP_GMAIL mặc định với legacy config, TEMP_MAIL, TEN_MINUTE_MAIL: mỗi loại create HTTP200, code HTTP200/WAITING sau10.5giây, upstream thật. Syntax và git diff --check PASS. Không ghi DB đang dùng, không seed/migration/restart/deploy; chuẩn bị commit/push theo yêu cầu.
+
 ## Ghost Inbox thêm Temp Mail và 10 Minute Mail — 2026-11-12
 
 POST `/api/mail/new` thêm `mail_type` dành Ghost: TEMP_GMAIL (mặc định cũ), TEMP_MAIL, TEN_MINUTE_MAIL. Nếu truyền loại thì response thêm mail_type; request/response cũ giữ nguyên. Loại lưu trong provider_state.mailType, get-code chọn provider theo record server, mailbox cũ thiếu loại coi là Temp Gmail. Không đổi bảng/schema/owner/claim OTP. GHOSTINBOX_WEB_BASE_URL mới (mặc định https://ghostinbox.net) dành hai loại mới, biến BASE_URL cũ giữ Temp Gmail.

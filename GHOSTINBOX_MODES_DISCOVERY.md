@@ -1,5 +1,9 @@
 # Ghost Inbox: Temp Mail và 10 Minute Mail
 
+## Bổ sung Temp Gmail sau lỗi301 — 2026-11-12
+
+Đã tái hiện subdomain `https://temp-gmail.ghostinbox.net/` trả HTTP301 sang `https://ghostinbox.net/temp-gmail`, làm adapter cũ chờ200 báo GHOSTINBOX_INVALID_RESPONSE. JS Go to Inbox hiện gọi `/temp-gmail/confirm-gmail-alias?email=...` rồi302 `/temp-gmail/inbox`. Các route `/confirm-gmail-alias` và `/inbox` không còn đúng luồng Gmail. Replay đường dẫn mới: page200, confirm302, inbox200, POST `/livewire/update` đầu và poll sau10giây đều200. Temp Mail/10 Minute Mail vẫn hoạt động ở các đường dẫn bên dưới. Code đã cập nhật prefix Gmail/Referer và ánh xạ origin cũ chính xác; vẫn cấm follow redirect tùy ý.
+
 Đối chiếu HTML/JavaScript công khai và replay HTTP thực tế ngày 2026-11-12. Không chứa địa chỉ mailbox đã tạo, cookie, CSRF, signed snapshot hoặc nội dung thư thật.
 
 ## Request đã xác minh

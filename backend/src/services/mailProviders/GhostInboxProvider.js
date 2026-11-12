@@ -12,9 +12,12 @@ const unwrap=value=>{
 const MAIL_TYPES=['TEMP_GMAIL','TEMP_MAIL','TEN_MINUTE_MAIL'];
 function config(env=process.env,mailType='TEMP_GMAIL'){
  if(!MAIL_TYPES.includes(mailType))throw failure('INVALID_INPUT',400);
- const baseUrl=mailType==='TEMP_GMAIL'?(env.GHOSTINBOX_BASE_URL||'https://temp-gmail.ghostinbox.net'):(env.GHOSTINBOX_WEB_BASE_URL||'https://ghostinbox.net');
+ const baseUrl=mailType==='TEMP_GMAIL'?(env.GHOSTINBOX_BASE_URL||'https://ghostinbox.net'):(env.GHOSTINBOX_WEB_BASE_URL||'https://ghostinbox.net');
  let url;try{url=new URL(baseUrl);}catch(_){throw failure('GHOSTINBOX_CONFIG_ERROR',503);}
  if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw failure('GHOSTINBOX_CONFIG_ERROR',503);
+ // The former official Gmail host now redirects to the main site. Upgrade this
+ // exact legacy origin so existing VPS .env files work without following redirects.
+ if(mailType==='TEMP_GMAIL'&&url.origin==='https://temp-gmail.ghostinbox.net')url=new URL('https://ghostinbox.net');
  const integer=(key,def,min,max)=>{const n=Number(env[key]??def);if(!Number.isSafeInteger(n)||n<min||n>max)throw failure('GHOSTINBOX_CONFIG_ERROR',503);return n;};
  return {baseUrl:url.origin,timeoutMs:integer('GHOSTINBOX_TIMEOUT_MS',15000,100,60000),retryCount:integer('GHOSTINBOX_RETRY_COUNT',2,0,3),pollIntervalMs:Math.max(10000,integer('GHOSTINBOX_POLL_INTERVAL_MS',10000,1000,60000))};
 }
@@ -42,7 +45,7 @@ function normalizeMessages(raw){
 }
 function createGhostInboxProvider({mailType='TEMP_GMAIL',settings=config(process.env,mailType),http=axios,now=()=>Date.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}){
  if(!MAIL_TYPES.includes(mailType))throw failure('INVALID_INPUT',400);
- const prefix=mailType==='TEN_MINUTE_MAIL'?'/10-minute-mail':'',inboxPath=prefix+'/inbox';
+ const prefix=mailType==='TEN_MINUTE_MAIL'?'/10-minute-mail':mailType==='TEMP_GMAIL'?'/temp-gmail':'',inboxPath=prefix+'/inbox';
  const request=async(state,method,path,body,json=false)=>{
   if(state.retryAfterAt>now())throw failure('GHOSTINBOX_RATE_LIMITED',429);
   for(let attempt=0;attempt<=settings.retryCount;attempt++){
@@ -108,7 +111,7 @@ function createGhostInboxProvider({mailType='TEMP_GMAIL',settings=config(process
    if(mailType==='TEMP_GMAIL'){
     email=$('#heroUser').attr('value');
     if(typeof email!=='string'||email.length>255||!/^[^\s@]+@(?:gmail|googlemail)\.com$/i.test(email))throw failure('GHOSTINBOX_INVALID_RESPONSE');
-    confirmPath='/confirm-gmail-alias?email='+encodeURIComponent(email);
+    confirmPath=prefix+'/confirm-gmail-alias?email='+encodeURIComponent(email);
    }else{
     const user=$('#heroUser').text().trim().toLowerCase(),domain=$('#addrDomainText').text().trim().toLowerCase();
     const domains=$('#domainList [data-domain]').map((_,el)=>$(el).attr('data-domain')).get();

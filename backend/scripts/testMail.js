@@ -30,10 +30,12 @@ const html=(email)=>'<meta name="csrf-token" content="fixture-csrf"><div wire:sn
   if(mode==='expired')return response(419,'expired');
   if(mode==='redirect')return response(302,'','text/html',{location:settings.baseUrl+'/'});
   if(mode==='html')return response(200,'<html>ordinary unexpected HTML</html>');
-  if(options.url.endsWith('/'))return response(200,'<input id="heroUser" value="fixture'+(++created)+'@gmail.com">','text/html',{'set-cookie':['ghostinbox_session=fixture-session-'+created+'; Path=/; Max-Age=7200; Secure','XSRF-TOKEN=fixture-xsrf; Path=/; Secure']});
+  if(new URL(options.url).pathname==='/')return response(301,'','text/html',{location:'https://ghostinbox.net/temp-gmail'});
+  if(options.url.endsWith('/temp-gmail'))return response(200,'<input id="heroUser" value="fixture'+(++created)+'@gmail.com">','text/html',{'set-cookie':['ghostinbox_session=fixture-session-'+created+'; Path=/; Max-Age=7200; Secure','XSRF-TOKEN=fixture-xsrf; Path=/; Secure']});
   const n=options.headers.Cookie.match(/fixture-session-(\d+)/)?.[1],email='fixture'+n+'@gmail.com';assert(n,'Mailbox cookie required');
-  if(options.url.includes('/confirm-gmail-alias'))return response(302,'','text/html',{location:settings.baseUrl+'/inbox'});
-  if(options.url.endsWith('/inbox'))return response(200,html(email));
+  if(new URL(options.url).pathname==='/temp-gmail/confirm-gmail-alias')return response(302,'','text/html',{location:settings.baseUrl+'/temp-gmail/inbox'});
+  if(options.url.endsWith('/temp-gmail/inbox'))return response(200,html(email));
+  assert.equal(options.headers.Referer,settings.baseUrl+'/temp-gmail/inbox');
   assert(options.url.endsWith('/livewire/update'));assert.equal(options.headers['X-Livewire'],'');assert.equal(options.data._token,'fixture-csrf');const sent=JSON.parse(options.data.components[0].snapshot);assert.equal(sent.checksum,'synthetic-signature');assert.equal(sent.data.email,email);assert(options.data.components[0].calls.every(c=>c.method==='__dispatch'));
   return response(200,JSON.stringify({components:[{snapshot:snapshot(email,items),effects:{}}],assets:[]}),'application/json');
  }};
@@ -75,6 +77,9 @@ const html=(email)=>'<meta name="csrf-token" content="fixture-csrf"><div wire:sn
   invalidDomain=true;await assert.rejects(()=>provider.createMailbox(),e=>e.code==='GHOSTINBOX_INVALID_RESPONSE');
  }
  assert.equal(config({},'TEMP_MAIL').baseUrl,'https://ghostinbox.net');
+ assert.equal(config({}).baseUrl,'https://ghostinbox.net');
+ assert.equal(config({GHOSTINBOX_BASE_URL:'https://temp-gmail.ghostinbox.net/'}).baseUrl,'https://ghostinbox.net');
+ assert.equal(config({GHOSTINBOX_BASE_URL:'https://custom.example'}).baseUrl,'https://custom.example');
  assert.throws(()=>config({},'BAD'),e=>e.code==='INVALID_INPUT');
  const install=require('../../tools/autotouch/mail'),API={};let clientCalls=0,sleeps=[];
  install(API,{getBaseUrl:()=> 'https://vps.example',getApiKey:()=> 'fixture',sleep:s=>sleeps.push(s),exec:command=>{assert(!command.includes('ghostinbox.net'));assert(command.includes('/api/mail/'));return JSON.stringify(command.includes('/new')?{success:true,provider:'GHOSTINBOX',mailbox_id:'fixture-uuid',email:'fixture@gmail.com'}:++clientCalls<3?{success:true,status:'WAITING',code:null}:{success:true,status:'RECEIVED',code:'041374'});}});
